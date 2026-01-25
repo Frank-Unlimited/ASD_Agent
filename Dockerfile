@@ -7,8 +7,8 @@ WORKDIR /app
 # 复制backend目录
 COPY backend/package*.json ./
 
-# 安装依赖
-RUN npm install --production
+# 安装所有依赖（包括devDependencies，用于构建）
+RUN npm install
 
 # 复制源代码
 COPY backend/ ./
@@ -18,6 +18,9 @@ RUN npm run build
 
 # 初始化数据库
 RUN npm run init-db || true
+
+# 删除devDependencies以减小镜像大小
+RUN npm prune --production
 
 # 暴露7860端口（魔搭创空间要求）
 EXPOSE 7860
