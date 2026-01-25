@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ASD地板时光干预系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f5f5;
+            padding-bottom: 70px;
+        }
+
+        /* 顶部导航 */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .header .user-info {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        /* 主内容区 */
+        .main-content {
+            padding: 15px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* 页面切换 */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .card-title .icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+
+        /* 表单元素 */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        /* 按钮 */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-outline {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        /* 快捷记录按钮 */
+        .quick-record-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .quick-btn {
+            aspect-ratio: 1;
+            border: none;
+            border-radius: 12px;
+            font-size: 28px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .quick-btn:active {
+            transform: scale(0.95);
+        }
+
+        .quick-btn span {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .btn-smile { background: #ffd93d; }
+        .btn-cry { background: #6bcf7f; }
+        .btn-eye { background: #4ecdc4; }
+        .btn-talk { background: #a8e6cf; }
+        .btn-interact { background: #ffd3b6; }
+        .btn-motor { background: #ffaaa5; }
+        .btn-selfcare { background: #d4a5a5; }
+        .btn-concern { background: #ff8b94; }
+
+        /* 游戏卡片 */
+        .game-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .game-card h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .game-card .info {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 15px;
+        }
+
+        .game-card .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .game-card .tag {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+
+        /* 实时引导 */
+        .guidance-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .guidance-box h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .guidance-box p {
+            color: #555;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        /* 计时器 */
+        .timer {
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+
+        /* 进度条 */
+        .progress-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+
+        /* 反馈表 */
+        .feedback-question {
+            margin-bottom: 20px;
+        }
+
+        .feedback-question h4 {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .rating-options {
+            display: flex;
+            gap: 10px;
+        }
+
+        .rating-option {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .rating-option.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        /* 底部导航 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            padding: 8px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.3s;
+        }
+
+        .nav-item.active {
+            color: #667eea;
+        }
+
+        .nav-item .icon {
+            font-size: 24px;
+        }
+
+        .nav-item .label {
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        /* 提示信息 */
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            z-index: 2000;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        /* 隐藏类 */
+        .hidden {
+            display: none !important;
+        }
+
+        /* 徽章 */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-primary {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        /* 画像展示 */
+        .profile-section {
+            margin-bottom: 15px;
+        }
+
+        .profile-section h4 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag-item {
+            background: #f0f4ff;
+            color: #667eea;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+        }
+
+        /* 观察记录列表 */
+        .observation-item {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 3px solid #667eea;
+        }
+
+        .observation-item .time {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 5px;
+        }
+
+        .observation-item .content {
+            font-size: 14px;
+            color: #333;
+        }
+
+        /* 记录按钮 */
+        .record-btn {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            z-index: 1000;
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1500;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <div class="header">
+        <h1>🧩 ASD地板时光干预系统</h1>
+        <div class="user-info" id="headerUserInfo">
+            <button onclick="showTokenModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 5px 15px; border-radius: 15px; cursor: pointer; font-size: 12px;">
+                🔑 设置Token
+            </button>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <!-- 1. 评估页面 -->
+        <div id="page-assessment" class="page active">
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">📋</span>
+                    创建孩子画像
+                </div>
+                <div class="form-group">
+                    <label>孩子姓名 *</label>
+                    <input type="text" id="childName" placeholder="请输入孩子姓名" value="辰辰">
+                </div>
+                <div class="form-group">
+                    <label>出生日期 *</label>
+                    <input type="date" id="birthDate" value="2021-07-15">
+                </div>
+                <div class="form-group">
+                    <label>性别</label>
+                    <select id="gender">
+                        <option value="">请选择</option>
+                        <option value="male">男</option>
+                        <option value="female">女</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>诊断结果</label>
+                    <input type="text" id="diagnosis" placeholder="如: ASD轻度" value="ASD轻度">
+                </div>
+                <div class="form-group">
+                    <label>评估报告内容 *</label>
+                    <textarea id="assessmentData" placeholder="请输入评估报告或医院诊断内容">CARS-2评分：35分（轻度-中度）
+
+行为观察：
+- 眼神接触：偶尔有被动眼神接触，主动少
+- 语言发育：单字表达，不会说短语
+- 社交互动：对同龄人不感兴趣，更喜欢独自玩耍
+- 刻板行为：喜欢旋转车轮、开关门
+- 感官反应：对声音敏感，特别喜欢流水声
+
+家长描述：
+孩子对积木有点兴趣，但不会玩。洗澡时特别喜欢玩水，可以盯着水龙头看很久。</textarea>
+                </div>
+                <div class="form-group">
+                    <label>其他备注</label>
+                    <textarea id="notes" placeholder="其他观察或备注（可选）">孩子对积木和水流有兴趣</textarea>
+                </div>
+                <button class="btn" onclick="importAssessment()">生成孩子画像</button>
+            </div>
+        </div>
+
+        <!-- 2. 游戏推荐页面 -->
+        <div id="page-recommendations" class="page">
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">🎮</span>
+                    推荐的地板游戏
+                </div>
+                <div id="recommendationsList">
+                    <p style="color: #999; text-align: center; padding: 20px;">请先完成评估</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 游戏实施页面 -->
+        <div id="page-session" class="page">
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">🎯</span>
+                    <span id="sessionGameTitle">选择游戏开始</span>
+                </div>
+                <div id="sessionContent">
+                    <p style="color: #999; text-align: center; padding: 20px;">请先从推荐页面选择游戏</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. 反馈页面 -->
+        <div id="page-feedback" class="page">
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">📝</span>
+                    本次游戏反馈
+                </div>
+                <div id="feedbackContent">
+                    <p style="color: #999; text-align: center; padding: 20px;">请先完成游戏实施</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. 成长记录页面 -->
+        <div id="page-progress" class="page">
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">📊</span>
+                    孩子成长档案
+                </div>
+                <div id="progressContent">
+                    <p style="color: #999; text-align: center; padding: 20px;">加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 快捷记录按钮 -->
+    <button class="record-btn" onclick="showRecordModal()">+</button>
+
+    <!-- 记录模态框 -->
+    <div id="recordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📝 随时记录</h3>
+                <button class="modal-close" onclick="closeRecordModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>记录方式</label>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="btn btn-outline" onclick="switchRecordType('text')" style="flex: 1;">文字记录</button>
+                    <button class="btn btn-outline" onclick="switchRecordType('voice')" style="flex: 1;">语音记录</button>
+                </div>
+            </div>
+            <div id="recordTypeText">
+                <div class="form-group">
+                    <label>观察到的情况</label>
+                    <textarea id="quickRecordText" placeholder="描述孩子的行为、情绪、进步等..."></textarea>
+                </div>
+            </div>
+            <div id="recordTypeVoice" class="hidden">
+                <div class="form-group">
+                    <label>语音记录</label>
+                    <button class="btn" id="voiceRecordBtn" onclick="toggleVoiceRecord()">🎤 按住说话</button>
+                    <p id="voiceStatus" style="text-align: center; color: #666; margin-top: 10px;"></p>
+                </div>
+            </div>
+            <button class="btn" onclick="submitQuickRecord()">提交记录</button>
+        </div>
+    </div>
+
+    <!-- Token设置模态框 -->
+    <div id="tokenModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔑 设置访问Token</h3>
+                <button class="modal-close" onclick="closeTokenModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>访问Token</label>
+                <textarea id="tokenInput" placeholder="请粘贴你的访问Token..." style="min-height: 100px; font-family: monospace; font-size: 12px;"></textarea>
+                <p style="font-size: 12px; color: #999; margin-top: 5px;">
+                    💡 提示：请先使用 hhctest.html 登录获取Token，然后粘贴到这里
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" onclick="saveToken()" style="flex: 1;">保存Token</button>
+                <button class="btn btn-secondary" onclick="clearTokenData()" style="flex: 1;">清除Token</button>
+            </div>
+            <div id="tokenStatus" style="margin-top: 15px; padding: 10px; border-radius: 8px; display: none;"></div>
+        </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchPage('assessment')">
+            <div class="icon">📋</div>
+            <div class="label">评估</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('recommendations')">
+            <div class="icon">🎮</div>
+            <div class="label">游戏</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('session')">
+            <div class="icon">🎯</div>
+            <div class="label">实施</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('feedback')">
+            <div class="icon">💬</div>
+            <div class="label">反馈</div>
+        </div>
+        <div class="nav-item" onclick="switchPage('progress')">
+            <div class="icon">📊</div>
+            <div class="label">成长</div>
+        </div>
+    </div>
+
+    <!-- Toast提示 -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:5001';
+        let currentToken = localStorage.getItem('token') || null;
+        let currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+        let currentChild = JSON.parse(localStorage.getItem('currentChild') || 'null');
+        let currentGame = JSON.parse(localStorage.getItem('currentGame') || 'null');
+        let currentSession = JSON.parse(localStorage.getItem('currentSession') || 'null');
+        let sessionTimer = null;
+        let sessionSeconds = 0;
+        let sessionObservations = [];
+        let isRecording = false;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            if (currentChild) {
+                loadRecommendations();
+                loadProgress();
+            }
+        });
+
+        // 显示Toast
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // 检查认证状态
+        function checkAuth() {
+            if (currentToken) {
+                document.getElementById('headerUserInfo').innerHTML = `
+                    <span style="margin-right: 10px;">✅ Token已设置</span>
+                    <button onclick="showTokenModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 5px 15px; border-radius: 15px; cursor: pointer; font-size: 12px;">
+                        🔑 管理Token
+                    </button>
+                `;
+            } else {
+                document.getElementById('headerUserInfo').innerHTML = `
+                    <button onclick="showTokenModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 5px 15px; border-radius: 15px; cursor: pointer; font-size: 12px;">
+                        🔑 设置Token
+                    </button>
+                `;
+                showToast('⚠️ 请先设置Token才能使用系统');
+            }
+        }
+
+        // 显示Token模态框
+        function showTokenModal() {
+            document.getElementById('tokenModal').classList.add('show');
+            if (currentToken) {
+                document.getElementById('tokenInput').value = currentToken;
+            }
+        }
+
+        // 关闭Token模态框
+        function closeTokenModal() {
+            document.getElementById('tokenModal').classList.remove('show');
+        }
+
+        // 保存Token
+        function saveToken() {
+            const token = document.getElementById('tokenInput').value.trim();
+            if (!token) {
+                showToast('❌ 请输入Token');
+                return;
+            }
+
+            currentToken = token;
+            localStorage.setItem('token', currentToken);
+            
+            const statusDiv = document.getElementById('tokenStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#d4edda';
+            statusDiv.style.color = '#155724';
+            statusDiv.innerHTML = '✅ Token已保存！可以开始使用系统了';
+            
+            checkAuth();
+            showToast('✅ Token设置成功');
+            
+            setTimeout(() => {
+                closeTokenModal();
+                statusDiv.style.display = 'none';
+            }, 2000);
+        }
+
+        // 清除Token数据
+        function clearTokenData() {
+            if (confirm('确定要清除Token吗？清除后需要重新设置。')) {
+                currentToken = null;
+                currentUser = null;
+                currentChild = null;
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('currentChild');
+                
+                document.getElementById('tokenInput').value = '';
+                
+                const statusDiv = document.getElementById('tokenStatus');
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#fff3cd';
+                statusDiv.style.color = '#856404';
+                statusDiv.innerHTML = '⚠️ Token已清除';
+                
+                checkAuth();
+                showToast('Token已清除');
+                
+                setTimeout(() => {
+                    closeTokenModal();
+                    statusDiv.style.display = 'none';
+                }, 2000);
+            }
+        }
+
+        // 切换页面
+        function switchPage(page) {
+            // 隐藏所有页面
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+            // 显示目标页面
+            document.getElementById(`page-${page}`).classList.add('active');
+
+            // 更新导航状态
+            const navItems = document.querySelectorAll('.nav-item');
+            const pageIndex = { assessment: 0, recommendations: 1, session: 2, feedback: 3, progress: 4 };
+            navItems[pageIndex[page]].classList.add('active');
+
+            // 页面特定加载
+            if (page === 'recommendations' && currentChild) {
+                loadRecommendations();
+            } else if (page === 'progress') {
+                loadProgress();
+            }
+        }
+
+        // 1. 导入评估并生成画像
+        async function importAssessment() {
+            const childName = document.getElementById('childName').value;
+            const birthDate = document.getElementById('birthDate').value;
+            const gender = document.getElementById('gender').value;
+            const diagnosis = document.getElementById('diagnosis').value;
+            const assessmentData = document.getElementById('assessmentData').value;
+            const notes = document.getElementById('notes').value;
+
+            if (!childName || !assessmentData) {
+                showToast('请输入孩子姓名和评估报告');
+                return;
+            }
+
+            showToast('正在AI分析评估报告...');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/assessments/import`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentToken}`
+                    },
+                    body: JSON.stringify({
+                        assessmentData,
+                        childInfo: { name: childName, birthDate, gender, diagnosis, notes }
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentChild = data.data.childProfile;
+                    localStorage.setItem('currentChild', JSON.stringify(currentChild));
+                    showToast('✅ 孩子画像生成成功！');
+                    switchPage('recommendations');
+                } else {
+                    showToast('❌ ' + data.message);
+                }
+            } catch (error) {
+                showToast('❌ 请求失败: ' + error.message);
+            }
+        }
+
+        // 2. 加载游戏推荐
+        async function loadRecommendations() {
+            if (!currentChild) {
+                document.getElementById('recommendationsList').innerHTML =
+                    '<p style="color: #999; text-align: center; padding: 20px;">请先完成评估</p>';
+                return;
+            }
+
+            showToast('正在AI推荐游戏...');
+
+            // 模拟游戏推荐（实际应该调用后端API）
+            const games = [
+                {
+                    id: 'game_001',
+                    name: '积木传递游戏',
+                    description: '通过传递积木建立双向沟通，培养眼神接触和互动意识',
+                    targetGoals: ['建立眼神接触', '发展双向沟通', '培养互动意识'],
+                    duration: '15分钟',
+                    difficulty: '初级'
+                },
+                {
+                    id: 'game_002',
+                    name: '躲猫猫游戏',
+                    description: '利用孩子对消失-出现的兴趣，引导主动参与和情绪表达',
+                    targetGoals: ['激发情绪表达', '建立亲密关系', '培养共同注意'],
+                    duration: '10分钟',
+                    difficulty: '入门'
+                },
+                {
+                    id: 'game_003',
+                    name: '水上漂流游戏',
+                    description: '利用孩子对水流的兴趣，培养共同注意力和观察力',
+                    targetGoals: ['培养共同注意', '促进感官探索', '发展双向沟通'],
+                    duration: '20分钟',
+                    difficulty: '初级'
+                }
+            ];
+
+            let html = '';
+            games.forEach(game => {
+                html += `
+                    <div class="game-card">
+                        <h3>${game.name}</h3>
+                        <p class="info">${game.description}</p>
+                        <div class="tags">
+                            <span class="tag">⏱️ ${game.duration}</span>
+                            <span class="tag">📊 ${game.difficulty}</span>
+                        </div>
+                        <div class="tags">
+                            ${game.targetGoals.map(goal => `<span class="tag">🎯 ${goal}</span>`).join('')}
+                        </div>
+                        <button class="btn" style="background: white; color: #667eea;" onclick="startGame('${game.id}', '${game.name}')">开始这个游戏</button>
+                    </div>
+                `;
+            });
+
+            document.getElementById('recommendationsList').innerHTML = html;
+        }
+
+        // 3. 开始游戏
+        function startGame(gameId, gameName) {
+            currentGame = { id: gameId, name: gameName };
+            localStorage.setItem('currentGame', JSON.stringify(currentGame));
+            currentSession = {
+                gameId,
+                startTime: new Date().toISOString(),
+                observations: []
+            };
+            localStorage.setItem('currentSession', JSON.stringify(currentSession));
+
+            switchPage('session');
+            setupSessionUI();
+        }
+
+        // 设置游戏实施界面
+        function setupSessionUI() {
+            if (!currentGame) return;
+
+            document.getElementById('sessionGameTitle').textContent = currentGame.name;
+
+            const html = `
+                <div class="guidance-box">
+                    <h4>💡 游戏指引</h4>
+                    <p><strong>目标：</strong>建立情感联结，培养眼神接触和双向沟通</p>
+                    <p><strong>步骤：</strong></p>
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li>坐在孩子面前，与他平视</li>
+                        <li>拿一块积木递给孩子</li>
+                        <li>等待孩子的反应（重要：不要催促）</li>
+                        <li>如果孩子接过，微笑回应</li>
+                        <li>鼓励孩子把积木递回来</li>
+                        <li>重复这个过程，保持耐心</li>
+                    </ol>
+                    <p style="margin-top: 10px;"><strong>提示：</strong>跟随孩子的节奏，如果他没兴趣就换其他玩具。</p>
+                </div>
+
+                <div class="timer" id="sessionTimer">00:00</div>
+
+                <div class="card-title" style="margin-bottom: 15px;">
+                    <span class="icon">⚡</span>
+                    快捷记录（实时观察）
+                </div>
+                <div class="quick-record-buttons">
+                    <button class="quick-btn btn-smile" onclick="quickRecord('smile', '😊')">微笑</button>
+                    <button class="quick-btn btn-eye" onclick="quickRecord('eye', '👀')">眼神</button>
+                    <button class="quick-btn btn-talk" onclick="quickRecord('talk', '🗣️')">出声</button>
+                    <button class="quick-btn btn-interact" onclick="quickRecord('interact', '🤝')">互动</button>
+                    <button class="quick-btn btn-motor" onclick="quickRecord('motor', '✋')">动作</button>
+                    <button class="quick-btn btn-concern" onclick="quickRecord('concern', '❓')">关注</button>
+                </div>
+
+                <div id="observationsList"></div>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-secondary" onclick="pauseSession()">⏸️ 暂停</button>
+                    <button class="btn" onclick="endSession()">⏹️ 结束游戏</button>
+                </div>
+            `;
+
+            document.getElementById('sessionContent').innerHTML = html;
+            startSessionTimer();
+        }
+
+        // 会话计时器
+        function startSessionTimer() {
+            sessionSeconds = 0;
+            sessionTimer = setInterval(() => {
+                sessionSeconds++;
+                const minutes = Math.floor(sessionSeconds / 60).toString().padStart(2, '0');
+                const seconds = (sessionSeconds % 60).toString().padStart(2, '0');
+                document.getElementById('sessionTimer').textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        // 快捷记录
+        function quickRecord(type, emoji) {
+            const labels = {
+                smile: '微笑',
+                eye: '眼神接触',
+                talk: '发声/说话',
+                interact: '主动互动',
+                motor: '大动作/精细动作',
+                concern: '需要关注的行为'
+            };
+
+            const observation = {
+                time: new Date().toISOString(),
+                type,
+                emoji,
+                label: labels[type],
+                timestamp: formatTime(new Date())
+            };
+
+            sessionObservations.push(observation);
+            currentSession.observations = sessionObservations;
+            localStorage.setItem('currentSession', JSON.stringify(currentSession));
+
+            // 显示记录
+            addObservationToList(observation);
+            showToast(`✅ 已记录：${emoji} ${labels[type]}`);
+        }
+
+        // 添加观察记录到列表
+        function addObservationToList(observation) {
+            const list = document.getElementById('observationsList');
+            const item = document.createElement('div');
+            item.className = 'observation-item';
+            item.innerHTML = `
+                <div class="time">${observation.timestamp}</div>
+                <div class="content">${observation.emoji} ${observation.label}</div>
+            `;
+            list.insertBefore(item, list.firstChild);
+        }
+
+        // 格式化时间
+        function formatTime(date) {
+            return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        // 暂停会话
+        function pauseSession() {
+            showToast('⏸️ 会话已暂停');
+            clearInterval(sessionTimer);
+        }
+
+        // 结束会话
+        function endSession() {
+            if (!confirm('确定要结束这次游戏吗？')) return;
+
+            clearInterval(sessionTimer);
+            currentSession.endTime = new Date().toISOString();
+            currentSession.duration = sessionSeconds;
+            localStorage.setItem('currentSession', JSON.stringify(currentSession));
+
+            showToast('✅ 游戏已结束');
+            switchPage('feedback');
+            setupFeedbackUI();
+        }
+
+        // 4. 设置反馈界面
+        function setupFeedbackUI() {
+            const minutes = Math.floor(sessionSeconds / 60);
+            const obsCount = sessionObservations.length;
+
+            const html = `
+                <div class="guidance-box" style="background: #fff3cd; border-left-color: #ffc107;">
+                    <h4>📊 本次游戏总结</h4>
+                    <p><strong>时长：</strong>${minutes}分钟</p>
+                    <p><strong>观察记录：</strong>${obsCount}条</p>
+                    <p><strong>亮点：</strong>根据记录，孩子在本次游戏中表现良好</p>
+                </div>
+
+                <div class="feedback-question">
+                    <h4>1. 今天孩子的眼神接触比平时多吗？</h4>
+                    <div class="rating-options" id="q1">
+                        <div class="rating-option" onclick="selectRating('q1', 1)">1<br>很少</div>
+                        <div class="rating-option" onclick="selectRating('q1', 2)">2<br>较少</div>
+                        <div class="rating-option" onclick="selectRating('q1', 3)">3<br>一般</div>
+                        <div class="rating-option" onclick="selectRating('q1', 4)">4<br>较多</div>
+                        <div class="rating-option" onclick="selectRating('q1', 5)">5<br>很多</div>
+                    </div>
+                </div>
+
+                <div class="feedback-question">
+                    <h4>2. 孩子今天的情绪状态怎么样？</h4>
+                    <div class="rating-options" id="q2">
+                        <div class="rating-option" onclick="selectRating('q2', 1)">1<br>很差</div>
+                        <div class="rating-option" onclick="selectRating('q2', 2)">2<br>较差</div>
+                        <div class="rating-option" onclick="selectRating('q2', 3)">3<br>一般</div>
+                        <div class="rating-option" onclick="selectRating('q2', 4)">4<br>较好</div>
+                        <div class="rating-option" onclick="selectRating('q2', 5)">5<br>很好</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>3. 今天最让你印象深刻的时刻是什么？</label>
+                    <textarea id="feedbackMoment" placeholder="描述今天的亮点或突破..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>4. 你觉得今天的游戏时长合适吗？</label>
+                    <select id="feedbackDuration">
+                        <option value="">请选择</option>
+                        <option value="too-short">太短了</option>
+                        <option value="just-right" selected>刚刚好</option>
+                        <option value="too-long">太长了</option>
+                    </select>
+                </div>
+
+                <button class="btn" onclick="submitFeedback()">提交反馈并完成闭环</button>
+            `;
+
+            document.getElementById('feedbackContent').innerHTML = html;
+        }
+
+        // 选择评分
+        function selectRating(questionId, value) {
+            const container = document.getElementById(questionId);
+            container.querySelectorAll('.rating-option').forEach(opt => {
+                opt.classList.remove('selected');
+                if (opt.textContent.includes(value.toString())) {
+                    opt.classList.add('selected');
+                }
+            });
+            container.dataset.value = value;
+        }
+
+        // 提交反馈
+        async function submitFeedback() {
+            const feedback = {
+                q1: document.getElementById('q1').dataset.value,
+                q2: document.getElementById('q2').dataset.value,
+                moment: document.getElementById('feedbackMoment').value,
+                duration: document.getElementById('feedbackDuration').value
+            };
+
+            if (!feedback.q1 || !feedback.q2) {
+                showToast('请完成评分问题');
+                return;
+            }
+
+            showToast('🔄 正在分析并更新孩子画像...');
+
+            // 模拟AI分析和更新画像
+            setTimeout(() => {
+                showToast('✅ 反馈已提交！孩子画像已更新');
+
+                // 清除当前会话
+                currentSession = null;
+                currentGame = null;
+                sessionObservations = [];
+                localStorage.removeItem('currentSession');
+                localStorage.removeItem('currentGame');
+
+                // 切换到成长页面查看更新
+                setTimeout(() => {
+                    switchPage('progress');
+                }, 1500);
+            }, 2000);
+        }
+
+        // 5. 加载成长记录
+        function loadProgress() {
+            if (!currentChild) {
+                document.getElementById('progressContent').innerHTML =
+                    '<p style="color: #999; text-align: center; padding: 20px;">请先完成评估</p>';
+                return;
+            }
+
+            const html = `
+                <div class="profile-section">
+                    <h4>👶 孩子信息</h4>
+                    <p><strong>姓名：</strong>${currentChild.name || '辰辰'}</p>
+                    <p><strong>年龄：</strong>${calculateAge(currentChild.birth_date)}</p>
+                    <p><strong>诊断：</strong>${currentChild.diagnosis || '未填写'}</p>
+                </div>
+
+                <div class="profile-section">
+                    <h4>💪 优势能力</h4>
+                    <div class="tag-list">
+                        <span class="tag-item">记忆力好</span>
+                        <span class="tag-item">对声音敏感</span>
+                        <span class="tag-item">专注力强</span>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <h4>🎯 干预重点</h4>
+                    <div class="tag-list">
+                        <span class="tag-item">眼神接触</span>
+                        <span class="tag-item">双向沟通</span>
+                        <span class="tag-item">情绪表达</span>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <h4>📈 最近进展</h4>
+                    <div class="progress-bar">
+                        <div class="fill" style="width: 65%;"></div>
+                    </div>
+                    <p style="font-size: 14px; color: #666; margin-top: 8px;">
+                        眼神接触：进步 65% ⬆️<br>
+                        双向沟通：进步 40% ⬆️<br>
+                        情绪表达：进步 25% ⬆️
+                    </p>
+                </div>
+
+                <div class="profile-section">
+                    <h4>🌟 重要里程碑</h4>
+                    <div class="observation-item">
+                        <div class="time">2024-01-23 14:30</div>
+                        <div class="content">🎉 首次主动递积木 - 突破性进展！</div>
+                    </div>
+                    <div class="observation-item">
+                        <div class="time">2024-01-20 10:15</div>
+                        <div class="content">👀 眼神接触达到3秒 - 进步明显！</div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <h4>📊 干预历史</h4>
+                    <p style="font-size: 14px; color: #666;">
+                        累计游戏次数：12次<br>
+                        总游戏时长：180分钟<br>
+                        观察记录：45条
+                    </p>
+                </div>
+            `;
+
+            document.getElementById('progressContent').innerHTML = html;
+        }
+
+        // 计算年龄
+        function calculateAge(birthDate) {
+            if (!birthDate) return '未知';
+            const birth = new Date(birthDate);
+            const today = new Date();
+            const years = today.getFullYear() - birth.getFullYear();
+            const months = today.getMonth() - birth.getMonth();
+            return `${years}岁${months > 0 ? months + '个月' : ''}`;
+        }
+
+        // 快速记录模态框
+        function showRecordModal() {
+            document.getElementById('recordModal').classList.add('show');
+        }
+
+        function closeRecordModal() {
+            document.getElementById('recordModal').classList.remove('show');
+        }
+
+        function switchRecordType(type) {
+            if (type === 'text') {
+                document.getElementById('recordTypeText').classList.remove('hidden');
+                document.getElementById('recordTypeVoice').classList.add('hidden');
+            } else {
+                document.getElementById('recordTypeText').classList.add('hidden');
+                document.getElementById('recordTypeVoice').classList.remove('hidden');
+            }
+        }
+
+        // 语音记录
+        function toggleVoiceRecord() {
+            const btn = document.getElementById('voiceRecordBtn');
+            const status = document.getElementById('voiceStatus');
+
+            if (!isRecording) {
+                isRecording = true;
+                btn.textContent = '⏹️ 停止';
+                btn.style.background = '#ff6b6b';
+                status.textContent = '🎤 正在录音...';
+            } else {
+                isRecording = false;
+                btn.textContent = '🎤 按住说话';
+                btn.style.background = '';
+                status.textContent = '✅ 录音完成（模拟）';
+            }
+        }
+
+        // 提交快速记录
+        async function submitQuickRecord() {
+            const text = document.getElementById('quickRecordText').value;
+
+            if (!text) {
+                showToast('请输入记录内容');
+                return;
+            }
+
+            showToast('✅ 记录已保存');
+            document.getElementById('quickRecordText').value = '';
+            closeRecordModal();
+
+            // 这里应该调用后端API保存记录
+        }
+    </script>
+</body>
+</html>
