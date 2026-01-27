@@ -150,7 +150,12 @@ class SpeechRecognizer:
         try:
             import json
             result_dict = json.loads(message)
-            self.result = result_dict.get('result', '')
+            # 从 payload.result 中提取识别结果
+            payload = result_dict.get('payload', {})
+            self.result = payload.get('result', '')
+            if not self.result:
+                # 兼容旧格式：直接从根级别获取
+                self.result = result_dict.get('result', '')
         except Exception as e:
             print(f"[ASR] 解析结果失败: {e}")
             self.result = message

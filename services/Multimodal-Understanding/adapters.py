@@ -88,8 +88,15 @@ class MultimodalDocumentParserService(IDocumentParserService):
         return "1.0.0"
     
     def _extract_field(self, text: str, field: str) -> str:
-        """简单的字段提取"""
-        # 简化实现，实际应该用更复杂的提取逻辑
+        """从文本中提取指定字段"""
+        # 尝试查找字段相关内容
+        lines = text.split('\n')
+        for i, line in enumerate(lines):
+            if field in line:
+                # 返回该行及后续几行
+                result_lines = lines[i:min(i+3, len(lines))]
+                return '\n'.join(result_lines)
+        # 如果没找到，返回前200字符
         return text[:200]
 
 

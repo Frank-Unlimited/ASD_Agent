@@ -2,6 +2,22 @@
 简化版测试 - 只使用三个核心接口
 """
 import os
+import sys
+from pathlib import Path
+
+# 添加项目根目录到路径
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+# 加载环境变量
+try:
+    from dotenv import load_dotenv
+    env_path = project_root / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"✅ 已加载环境变量: {env_path}\n")
+except ImportError:
+    print("⚠️  python-dotenv 未安装\n")
 
 # 从环境变量读取API密钥（不再硬编码）
 # 请在 .env 文件中设置 DASHSCOPE_API_KEY
