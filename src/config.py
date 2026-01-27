@@ -18,9 +18,16 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     openai_api_key: str = ""
     
-    # 阿里云配置
+    # 通义千问配置（用于多模态解析）
+    dashscope_api_key: str = ""
+    
+    # 阿里云服务配置
     aliyun_access_key_id: str = ""
     aliyun_access_key_secret: str = ""
+    
+    # 阿里云智能语音配置
+    aliyun_nls_appkey: str = ""
+    aliyun_nls_token: str = ""
     
     # 数据库配置
     sqlite_db_path: str = "./data/asd_intervention.db"

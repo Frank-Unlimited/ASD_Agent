@@ -77,20 +77,20 @@ def init_services():
         container.register('rag', MockRAGService())
     
     if settings.use_real_video_analysis:
-        # TODO: 实现真实服务后替换
-        pass
+        from services.Multimodal_Understanding.adapters import MultimodalVideoAnalysisService
+        container.register('video_analysis', MultimodalVideoAnalysisService())
     else:
         container.register('video_analysis', MockVideoAnalysisService())
     
     if settings.use_real_speech:
-        # TODO: 实现真实服务后替换
-        pass
+        from services.Speech_Processing.adapters import AliyunSpeechService
+        container.register('speech', AliyunSpeechService())
     else:
         container.register('speech', MockSpeechService())
     
     if settings.use_real_document_parser:
-        # TODO: 实现真实服务后替换
-        pass
+        from services.Multimodal_Understanding.adapters import MultimodalDocumentParserService
+        container.register('document_parser', MultimodalDocumentParserService())
     else:
         container.register('document_parser', MockDocumentParserService())
     
