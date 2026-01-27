@@ -16,10 +16,18 @@ class Settings(BaseSettings):
     ai_provider: Literal["deepseek", "openai", "gemini"] = "deepseek"
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-reasoner"
+    deepseek_small_model: str = "deepseek-chat"
+    deepseek_embedding_model: str = "deepseek-chat"
+    deepseek_embedding_dim: int = 1536
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+    openai_small_model: str = "gpt-4o-mini"
+    openai_embedding_model: str = "text-embedding-3-small"
+    openai_embedding_dim: int = 1536
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash-exp"
+    gemini_embedding_model: str = "embedding-001"
     
     # 通义千问配置（用于多模态解析）
     dashscope_api_key: str = ""
