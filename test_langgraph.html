@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangGraph 工作流测试面板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .panel h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        /* 控制面板 */
+        .control-section {
+            margin-bottom: 25px;
+        }
+
+        .control-section h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: #555;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #38a169;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #e53e3e;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* 工作流状态 */
+        .workflow-info {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .workflow-info .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .workflow-info .info-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .workflow-info .label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .workflow-info .value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-idle {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .status-running {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .status-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        /* 节点执行 */
+        .nodes-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .node-btn {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .node-btn:hover:not(:disabled) {
+            border-color: #667eea;
+            background: #f7fafc;
+            transform: translateY(-2px);
+        }
+
+        .node-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .node-btn.active {
+            border-color: #667eea;
+            background: #edf2ff;
+        }
+
+        .node-btn.completed {
+            border-color: #48bb78;
+            background: #f0fff4;
+        }
+
+        .node-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .node-desc {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .node-status {
+            font-size: 10px;
+            margin-top: 6px;
+            color: #999;
+        }
+
+        /* 反馈表单 */
+        .feedback-form {
+            display: none;
+            background: #fffaf0;
+            border: 2px solid #f6ad55;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .feedback-form.show {
+            display: block;
+        }
+
+        .feedback-form h3 {
+            color: #dd6b20;
+            margin-bottom: 15px;
+        }
+
+        .feedback-form textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 2px solid #fbd38d;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .feedback-form textarea:focus {
+            outline: none;
+            border-color: #f6ad55;
+        }
+
+        /* 输出面板 */
+        .output-section {
+            margin-bottom: 20px;
+        }
+
+        .output-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .output-tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .output-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .output-content {
+            display: none;
+        }
+
+        .output-content.active {
+            display: block;
+        }
+
+        .output-box {
+            background: #f7fafc;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .log-entry {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .log-entry .timestamp {
+            color: #999;
+            font-size: 11px;
+        }
+
+        .log-entry .message {
+            color: #333;
+            margin-top: 4px;
+        }
+
+        .log-entry.success {
+            border-left: 4px solid #48bb78;
+        }
+
+        .log-entry.error {
+            border-left: 4px solid #f56565;
+        }
+
+        .log-entry.info {
+            border-left: 4px solid #4299e1;
+        }
+
+        /* 响应式 */
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nodes-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧩 LangGraph 工作流测试面板</h1>
+            <p>ASD 地板时光干预辅助系统 - 工作流可视化测试工具</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 左侧：控制面板 -->
+            <div class="panel">
+                <h2>⚙️ 控制面板</h2>
+
+                <!-- API 配置 -->
+                <div class="control-section">
+                    <h3>API 配置</h3>
+                    <div class="input-group">
+                        <label>API 地址</label>
+                        <input type="text" id="apiUrl" value="http://localhost:7860" placeholder="http://localhost:7860">
+                    </div>
+                </div>
+
+                <!-- 工作流初始化 -->
+                <div class="control-section">
+                    <h3>1. 初始化工作流</h3>
+                    <div class="input-group">
+                        <label>孩子ID</label>
+                        <input type="text" id="childId" value="child-001" placeholder="child-001">
+                    </div>
+                    <div class="input-group">
+                        <label>孩子姓名</label>
+                        <input type="text" id="childName" value="辰辰" placeholder="辰辰">
+                    </div>
+                    <div class="input-group">
+                        <label>报告路径</label>
+                        <input type="text" id="reportPath" value="/mock/report.pdf" placeholder="/mock/report.pdf">
+                    </div>
+                    <div class="input-group">
+                        <label>游戏ID</label>
+                        <input type="text" id="gameId" value="game-001" placeholder="game-001">
+                    </div>
+                    <button class="btn btn-primary" id="initBtn" onclick="initWorkflow()">
+                        🚀 初始化工作流
+                    </button>
+                </div>
+
+                <!-- 工作流状态 -->
+                <div class="control-section">
+                    <h3>工作流状态</h3>
+                    <div class="workflow-info" id="workflowInfo">
+                        <div class="info-item">
+                            <span class="label">状态:</span>
+                            <span class="value"><span class="status-badge status-idle">未初始化</span></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">工作流ID:</span>
+                            <span class="value">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">当前节点:</span>
+                            <span class="value">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">下一节点:</span>
+                            <span class="value">-</span>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" id="refreshBtn" onclick="refreshStatus()" disabled>
+                            🔄 刷新状态
+                        </button>
+                        <button class="btn btn-danger" id="resetBtn" onclick="resetWorkflow()" disabled>
+                            🗑️ 重置
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 节点执行 -->
+                <div class="control-section">
+                    <h3>2. 执行节点</h3>
+                    <div class="nodes-grid" id="nodesGrid">
+                        <!-- 节点按钮将通过 JS 生成 -->
+                    </div>
+                    <button class="btn btn-secondary" id="autoRunBtn" onclick="autoRunWorkflow()" disabled>
+                        ⚡ 自动执行全流程
+                    </button>
+                </div>
+
+                <!-- HITL 反馈 -->
+                <div class="feedback-form" id="feedbackForm">
+                    <h3>📝 家长反馈表单</h3>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                        请填写本次游戏的反馈（这是 HITL 人机协作暂停点）
+                    </p>
+                    <div class="input-group">
+                        <label>整体感受</label>
+                        <textarea id="feedbackFeeling" placeholder="例如：孩子今天特别开心，互动很积极"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>观察到的进步</label>
+                        <textarea id="feedbackProgress" placeholder="例如：主动发起了3次互动，比上次多了"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>遇到的困难</label>
+                        <textarea id="feedbackDifficulty" placeholder="例如：注意力容易分散，需要多次引导"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="submitFeedback()">
+                        ✅ 提交反馈并继续
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧：输出面板 -->
+            <div class="panel">
+                <h2>📊 输出面板</h2>
+
+                <div class="output-section">
+                    <div class="output-tabs">
+                        <button class="output-tab active" onclick="switchTab('logs')">执行日志</button>
+                        <button class="output-tab" onclick="switchTab('state')">State 状态</button>
+                        <button class="output-tab" onclick="switchTab('response')">响应数据</button>
+                    </div>
+
+                    <!-- 执行日志 -->
+                    <div class="output-content active" id="logsContent">
+                        <div id="logsBox" class="output-box">
+                            <div class="log-entry info">
+                                <div class="timestamp">系统启动</div>
+                                <div class="message">等待初始化工作流...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- State 状态 -->
+                    <div class="output-content" id="stateContent">
+                        <div id="stateBox" class="output-box">
+                            暂无数据
+                        </div>
+                    </div>
+
+                    <!-- 响应数据 -->
+                    <div class="output-content" id="responseContent">
+                        <div id="responseBox" class="output-box">
+                            暂无数据
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快捷操作 -->
+                <div class="control-section" style="margin-top: 20px;">
+                    <h3>快捷操作</h3>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" onclick="clearLogs()">
+                            🗑️ 清空日志
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportLogs()">
+                            💾 导出日志
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局状态
+        let currentWorkflowId = null;
+        let currentState = null;
+        let lastResponse = null;
+        let isRunning = false;
+        let completedNodes = new Set();
+
+        // 节点配置
+        const NODES = [
+            { name: 'assessment', label: '评估', desc: '解析报告构建画像' },
+            { name: 'weekly_plan', label: '周计划', desc: '生成个性化计划' },
+            { name: 'game_start', label: '游戏开始', desc: '创建游戏会话' },
+            { name: 'game_end', label: '游戏结束', desc: '结束游戏会话' },
+            { name: 'preliminary_summary', label: '初步总结', desc: '生成初步总结' },
+            { name: 'feedback_form', label: '反馈表', desc: 'HITL暂停点' },
+            { name: 'final_summary', label: '最终总结', desc: '融合反馈总结' },
+            { name: 'memory_update', label: '记忆更新', desc: '更新Graphiti' },
+            { name: 'reassessment', label: '再评估', desc: '重新评估调整' },
+        ];
+
+        // 初始化节点网格
+        function initNodesGrid() {
+            const grid = document.getElementById('nodesGrid');
+            grid.innerHTML = NODES.map(node => `
+                <button class="node-btn" id="node-${node.name}" onclick="executeNode('${node.name}')" disabled>
+                    <div class="node-name">${node.label}</div>
+                    <div class="node-desc">${node.desc}</div>
+                    <div class="node-status" id="status-${node.name}">待执行</div>
+                </button>
+            `).join('');
+        }
+
+        // 切换标签页
+        function switchTab(tab) {
+            document.querySelectorAll('.output-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.output-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`${tab}Content`).classList.add('active');
+        }
+
+        // 添加日志
+        function addLog(message, type = 'info') {
+            const logsBox = document.getElementById('logsBox');
+            const timestamp = new Date().toLocaleTimeString('zh-CN');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `
+                <div class="timestamp">${timestamp}</div>
+                <div class="message">${message}</div>
+            `;
+            logsBox.appendChild(logEntry);
+            logsBox.scrollTop = logsBox.scrollHeight;
+        }
+
+        // 更新工作流信息
+        function updateWorkflowInfo(data) {
+            const info = document.getElementById('workflowInfo');
+            const status = data.success ? 'running' : 'error';
+            info.innerHTML = `
+                <div class="info-item">
+                    <span class="label">状态:</span>
+                    <span class="value"><span class="status-badge status-${status}">${data.success ? '运行中' : '错误'}</span></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">工作流ID:</span>
+                    <span class="value">${data.workflowId || currentWorkflowId || '-'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">当前节点:</span>
+                    <span class="value">${data.currentNode || '-'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">下一节点:</span>
+                    <span class="value">${data.nextNode || '-'}</span>
+                </div>
+            `;
+        }
+
+        // 更新节点状态
+        function updateNodeStatus(nodeName, status) {
+            const nodeBtn = document.getElementById(`node-${nodeName}`);
+            const statusText = document.getElementById(`status-${nodeName}`);
+
+            if (status === 'running') {
+                nodeBtn.classList.add('active');
+                statusText.textContent = '执行中...';
+            } else if (status === 'completed') {
+                nodeBtn.classList.remove('active');
+                nodeBtn.classList.add('completed');
+                statusText.textContent = '✓ 已完成';
+                completedNodes.add(nodeName);
+            } else if (status === 'error') {
+                nodeBtn.classList.remove('active');
+                statusText.textContent = '✗ 失败';
+            }
+        }
+
+        // 初始化工作流
+        async function initWorkflow() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const childId = document.getElementById('childId').value;
+            const childName = document.getElementById('childName').value;
+            const reportPath = document.getElementById('reportPath').value;
+            const gameId = document.getElementById('gameId').value;
+
+            addLog('🚀 开始初始化工作流...', 'info');
+
+            try {
+                const response = await fetch(`${apiUrl}/api/workflow/init`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ childId, childName, reportPath, gameId })
+                });
+
+                const data = await response.json();
+                lastResponse = data;
+
+                if (data.success) {
+                    currentWorkflowId = data.workflowId;
+                    currentState = data.state;
+
+                    addLog(`✅ 工作流初始化成功: ${currentWorkflowId}`, 'success');
+                    updateWorkflowInfo(data);
+                    updateStateDisplay();
+                    updateResponseDisplay();
+
+                    // 启用按钮
+                    document.querySelectorAll('.node-btn').forEach(btn => btn.disabled = false);
+                    document.getElementById('refreshBtn').disabled = false;
+                    document.getElementById('resetBtn').disabled = false;
+                    document.getElementById('autoRunBtn').disabled = false;
+                    document.getElementById('initBtn').disabled = true;
+                } else {
+                    throw new Error(data.message || '初始化失败');
+                }
+            } catch (error) {
+                addLog(`❌ 初始化失败: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // 执行单个节点
+        async function executeNode(nodeName) {
+            if (!currentWorkflowId || isRunning) return;
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            isRunning = true;
+            updateNodeStatus(nodeName, 'running');
+            addLog(`▶️ 执行节点: ${nodeName}`, 'info');
+
+            try {
+                const response = await fetch(`${apiUrl}/api/workflow/${currentWorkflowId}/execute/${nodeName}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+                lastResponse = data;
+
+                if (data.success) {
+                    currentState = data.state;
+                    updateNodeStatus(nodeName, 'completed');
+                    addLog(`✅ 节点执行成功: ${nodeName} (耗时: ${data.executionTime?.toFixed(2)}s)`, 'success');
+                    updateWorkflowInfo(data);
+                    updateStateDisplay();
+                    updateResponseDisplay();
+
+                    // 特殊处理：feedback_form 节点后显示反馈表单
+                    if (nodeName === 'feedback_form') {
+                        document.getElementById('feedbackForm').classList.add('show');
+                        addLog('⏸️ 工作流已暂停，等待家长填写反馈...', 'info');
+                    }
+                } else {
+                    throw new Error(data.message || '节点执行失败');
+                }
+            } catch (error) {
+                updateNodeStatus(nodeName, 'error');
+                addLog(`❌ 节点执行失败: ${nodeName} - ${error.message}`, 'error');
+                console.error(error);
+            } finally {
+                isRunning = false;
+            }
+        }
+
+        // 提交反馈
+        async function submitFeedback() {
+            if (!currentWorkflowId) return;
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            const feedback = {
+                feeling: document.getElementById('feedbackFeeling').value,
+                progress: document.getElementById('feedbackProgress').value,
+                difficulty: document.getElementById('feedbackDifficulty').value,
+            };
+
+            addLog('📝 提交家长反馈...', 'info');
+
+            try {
+                const response = await fetch(`${apiUrl}/api/workflow/${currentWorkflowId}/submit-feedback`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feedback })
+                });
+
+                const data = await response.json();
+                lastResponse = data;
+
+                if (data.success) {
+                    currentState = data.state;
+                    addLog('✅ 反馈提交成功，工作流继续执行', 'success');
+                    updateWorkflowInfo(data);
+                    updateStateDisplay();
+                    updateResponseDisplay();
+                    document.getElementById('feedbackForm').classList.remove('show');
+                } else {
+                    throw new Error(data.message || '反馈提交失败');
+                }
+            } catch (error) {
+                addLog(`❌ 反馈提交失败: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // 自动运行全流程
+        async function autoRunWorkflow() {
+            if (!currentWorkflowId || isRunning) return;
+
+            addLog('⚡ 开始自动执行全流程...', 'info');
+            document.getElementById('autoRunBtn').disabled = true;
+
+            for (const node of NODES) {
+                if (completedNodes.has(node.name)) continue;
+
+                await executeNode(node.name);
+
+                // 在 feedback_form 节点暂停
+                if (node.name === 'feedback_form') {
+                    addLog('⏸️ 自动执行已暂停，请填写反馈后手动继续', 'info');
+                    document.getElementById('autoRunBtn').disabled = false;
+                    return;
+                }
+
+                // 延迟 1 秒
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            addLog('🎉 全流程执行完成！', 'success');
+            document.getElementById('autoRunBtn').disabled = false;
+        }
+
+        // 刷新状态
+        async function refreshStatus() {
+            if (!currentWorkflowId) return;
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            addLog('🔄 刷新工作流状态...', 'info');
+
+            try {
+                const response = await fetch(`${apiUrl}/api/workflow/${currentWorkflowId}/status`);
+                const data = await response.json();
+                lastResponse = data;
+
+                if (data.success) {
+                    currentState = data.state;
+                    addLog('✅ 状态刷新成功', 'success');
+                    updateWorkflowInfo(data);
+                    updateStateDisplay();
+                    updateResponseDisplay();
+                } else {
+                    throw new Error(data.message || '刷新失败');
+                }
+            } catch (error) {
+                addLog(`❌ 刷新失败: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // 重置工作流
+        async function resetWorkflow() {
+            if (!currentWorkflowId) return;
+            if (!confirm('确定要重置工作流吗？这将清除所有数据。')) return;
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            addLog('🗑️ 重置工作流...', 'info');
+
+            try {
+                const response = await fetch(`${apiUrl}/api/workflow/${currentWorkflowId}/reset`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    addLog('✅ 工作流已重置', 'success');
+
+                    // 重置状态
+                    currentWorkflowId = null;
+                    currentState = null;
+                    lastResponse = null;
+                    completedNodes.clear();
+
+                    // 重置 UI
+                    document.querySelectorAll('.node-btn').forEach(btn => {
+                        btn.disabled = true;
+                        btn.classList.remove('active', 'completed');
+                    });
+                    document.querySelectorAll('.node-status').forEach(status => {
+                        status.textContent = '待执行';
+                    });
+                    document.getElementById('feedbackForm').classList.remove('show');
+                    document.getElementById('initBtn').disabled = false;
+                    document.getElementById('refreshBtn').disabled = true;
+                    document.getElementById('resetBtn').disabled = true;
+                    document.getElementById('autoRunBtn').disabled = true;
+
+                    updateWorkflowInfo({ success: false, message: '未初始化' });
+                    document.getElementById('stateBox').textContent = '暂无数据';
+                    document.getElementById('responseBox').textContent = '暂无数据';
+                } else {
+                    throw new Error(data.message || '重置失败');
+                }
+            } catch (error) {
+                addLog(`❌ 重置失败: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // 更新 State 显示
+        function updateStateDisplay() {
+            const stateBox = document.getElementById('stateBox');
+            if (currentState) {
+                stateBox.textContent = JSON.stringify(currentState, null, 2);
+            }
+        }
+
+        // 更新响应显示
+        function updateResponseDisplay() {
+            const responseBox = document.getElementById('responseBox');
+            if (lastResponse) {
+                responseBox.textContent = JSON.stringify(lastResponse, null, 2);
+            }
+        }
+
+        // 清空日志
+        function clearLogs() {
+            const logsBox = document.getElementById('logsBox');
+            logsBox.innerHTML = '<div class="log-entry info"><div class="timestamp">系统</div><div class="message">日志已清空</div></div>';
+        }
+
+        // 导出日志
+        function exportLogs() {
+            const logsBox = document.getElementById('logsBox');
+            const logs = logsBox.innerText;
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `langgraph_logs_${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            addLog('💾 日志已导出', 'success');
+        }
+
+        // 页面加载时初始化
+        window.onload = function() {
+            initNodesGrid();
+            addLog('✨ 测试面板已就绪', 'info');
+            addLog('请先点击"初始化工作流"按钮开始测试', 'info');
+        };
+    </script>
+</body>
+</html>
