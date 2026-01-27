@@ -83,8 +83,8 @@ def init_services():
         container.register('video_analysis', MockVideoAnalysisService())
     
     if settings.use_real_speech:
-        # TODO: 实现真实服务后替换
-        pass
+        from services.Speech_Processing.adapters import AliyunSpeechService
+        container.register('speech', AliyunSpeechService())
     else:
         container.register('speech', MockSpeechService())
     
