@@ -68,8 +68,12 @@ def init_services():
         container.register('sqlite', MockSQLiteService())
     
     if settings.use_real_graphiti:
-        # TODO: 实现真实服务后替换
-        pass
+        from services.real.graphiti_service import GraphitiService
+        container.register('graphiti', GraphitiService(
+            neo4j_uri=settings.neo4j_uri,
+            neo4j_user=settings.neo4j_user,
+            neo4j_password=settings.neo4j_password
+        ))
     else:
         container.register('graphiti', MockGraphitiService())
     

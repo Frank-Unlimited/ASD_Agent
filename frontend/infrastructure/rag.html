@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识库与 RAG 服务 - 测试页面</title>
+    <link rel="stylesheet" href="../common/styles.css">
+</head>
+<body>
+    <div class="header">
+        <h1>知识库与 RAG 服务</h1>
+        <p>方法论、游戏、量表、案例的智能检索</p>
+        <a href="../index.html" class="back-link">← 返回首页</a>
+    </div>
+
+    <div class="container">
+        <!-- 接口1: 检索方法论知识库 -->
+        <div class="api-section">
+            <h2>1. 检索方法论知识库</h2>
+            <p class="description">检索地板时光方法论相关内容</p>
+
+            <div class="form-group">
+                <label>查询关键词</label>
+                <input type="text" id="methodology-query" placeholder="如何提升注意力">
+            </div>
+
+            <div class="form-group">
+                <label>返回数量</label>
+                <input type="number" id="methodology-top-k" value="5" placeholder="5">
+            </div>
+
+            <div class="button-group">
+                <button onclick="searchMethodology()">执行</button>
+                <button onclick="fillMethodologyExample()">填充示例</button>
+                <button onclick="clearMethodology()">清空</button>
+            </div>
+
+            <div id="methodology-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口2: 检索游戏知识库 -->
+        <div class="api-section">
+            <h2>2. 检索游戏知识库</h2>
+            <p class="description">通用游戏检索（支持过滤条件）</p>
+
+            <div class="form-group">
+                <label>查询关键词</label>
+                <input type="text" id="games-query" placeholder="积木游戏">
+            </div>
+
+            <div class="form-group">
+                <label>过滤条件 (JSON，可选)</label>
+                <textarea id="games-filters" rows="4" placeholder='{"difficulty": "easy", "age_range": "3-5"}'></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>返回数量</label>
+                <input type="number" id="games-top-k" value="10" placeholder="10">
+            </div>
+
+            <div class="button-group">
+                <button onclick="searchGames()">执行</button>
+                <button onclick="fillGamesExample()">填充示例</button>
+                <button onclick="clearGames()">清空</button>
+            </div>
+
+            <div id="games-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口3: 按维度检索游戏 -->
+        <div class="api-section">
+            <h2>3. 按维度检索游戏</h2>
+            <p class="description">根据发展维度和难度检索游戏</p>
+
+            <div class="form-group">
+                <label>维度</label>
+                <input type="text" id="dimension-dimension" placeholder="attention">
+            </div>
+
+            <div class="form-group">
+                <label>难度</label>
+                <select id="dimension-difficulty">
+                    <option value="easy">简单</option>
+                    <option value="medium">中等</option>
+                    <option value="hard">困难</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>返回数量</label>
+                <input type="number" id="dimension-top-k" value="10" placeholder="10">
+            </div>
+
+            <div class="button-group">
+                <button onclick="searchGamesByDimension()">执行</button>
+                <button onclick="fillDimensionExample()">填充示例</button>
+                <button onclick="clearDimension()">清空</button>
+            </div>
+
+            <div id="dimension-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口4: 按兴趣检索游戏 -->
+        <div class="api-section">
+            <h2>4. 按兴趣检索游戏</h2>
+            <p class="description">根据孩子兴趣点检索游戏</p>
+
+            <div class="form-group">
+                <label>兴趣</label>
+                <input type="text" id="interest-interest" placeholder="车辆">
+            </div>
+
+            <div class="form-group">
+                <label>返回数量</label>
+                <input type="number" id="interest-top-k" value="10" placeholder="10">
+            </div>
+
+            <div class="button-group">
+                <button onclick="searchGamesByInterest()">执行</button>
+                <button onclick="fillInterestExample()">填充示例</button>
+                <button onclick="clearInterest()">清空</button>
+            </div>
+
+            <div id="interest-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口5: 检索量表知识库 -->
+        <div class="api-section">
+            <h2>5. 检索量表知识库</h2>
+            <p class="description">检索评估量表相关内容</p>
+
+            <div class="form-group">
+                <label>查询关键词</label>
+                <input type="text" id="scale-query" placeholder="ABC量表">
+            </div>
+
+            <div class="form-group">
+                <label>返回数量</label>
+                <input type="number" id="scale-top-k" value="5" placeholder="5">
+            </div>
+
+            <div class="button-group">
+                <button onclick="searchScale()">执行</button>
+                <button onclick="fillScaleExample()">填充示例</button>
+                <button onclick="clearScale()">清空</button>
+            </div>
+
+            <div id="scale-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口6: 检索案例知识库 -->
+        <div class="api-section">
+            <h2>6. 检索案例知识库</h2>
+            <p class="description">检索相似案例</p>
+
+            <div class="form-group">
+                <label>查询关键词</label>
+                <input type="text" id="cases-query" placeholder="社交困难案例">
+            </div>
+
+            <div class="form-group">
+                <label>返回数量</label>
+                <input type="number" id="cases-top-k" value="5" placeholder="5">
+            </div>
+
+            <div class="button-group">
+                <button onclick="searchCases()">执行</button>
+                <button onclick="fillCasesExample()">填充示例</button>
+                <button onclick="clearCases()">清空</button>
+            </div>
+
+            <div id="cases-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口7: 获取游戏详情 -->
+        <div class="api-section">
+            <h2>7. 获取游戏详情</h2>
+            <p class="description">根据游戏ID获取完整信息</p>
+
+            <div class="form-group">
+                <label>游戏ID</label>
+                <input type="text" id="game-id" placeholder="game_001">
+            </div>
+
+            <div class="button-group">
+                <button onclick="getGame()">执行</button>
+                <button onclick="fillGameExample()">填充示例</button>
+                <button onclick="clearGame()">清空</button>
+            </div>
+
+            <div id="game-result" class="result-container"></div>
+        </div>
+    </div>
+
+    <script src="../common/api-client.js"></script>
+    <script>
+        const client = new APIClient();
+
+        // 接口1: 检索方法论
+        async function searchMethodology() {
+            const data = {
+                query: document.getElementById('methodology-query').value,
+                top_k: parseInt(document.getElementById('methodology-top-k').value) || 5
+            };
+            await client.post('/api/infrastructure/rag/search-methodology', data, 'methodology-result');
+        }
+
+        function fillMethodologyExample() {
+            document.getElementById('methodology-query').value = '如何提升孩子的注意力';
+            document.getElementById('methodology-top-k').value = '5';
+        }
+
+        function clearMethodology() {
+            document.getElementById('methodology-query').value = '';
+            document.getElementById('methodology-top-k').value = '5';
+            document.getElementById('methodology-result').innerHTML = '';
+        }
+
+        // 接口2: 检索游戏
+        async function searchGames() {
+            const filtersText = document.getElementById('games-filters').value.trim();
+            const data = {
+                query: document.getElementById('games-query').value,
+                filters: filtersText ? JSON.parse(filtersText) : null,
+                top_k: parseInt(document.getElementById('games-top-k').value) || 10
+            };
+            await client.post('/api/infrastructure/rag/search-games', data, 'games-result');
+        }
+
+        function fillGamesExample() {
+            document.getElementById('games-query').value = '积木搭建游戏';
+            document.getElementById('games-filters').value = '{"difficulty": "easy"}';
+            document.getElementById('games-top-k').value = '10';
+        }
+
+        function clearGames() {
+            document.getElementById('games-query').value = '';
+            document.getElementById('games-filters').value = '';
+            document.getElementById('games-top-k').value = '10';
+            document.getElementById('games-result').innerHTML = '';
+        }
+
+        // 接口3: 按维度检索游戏
+        async function searchGamesByDimension() {
+            const data = {
+                dimension: document.getElementById('dimension-dimension').value,
+                difficulty: document.getElementById('dimension-difficulty').value,
+                top_k: parseInt(document.getElementById('dimension-top-k').value) || 10
+            };
+            await client.post('/api/infrastructure/rag/search-games-by-dimension', data, 'dimension-result');
+        }
+
+        function fillDimensionExample() {
+            document.getElementById('dimension-dimension').value = 'attention';
+            document.getElementById('dimension-difficulty').value = 'easy';
+            document.getElementById('dimension-top-k').value = '10';
+        }
+
+        function clearDimension() {
+            document.getElementById('dimension-dimension').value = '';
+            document.getElementById('dimension-difficulty').value = 'easy';
+            document.getElementById('dimension-top-k').value = '10';
+            document.getElementById('dimension-result').innerHTML = '';
+        }
+
+        // 接口4: 按兴趣检索游戏
+        async function searchGamesByInterest() {
+            const data = {
+                interest: document.getElementById('interest-interest').value,
+                top_k: parseInt(document.getElementById('interest-top-k').value) || 10
+            };
+            await client.post('/api/infrastructure/rag/search-games-by-interest', data, 'interest-result');
+        }
+
+        function fillInterestExample() {
+            document.getElementById('interest-interest').value = '车辆';
+            document.getElementById('interest-top-k').value = '10';
+        }
+
+        function clearInterest() {
+            document.getElementById('interest-interest').value = '';
+            document.getElementById('interest-top-k').value = '10';
+            document.getElementById('interest-result').innerHTML = '';
+        }
+
+        // 接口5: 检索量表
+        async function searchScale() {
+            const data = {
+                query: document.getElementById('scale-query').value,
+                top_k: parseInt(document.getElementById('scale-top-k').value) || 5
+            };
+            await client.post('/api/infrastructure/rag/search-scale', data, 'scale-result');
+        }
+
+        function fillScaleExample() {
+            document.getElementById('scale-query').value = 'ABC量表';
+            document.getElementById('scale-top-k').value = '5';
+        }
+
+        function clearScale() {
+            document.getElementById('scale-query').value = '';
+            document.getElementById('scale-top-k').value = '5';
+            document.getElementById('scale-result').innerHTML = '';
+        }
+
+        // 接口6: 检索案例
+        async function searchCases() {
+            const data = {
+                query: document.getElementById('cases-query').value,
+                top_k: parseInt(document.getElementById('cases-top-k').value) || 5
+            };
+            await client.post('/api/infrastructure/rag/search-cases', data, 'cases-result');
+        }
+
+        function fillCasesExample() {
+            document.getElementById('cases-query').value = '社交互动困难的案例';
+            document.getElementById('cases-top-k').value = '5';
+        }
+
+        function clearCases() {
+            document.getElementById('cases-query').value = '';
+            document.getElementById('cases-top-k').value = '5';
+            document.getElementById('cases-result').innerHTML = '';
+        }
+
+        // 接口7: 获取游戏详情
+        async function getGame() {
+            const data = {
+                game_id: document.getElementById('game-id').value
+            };
+            await client.post('/api/infrastructure/rag/get-game', data, 'game-result');
+        }
+
+        function fillGameExample() {
+            document.getElementById('game-id').value = 'game_001';
+        }
+
+        function clearGame() {
+            document.getElementById('game-id').value = '';
+            document.getElementById('game-result').innerHTML = '';
+        }
+    </script>
+</body>
+</html>

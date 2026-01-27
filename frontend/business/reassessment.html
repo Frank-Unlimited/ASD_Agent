@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>再评估服务 - 测试页面</title>
+    <link rel="stylesheet" href="../common/styles.css">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <a href="../index.html" class="back-link">← 返回导航</a>
+            <h1>再评估服务</h1>
+            <div class="subtitle">定期再评估孩子能力,更新画像和调整计划 | 模块 14</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 接口 1: 重新评估孩子 -->
+        <div class="card">
+            <div class="card-header">1. 重新评估孩子</div>
+            <div class="card-description">基于最近会话数据和当前上下文重新评估孩子能力</div>
+
+            <form id="form-reassess-child">
+                <div class="form-group">
+                    <label class="form-label">孩子 ID *</label>
+                    <input type="text" class="form-input" name="child_id" placeholder="例如: child-001" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">会话数据 (JSON) *</label>
+                    <textarea class="form-textarea" name="session_data" rows="10" placeholder='输入 JSON 格式的会话数据' required></textarea>
+                    <div class="form-hint">包含最近N次会话的汇总数据</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">当前上下文 (JSON) *</label>
+                    <textarea class="form-textarea" name="current_context" rows="8" placeholder='输入 JSON 格式的当前上下文' required></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testReassessChild()">执行请求</button>
+                    <button type="button" class="btn btn-secondary" onclick="fillExampleReassessChild()">填充示例</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+
+            <div id="request-reassess-child"></div>
+            <div id="response-reassess-child"></div>
+        </div>
+
+        <!-- 接口 2: 更新画像 -->
+        <div class="card">
+            <div class="card-header">2. 更新画像</div>
+            <div class="card-description">根据再评估结果更新孩子的综合画像</div>
+
+            <form id="form-update-portrait">
+                <div class="form-group">
+                    <label class="form-label">孩子 ID *</label>
+                    <input type="text" class="form-input" name="child_id" placeholder="例如: child-001" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">再评估结果 (JSON) *</label>
+                    <textarea class="form-textarea" name="reassessment_result" rows="12" placeholder='输入 JSON 格式的再评估结果' required></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testUpdatePortrait()">执行请求</button>
+                    <button type="button" class="btn btn-secondary" onclick="fillExampleUpdatePortrait()">填充示例</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+
+            <div id="request-update-portrait"></div>
+            <div id="response-update-portrait"></div>
+        </div>
+
+        <!-- 接口 3: 检查是否需要调整计划 -->
+        <div class="card">
+            <div class="card-header">3. 检查是否需要调整计划</div>
+            <div class="card-description">判断是否需要根据再评估结果调整干预计划</div>
+
+            <form id="form-check-adjustment">
+                <div class="form-group">
+                    <label class="form-label">再评估结果 (JSON) *</label>
+                    <textarea class="form-textarea" name="reassessment_result" rows="12" placeholder='输入 JSON 格式的再评估结果' required></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testCheckAdjustment()">执行请求</button>
+                    <button type="button" class="btn btn-secondary" onclick="fillExampleCheckAdjustment()">填充示例</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+
+            <div id="request-check-adjustment"></div>
+            <div id="response-check-adjustment"></div>
+        </div>
+    </div>
+
+    <script src="../common/api-client.js"></script>
+    <script>
+        // 示例数据
+        const examples = {
+            reassessChild: {
+                child_id: "child-001",
+                session_data: {
+                    assessment_period: "2026-01-01 to 2026-01-27",
+                    sessions_count: 8,
+                    aggregated_metrics: {
+                        eye_contact: {
+                            baseline: 5.0,
+                            current: 5.8,
+                            improvement: "+0.8",
+                            trend: "improving"
+                        },
+                        joint_attention: {
+                            baseline: 4.5,
+                            current: 5.2,
+                            improvement: "+0.7",
+                            trend: "improving"
+                        },
+                        imitation: {
+                            baseline: 4.0,
+                            current: 4.5,
+                            improvement: "+0.5",
+                            trend: "stable"
+                        },
+                        social_interaction: {
+                            baseline: 4.0,
+                            current: 4.3,
+                            improvement: "+0.3",
+                            trend: "slow_improvement"
+                        }
+                    },
+                    behavioral_patterns: [
+                        "对结构化游戏响应良好,参与度高",
+                        "眼神接触频率和质量都有提升",
+                        "开始表现出主动分享兴趣的行为",
+                        "情绪调节能力有所改善"
+                    ],
+                    challenges_observed: [
+                        "在自由游戏中仍倾向独自玩耍",
+                        "语言表达仍较单一",
+                        "对新环境适应较慢"
+                    ]
+                },
+                current_context: {
+                    intervention_weeks: 12,
+                    current_focus: ["eye_contact", "joint_attention"],
+                    family_engagement: "high",
+                    home_practice_compliance: 0.85
+                }
+            },
+            updatePortrait: {
+                child_id: "child-001",
+                reassessment_result: {
+                    date: "2026-01-27",
+                    assessment_type: "monthly",
+                    updated_metrics: {
+                        eye_contact: 5.8,
+                        joint_attention: 5.2,
+                        imitation: 4.5,
+                        emotion_understanding: 4.0,
+                        social_interaction: 4.3,
+                        language_expression: 5.8,
+                        language_comprehension: 6.3
+                    },
+                    progress_summary: {
+                        significant_improvements: ["eye_contact", "joint_attention", "language_comprehension"],
+                        moderate_improvements: ["imitation", "social_interaction"],
+                        areas_needing_focus: ["emotion_understanding", "spontaneous_communication"]
+                    },
+                    emerging_strengths: [
+                        "能够在结构化情境中保持注意力15-20分钟",
+                        "开始使用手势配合词语表达需求",
+                        "对同伴存在产生兴趣"
+                    ],
+                    new_challenges: [
+                        "在人多环境中容易过度兴奋",
+                        "转换活动时需要更多时间适应"
+                    ],
+                    recommendations: [
+                        "继续强化眼神接触和共同注意力训练",
+                        "逐步增加情绪理解和表达的练习",
+                        "引入简单的同伴互动活动"
+                    ]
+                }
+            },
+            checkAdjustment: {
+                reassessment_result: {
+                    updated_metrics: {
+                        eye_contact: 5.8,
+                        joint_attention: 5.2,
+                        social_interaction: 4.3
+                    },
+                    progress_summary: {
+                        significant_improvements: ["eye_contact", "joint_attention"],
+                        areas_needing_focus: ["emotion_understanding", "spontaneous_communication"]
+                    },
+                    target_achievement: {
+                        eye_contact: { target: 6.5, current: 5.8, progress: 0.53 },
+                        joint_attention: { target: 6.0, current: 5.2, progress: 0.45 }
+                    }
+                }
+            }
+        };
+
+        // 测试函数
+        async function testReassessChild() {
+            const formData = getFormData('form-reassess-child');
+            const data = {
+                child_id: formData.child_id,
+                session_data: formData.session_data,
+                current_context: formData.current_context
+            };
+            displayRequest('request-reassess-child', '/api/business/reassessment/reassess-child', data);
+            showLoading('response-reassess-child');
+            const response = await apiClient.post('/api/business/reassessment/reassess-child', data);
+            displayResponse('response-reassess-child', response);
+        }
+
+        async function testUpdatePortrait() {
+            const formData = getFormData('form-update-portrait');
+            const data = {
+                child_id: formData.child_id,
+                reassessment_result: formData.reassessment_result
+            };
+            displayRequest('request-update-portrait', '/api/business/reassessment/update-portrait', data);
+            showLoading('response-update-portrait');
+            const response = await apiClient.post('/api/business/reassessment/update-portrait', data);
+            displayResponse('response-update-portrait', response);
+        }
+
+        async function testCheckAdjustment() {
+            const formData = getFormData('form-check-adjustment');
+            const data = { reassessment_result: formData.reassessment_result };
+            displayRequest('request-check-adjustment', '/api/business/reassessment/check-adjustment-needed', data);
+            showLoading('response-check-adjustment');
+            const response = await apiClient.post('/api/business/reassessment/check-adjustment-needed', data);
+            displayResponse('response-check-adjustment', response);
+        }
+
+        // 填充示例函数
+        function fillExampleReassessChild() {
+            document.querySelector('#form-reassess-child [name="child_id"]').value = examples.reassessChild.child_id;
+            document.querySelector('#form-reassess-child [name="session_data"]').value = JSON.stringify(examples.reassessChild.session_data, null, 2);
+            document.querySelector('#form-reassess-child [name="current_context"]').value = JSON.stringify(examples.reassessChild.current_context, null, 2);
+        }
+
+        function fillExampleUpdatePortrait() {
+            document.querySelector('#form-update-portrait [name="child_id"]').value = examples.updatePortrait.child_id;
+            document.querySelector('#form-update-portrait [name="reassessment_result"]').value = JSON.stringify(examples.updatePortrait.reassessment_result, null, 2);
+        }
+
+        function fillExampleCheckAdjustment() {
+            document.querySelector('#form-check-adjustment [name="reassessment_result"]').value = JSON.stringify(examples.checkAdjustment.reassessment_result, null, 2);
+        }
+    </script>
+</body>
+</html>

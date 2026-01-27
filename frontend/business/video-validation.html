@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频分析与验证服务 - 测试页面</title>
+    <link rel="stylesheet" href="../common/styles.css">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <a href="../index.html" class="back-link">← 返回导航</a>
+            <h1>视频分析与验证服务</h1>
+            <div class="subtitle">视频分析和观察交叉验证 | 模块 11</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 接口 1: 分析视频并验证观察 -->
+        <div class="card">
+            <div class="card-header">1. 分析视频并验证观察</div>
+            <div class="card-description">分析会话视频并与快捷观察进行交叉验证</div>
+
+            <form id="form-analyze-validate">
+                <div class="form-group">
+                    <label class="form-label">会话 ID *</label>
+                    <input type="text" class="form-input" name="session_id" placeholder="例如: session-abc123" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">视频文件路径 *</label>
+                    <input type="text" class="form-input" name="video_path" placeholder="例如: /path/to/video.mp4" required>
+                    <div class="form-hint">服务器上的视频文件路径</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">快捷观察列表 (JSON) *</label>
+                    <textarea class="form-textarea" name="quick_observations" rows="12" placeholder='输入 JSON 格式的快捷观察数据' required></textarea>
+                    <div class="form-hint">会话中记录的所有快捷观察</div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testAnalyzeValidate()">执行请求</button>
+                    <button type="button" class="btn btn-secondary" onclick="fillExampleAnalyzeValidate()">填充示例</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+
+            <div id="request-analyze-validate"></div>
+            <div id="response-analyze-validate"></div>
+        </div>
+
+        <!-- 接口 2: 交叉验证 -->
+        <div class="card">
+            <div class="card-header">2. 交叉验证</div>
+            <div class="card-description">对比快捷观察和视频分析结果,生成验证报告</div>
+
+            <form id="form-cross-validate">
+                <div class="form-group">
+                    <label class="form-label">快捷观察列表 (JSON) *</label>
+                    <textarea class="form-textarea" name="quick_observations" rows="8" placeholder='输入 JSON 格式的快捷观察数据' required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">视频分析结果 (JSON) *</label>
+                    <textarea class="form-textarea" name="video_analysis" rows="10" placeholder='输入 JSON 格式的视频分析结果' required></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testCrossValidate()">执行请求</button>
+                    <button type="button" class="btn btn-secondary" onclick="fillExampleCrossValidate()">填充示例</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+
+            <div id="request-cross-validate"></div>
+            <div id="response-cross-validate"></div>
+        </div>
+    </div>
+
+    <script src="../common/api-client.js"></script>
+    <script>
+        // 示例数据
+        const examples = {
+            analyzeValidate: {
+                session_id: "session-abc123",
+                video_path: "/uploads/sessions/video_20260127_100000.mp4",
+                quick_observations: [
+                    {
+                        timestamp: "2026-01-27T10:05:23Z",
+                        type: "eye_contact",
+                        description: "孩子主动眼神接触",
+                        duration: 2
+                    },
+                    {
+                        timestamp: "2026-01-27T10:08:45Z",
+                        type: "smile",
+                        description: "孩子微笑回应"
+                    },
+                    {
+                        timestamp: "2026-01-27T10:12:10Z",
+                        type: "imitation",
+                        description: "模仿家长拍手动作"
+                    },
+                    {
+                        timestamp: "2026-01-27T10:15:30Z",
+                        type: "pointing",
+                        description: "指向玩具表达需求"
+                    }
+                ]
+            },
+            crossValidate: {
+                quick_observations: [
+                    {
+                        timestamp: "2026-01-27T10:05:23Z",
+                        type: "eye_contact",
+                        description: "孩子主动眼神接触",
+                        duration: 2
+                    },
+                    {
+                        timestamp: "2026-01-27T10:08:45Z",
+                        type: "smile",
+                        description: "孩子微笑回应"
+                    }
+                ],
+                video_analysis: {
+                    detected_behaviors: [
+                        {
+                            timestamp: "2026-01-27T10:05:22Z",
+                            type: "eye_contact",
+                            confidence: 0.92,
+                            duration: 1.8,
+                            details: "检测到孩子与成人的眼神交流"
+                        },
+                        {
+                            timestamp: "2026-01-27T10:08:46Z",
+                            type: "smile",
+                            confidence: 0.88,
+                            details: "检测到面部微笑表情"
+                        },
+                        {
+                            timestamp: "2026-01-27T10:12:15Z",
+                            type: "hand_movement",
+                            confidence: 0.75,
+                            details: "检测到手部拍打动作"
+                        }
+                    ],
+                    overall_metrics: {
+                        attention_score: 7.5,
+                        engagement_score: 8.0,
+                        social_interaction_score: 7.0
+                    }
+                }
+            }
+        };
+
+        // 测试函数
+        async function testAnalyzeValidate() {
+            const formData = getFormData('form-analyze-validate');
+            const data = {
+                session_id: formData.session_id,
+                video_path: formData.video_path,
+                quick_observations: formData.quick_observations
+            };
+            displayRequest('request-analyze-validate', '/api/business/video-validation/analyze-and-validate', data);
+            showLoading('response-analyze-validate');
+            const response = await apiClient.post('/api/business/video-validation/analyze-and-validate', data);
+            displayResponse('response-analyze-validate', response);
+        }
+
+        async function testCrossValidate() {
+            const formData = getFormData('form-cross-validate');
+            const data = {
+                quick_observations: formData.quick_observations,
+                video_analysis: formData.video_analysis
+            };
+            displayRequest('request-cross-validate', '/api/business/video-validation/cross-validate', data);
+            showLoading('response-cross-validate');
+            const response = await apiClient.post('/api/business/video-validation/cross-validate', data);
+            displayResponse('response-cross-validate', response);
+        }
+
+        // 填充示例函数
+        function fillExampleAnalyzeValidate() {
+            document.querySelector('#form-analyze-validate [name="session_id"]').value = examples.analyzeValidate.session_id;
+            document.querySelector('#form-analyze-validate [name="video_path"]').value = examples.analyzeValidate.video_path;
+            document.querySelector('#form-analyze-validate [name="quick_observations"]').value = JSON.stringify(examples.analyzeValidate.quick_observations, null, 2);
+        }
+
+        function fillExampleCrossValidate() {
+            document.querySelector('#form-cross-validate [name="quick_observations"]').value = JSON.stringify(examples.crossValidate.quick_observations, null, 2);
+            document.querySelector('#form-cross-validate [name="video_analysis"]').value = JSON.stringify(examples.crossValidate.video_analysis, null, 2);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>总结生成服务 - 测试页面</title>
+    <link rel="stylesheet" href="../common/styles.css">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <a href="../index.html" class="back-link">← 返回导航</a>
+            <h1>总结生成服务</h1>
+            <div class="subtitle">生成会话初步总结、反馈表和最终总结 | 模块 12</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 接口 1: 生成初步总结 -->
+        <div class="card">
+            <div class="card-header">1. 生成初步总结</div>
+            <div class="card-description">基于会话数据和历史数据生成初步总结</div>
+
+            <form id="form-generate-preliminary">
+                <div class="form-group">
+                    <label class="form-label">会话 ID *</label>
+                    <input type="text" class="form-input" name="session_id" placeholder="例如: session-abc123" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">会话数据 (JSON) *</label>
+                    <textarea class="form-textarea" name="session_data" rows="10" placeholder='输入 JSON 格式的会话数据' required></textarea>
+                    <div class="form-hint">包含观察记录、视频分析结果等</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">历史数据 (JSON) *</label>
+                    <textarea class="form-textarea" name="historical_data" rows="8" placeholder='输入 JSON 格式的历史数据' required></textarea>
+                    <div class="form-hint">包含孩子的历史表现、趋势等</div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testGeneratePreliminary()">执行请求</button>
+                    <button type="button" class="btn btn-secondary" onclick="fillExampleGeneratePreliminary()">填充示例</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+
+            <div id="request-generate-preliminary"></div>
+            <div id="response-generate-preliminary"></div>
+        </div>
+
+        <!-- 接口 2: 生成反馈表 -->
+        <div class="card">
+            <div class="card-header">2. 生成反馈表</div>
+            <div class="card-description">基于初步总结生成家长反馈表</div>
+
+            <form id="form-generate-feedback">
+                <div class="form-group">
+                    <label class="form-label">初步总结 (JSON) *</label>
+                    <textarea class="form-textarea" name="preliminary_summary" rows="12" placeholder='输入 JSON 格式的初步总结' required></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testGenerateFeedback()">执行请求</button>
+                    <button type="button" class="btn btn-secondary" onclick="fillExampleGenerateFeedback()">填充示例</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+
+            <div id="request-generate-feedback"></div>
+            <div id="response-generate-feedback"></div>
+        </div>
+
+        <!-- 接口 3: 生成最终总结 -->
+        <div class="card">
+            <div class="card-header">3. 生成最终总结</div>
+            <div class="card-description">结合家长反馈生成完整的会话总结</div>
+
+            <form id="form-generate-final">
+                <div class="form-group">
+                    <label class="form-label">会话 ID *</label>
+                    <input type="text" class="form-input" name="session_id" placeholder="例如: session-abc123" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">所有数据 (JSON) *</label>
+                    <textarea class="form-textarea" name="all_data" rows="10" placeholder='输入 JSON 格式的所有数据' required></textarea>
+                    <div class="form-hint">包含会话数据、初步总结、视频分析等</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">家长反馈 (JSON) *</label>
+                    <textarea class="form-textarea" name="parent_feedback" rows="8" placeholder='输入 JSON 格式的家长反馈' required></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testGenerateFinal()">执行请求</button>
+                    <button type="button" class="btn btn-secondary" onclick="fillExampleGenerateFinal()">填充示例</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+
+            <div id="request-generate-final"></div>
+            <div id="response-generate-final"></div>
+        </div>
+    </div>
+
+    <script src="../common/api-client.js"></script>
+    <script>
+        // 示例数据
+        const examples = {
+            generatePreliminary: {
+                session_id: "session-abc123",
+                session_data: {
+                    child_id: "child-001",
+                    game_id: "game-001",
+                    duration: 30,
+                    observations: [
+                        { type: "eye_contact", count: 5, quality: "good" },
+                        { type: "smile", count: 3 },
+                        { type: "imitation", count: 4, success_rate: 0.75 }
+                    ],
+                    video_analysis: {
+                        attention_score: 7.5,
+                        engagement_score: 8.0,
+                        behaviors_detected: ["eye_contact", "smile", "hand_movement"]
+                    },
+                    completion_status: "completed"
+                },
+                historical_data: {
+                    previous_sessions_count: 15,
+                    average_metrics: {
+                        eye_contact: 5.2,
+                        joint_attention: 4.8,
+                        social_interaction: 4.5
+                    },
+                    recent_trend: "improving",
+                    baseline_comparison: {
+                        eye_contact_change: "+1.2",
+                        joint_attention_change: "+0.8"
+                    }
+                }
+            },
+            generateFeedback: {
+                preliminary_summary: {
+                    session_id: "session-abc123",
+                    date: "2026-01-27",
+                    highlights: [
+                        "孩子主动眼神接触次数增加,共5次",
+                        "对游戏表现出高度兴趣,全程参与",
+                        "成功模仿家长动作4次,成功率75%"
+                    ],
+                    key_observations: {
+                        strengths: ["注意力集中", "配合度高", "模仿能力进步"],
+                        areas_for_improvement: ["主动沟通意愿有待提高", "情绪表达仍较单一"]
+                    },
+                    metrics: {
+                        attention_score: 7.5,
+                        engagement_score: 8.0,
+                        social_interaction_score: 6.5
+                    },
+                    comparison_to_baseline: {
+                        eye_contact: "+20%",
+                        joint_attention: "+15%"
+                    }
+                }
+            },
+            generateFinal: {
+                session_id: "session-abc123",
+                all_data: {
+                    session_data: {
+                        duration: 30,
+                        completion_status: "completed",
+                        observations_count: 12
+                    },
+                    preliminary_summary: {
+                        highlights: ["眼神接触增加", "配合度高"],
+                        metrics: { attention_score: 7.5 }
+                    },
+                    video_analysis: {
+                        validated_observations: 10,
+                        confidence_score: 0.85
+                    }
+                },
+                parent_feedback: {
+                    questions: [
+                        {
+                            question: "您认为孩子今天的表现如何?",
+                            answer: "excellent",
+                            comment: "孩子今天特别配合,笑容很多"
+                        },
+                        {
+                            question: "有没有注意到孩子的特殊反应?",
+                            answer: "是的,他对积木特别感兴趣,主动拿起来玩"
+                        },
+                        {
+                            question: "家庭练习的困难?",
+                            answer: "时间安排有时困难,但会尽量坚持"
+                        }
+                    ],
+                    overall_satisfaction: "very_satisfied"
+                }
+            }
+        };
+
+        // 测试函数
+        async function testGeneratePreliminary() {
+            const formData = getFormData('form-generate-preliminary');
+            const data = {
+                session_id: formData.session_id,
+                session_data: formData.session_data,
+                historical_data: formData.historical_data
+            };
+            displayRequest('request-generate-preliminary', '/api/business/summary/generate-preliminary', data);
+            showLoading('response-generate-preliminary');
+            const response = await apiClient.post('/api/business/summary/generate-preliminary', data);
+            displayResponse('response-generate-preliminary', response);
+        }
+
+        async function testGenerateFeedback() {
+            const formData = getFormData('form-generate-feedback');
+            const data = { preliminary_summary: formData.preliminary_summary };
+            displayRequest('request-generate-feedback', '/api/business/summary/generate-feedback-form', data);
+            showLoading('response-generate-feedback');
+            const response = await apiClient.post('/api/business/summary/generate-feedback-form', data);
+            displayResponse('response-generate-feedback', response);
+        }
+
+        async function testGenerateFinal() {
+            const formData = getFormData('form-generate-final');
+            const data = {
+                session_id: formData.session_id,
+                all_data: formData.all_data,
+                parent_feedback: formData.parent_feedback
+            };
+            displayRequest('request-generate-final', '/api/business/summary/generate-final', data);
+            showLoading('response-generate-final');
+            const response = await apiClient.post('/api/business/summary/generate-final', data);
+            displayResponse('response-generate-final', response);
+        }
+
+        // 填充示例函数
+        function fillExampleGeneratePreliminary() {
+            document.querySelector('#form-generate-preliminary [name="session_id"]').value = examples.generatePreliminary.session_id;
+            document.querySelector('#form-generate-preliminary [name="session_data"]').value = JSON.stringify(examples.generatePreliminary.session_data, null, 2);
+            document.querySelector('#form-generate-preliminary [name="historical_data"]').value = JSON.stringify(examples.generatePreliminary.historical_data, null, 2);
+        }
+
+        function fillExampleGenerateFeedback() {
+            document.querySelector('#form-generate-feedback [name="preliminary_summary"]').value = JSON.stringify(examples.generateFeedback.preliminary_summary, null, 2);
+        }
+
+        function fillExampleGenerateFinal() {
+            document.querySelector('#form-generate-final [name="session_id"]').value = examples.generateFinal.session_id;
+            document.querySelector('#form-generate-final [name="all_data"]').value = JSON.stringify(examples.generateFinal.all_data, null, 2);
+            document.querySelector('#form-generate-final [name="parent_feedback"]').value = JSON.stringify(examples.generateFinal.parent_feedback, null, 2);
+        }
+    </script>
+</body>
+</html>

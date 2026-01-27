@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graphiti 记忆网络服务 - 测试页面</title>
+    <link rel="stylesheet" href="../common/styles.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Graphiti 记忆网络服务</h1>
+        <p>图数据库驱动的记忆管理与趋势分析</p>
+        <a href="../index.html" class="back-link">← 返回首页</a>
+    </div>
+
+    <div class="container">
+        <!-- 接口1: 批量保存记忆 -->
+        <div class="api-section">
+            <h2>1. 批量保存记忆</h2>
+            <p class="description">保存多条记忆到图数据库</p>
+
+            <div class="form-group">
+                <label>孩子ID</label>
+                <input type="text" id="save-child-id" placeholder="child_001">
+            </div>
+
+            <div class="form-group">
+                <label>记忆数据 (JSON数组)</label>
+                <textarea id="save-memories" rows="8" placeholder='[
+  {
+    "timestamp": "2025-01-27T10:00:00",
+    "dimension": "attention",
+    "observation": "主动注意时长增加",
+    "score": 8
+  }
+]'></textarea>
+            </div>
+
+            <div class="button-group">
+                <button onclick="saveMemories()">执行</button>
+                <button onclick="fillSaveMemoriesExample()">填充示例</button>
+                <button onclick="clearSaveMemories()">清空</button>
+            </div>
+
+            <div id="save-memories-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口2: 获取最近记忆 -->
+        <div class="api-section">
+            <h2>2. 获取最近记忆</h2>
+            <p class="description">获取指定天数内的记忆记录</p>
+
+            <div class="form-group">
+                <label>孩子ID</label>
+                <input type="text" id="get-child-id" placeholder="child_001">
+            </div>
+
+            <div class="form-group">
+                <label>天数</label>
+                <input type="number" id="get-days" value="7" placeholder="7">
+            </div>
+
+            <div class="button-group">
+                <button onclick="getRecentMemories()">执行</button>
+                <button onclick="fillGetMemoriesExample()">填充示例</button>
+                <button onclick="clearGetMemories()">清空</button>
+            </div>
+
+            <div id="get-memories-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口3: 分析趋势 -->
+        <div class="api-section">
+            <h2>3. 分析趋势</h2>
+            <p class="description">分析特定维度的发展趋势</p>
+
+            <div class="form-group">
+                <label>孩子ID</label>
+                <input type="text" id="trends-child-id" placeholder="child_001">
+            </div>
+
+            <div class="form-group">
+                <label>维度</label>
+                <input type="text" id="trends-dimension" placeholder="attention">
+            </div>
+
+            <div class="button-group">
+                <button onclick="analyzeTrends()">执行</button>
+                <button onclick="fillTrendsExample()">填充示例</button>
+                <button onclick="clearTrends()">清空</button>
+            </div>
+
+            <div id="trends-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口4: 检测里程碑 -->
+        <div class="api-section">
+            <h2>4. 检测里程碑</h2>
+            <p class="description">检测孩子的发展里程碑</p>
+
+            <div class="form-group">
+                <label>孩子ID</label>
+                <input type="text" id="milestones-child-id" placeholder="child_001">
+            </div>
+
+            <div class="button-group">
+                <button onclick="detectMilestones()">执行</button>
+                <button onclick="fillMilestonesExample()">填充示例</button>
+                <button onclick="clearMilestones()">清空</button>
+            </div>
+
+            <div id="milestones-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口5: 检测平台期 -->
+        <div class="api-section">
+            <h2>5. 检测平台期</h2>
+            <p class="description">检测特定维度是否进入平台期</p>
+
+            <div class="form-group">
+                <label>孩子ID</label>
+                <input type="text" id="plateau-child-id" placeholder="child_001">
+            </div>
+
+            <div class="form-group">
+                <label>维度</label>
+                <input type="text" id="plateau-dimension" placeholder="attention">
+            </div>
+
+            <div class="button-group">
+                <button onclick="detectPlateau()">执行</button>
+                <button onclick="fillPlateauExample()">填充示例</button>
+                <button onclick="clearPlateau()">清空</button>
+            </div>
+
+            <div id="plateau-result" class="result-container"></div>
+        </div>
+
+        <!-- 接口6: 构建当前上下文 -->
+        <div class="api-section">
+            <h2>6. 构建当前上下文</h2>
+            <p class="description">构建包含趋势、关注点的上下文信息</p>
+
+            <div class="form-group">
+                <label>孩子ID</label>
+                <input type="text" id="context-child-id" placeholder="child_001">
+            </div>
+
+            <div class="button-group">
+                <button onclick="buildContext()">执行</button>
+                <button onclick="fillContextExample()">填充示例</button>
+                <button onclick="clearContext()">清空</button>
+            </div>
+
+            <div id="context-result" class="result-container"></div>
+        </div>
+    </div>
+
+    <script src="../common/api-client.js"></script>
+    <script>
+        const client = new APIClient();
+
+        // 接口1: 批量保存记忆
+        async function saveMemories() {
+            const data = {
+                child_id: document.getElementById('save-child-id').value,
+                memories: JSON.parse(document.getElementById('save-memories').value || '[]')
+            };
+            await client.post('/api/infrastructure/graphiti/save-memories', data, 'save-memories-result');
+        }
+
+        function fillSaveMemoriesExample() {
+            document.getElementById('save-child-id').value = 'child_001';
+            document.getElementById('save-memories').value = `[
+  {
+    "timestamp": "2025-01-27T10:00:00",
+    "dimension": "attention",
+    "observation": "主动注意时长增加到5分钟",
+    "score": 8
+  },
+  {
+    "timestamp": "2025-01-27T10:30:00",
+    "dimension": "interaction",
+    "observation": "能够回应家长的互动邀请",
+    "score": 7
+  }
+]`;
+        }
+
+        function clearSaveMemories() {
+            document.getElementById('save-child-id').value = '';
+            document.getElementById('save-memories').value = '';
+            document.getElementById('save-memories-result').innerHTML = '';
+        }
+
+        // 接口2: 获取最近记忆
+        async function getRecentMemories() {
+            const data = {
+                child_id: document.getElementById('get-child-id').value,
+                days: parseInt(document.getElementById('get-days').value) || 7
+            };
+            await client.post('/api/infrastructure/graphiti/get-recent-memories', data, 'get-memories-result');
+        }
+
+        function fillGetMemoriesExample() {
+            document.getElementById('get-child-id').value = 'child_001';
+            document.getElementById('get-days').value = '7';
+        }
+
+        function clearGetMemories() {
+            document.getElementById('get-child-id').value = '';
+            document.getElementById('get-days').value = '7';
+            document.getElementById('get-memories-result').innerHTML = '';
+        }
+
+        // 接口3: 分析趋势
+        async function analyzeTrends() {
+            const data = {
+                child_id: document.getElementById('trends-child-id').value,
+                dimension: document.getElementById('trends-dimension').value
+            };
+            await client.post('/api/infrastructure/graphiti/analyze-trends', data, 'trends-result');
+        }
+
+        function fillTrendsExample() {
+            document.getElementById('trends-child-id').value = 'child_001';
+            document.getElementById('trends-dimension').value = 'attention';
+        }
+
+        function clearTrends() {
+            document.getElementById('trends-child-id').value = '';
+            document.getElementById('trends-dimension').value = '';
+            document.getElementById('trends-result').innerHTML = '';
+        }
+
+        // 接口4: 检测里程碑
+        async function detectMilestones() {
+            const data = {
+                child_id: document.getElementById('milestones-child-id').value
+            };
+            await client.post('/api/infrastructure/graphiti/detect-milestones', data, 'milestones-result');
+        }
+
+        function fillMilestonesExample() {
+            document.getElementById('milestones-child-id').value = 'child_001';
+        }
+
+        function clearMilestones() {
+            document.getElementById('milestones-child-id').value = '';
+            document.getElementById('milestones-result').innerHTML = '';
+        }
+
+        // 接口5: 检测平台期
+        async function detectPlateau() {
+            const data = {
+                child_id: document.getElementById('plateau-child-id').value,
+                dimension: document.getElementById('plateau-dimension').value
+            };
+            await client.post('/api/infrastructure/graphiti/detect-plateau', data, 'plateau-result');
+        }
+
+        function fillPlateauExample() {
+            document.getElementById('plateau-child-id').value = 'child_001';
+            document.getElementById('plateau-dimension').value = 'attention';
+        }
+
+        function clearPlateau() {
+            document.getElementById('plateau-child-id').value = '';
+            document.getElementById('plateau-dimension').value = '';
+            document.getElementById('plateau-result').innerHTML = '';
+        }
+
+        // 接口6: 构建当前上下文
+        async function buildContext() {
+            const data = {
+                child_id: document.getElementById('context-child-id').value
+            };
+            await client.post('/api/infrastructure/graphiti/build-context', data, 'context-result');
+        }
+
+        function fillContextExample() {
+            document.getElementById('context-child-id').value = 'child_001';
+        }
+
+        function clearContext() {
+            document.getElementById('context-child-id').value = '';
+            document.getElementById('context-result').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
