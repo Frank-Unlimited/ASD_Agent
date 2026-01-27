@@ -6,8 +6,13 @@ import asyncio
 import os
 import sys
 
-# 设置API密钥
-os.environ["DASHSCOPE_API_KEY"] = "sk-5cd70747046b4cf787793bb6ee28cb44"
+# 从环境变量读取API密钥（不再硬编码）
+# 请在 .env 文件中设置 DASHSCOPE_API_KEY
+if not os.getenv("DASHSCOPE_API_KEY"):
+    print("❌ 错误: 未设置 DASHSCOPE_API_KEY 环境变量")
+    print("请在项目根目录的 .env 文件中设置:")
+    print("DASHSCOPE_API_KEY=your_api_key_here")
+    exit(1)
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
