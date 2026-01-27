@@ -57,10 +57,13 @@ def init_services():
     
     # 基础设施层（模块1-6）
     if settings.use_real_sqlite:
-        # TODO: 实现真实服务后替换
-        # from services.real.sqlite_service import RealSQLiteService
-        # container.register('sqlite', RealSQLiteService())
-        pass
+        try:
+            from services.real.sqlite_adapter import SQLiteServiceAdapter
+            container.register('sqlite', SQLiteServiceAdapter())
+            print("[Container] 使用真实 SQLite 服务")
+        except Exception as e:
+            print(f"[Container] 加载真实 SQLite 服务失败: {e}，使用 Mock")
+            container.register('sqlite', MockSQLiteService())
     else:
         container.register('sqlite', MockSQLiteService())
     
@@ -77,25 +80,50 @@ def init_services():
         container.register('rag', MockRAGService())
     
     if settings.use_real_video_analysis:
-        from services.Multimodal_Understanding.adapters import MultimodalVideoAnalysisService
-        container.register('video_analysis', MultimodalVideoAnalysisService())
+        try:
+            from services.real.multimodal_adapter import MultimodalVideoAnalysisService
+            container.register('video_analysis', MultimodalVideoAnalysisService())
+            print("[Container] 使用真实视频分析服务")
+        except Exception as e:
+            print(f"[Container] 加载真实视频分析服务失败: {e}，使用 Mock")
+            container.register('video_analysis', MockVideoAnalysisService())
     else:
         container.register('video_analysis', MockVideoAnalysisService())
     
     if settings.use_real_speech:
-        from services.Speech_Processing.adapters import AliyunSpeechService
-        container.register('speech', AliyunSpeechService())
+        try:
+            from services.real.speech_adapter import AliyunSpeechService
+            container.register('speech', AliyunSpeechService())
+            print("[Container] 使用真实语音服务")
+        except Exception as e:
+            print(f"[Container] 加载真实语音服务失败: {e}，使用 Mock")
+            container.register('speech', MockSpeechService())
     else:
         container.register('speech', MockSpeechService())
     
     if settings.use_real_document_parser:
-        from services.Multimodal_Understanding.adapters import MultimodalDocumentParserService
-        container.register('document_parser', MultimodalDocumentParserService())
+        try:
+            from services.real.multimodal_adapter import MultimodalDocumentParserService
+            container.register('document_parser', MultimodalDocumentParserService())
+            print("[Container] 使用真实文档解析服务")
+        except Exception as e:
+            print(f"[Container] 加载真实文档解析服务失败: {e}，使用 Mock")
+            container.register('document_parser', MockDocumentParserService())
     else:
         container.register('document_parser', MockDocumentParserService())
     
-    # 业务逻辑层（模块7-16）- 目前都使用 Mock
-    container.register('assessment', MockAssessmentService())
+    # 业务逻辑层（模块7-16）
+    if settings.use_real_assessment:
+        try:
+            from services.real.assessment_service import RealAssessmentService
+            container.register('assessment', RealAssessmentService())
+            print("[Container] 使用真实评估服务（基于 LLM）")
+        except Exception as e:
+            print(f"[Container] 加载真实评估服务失败: {e}，使用 Mock")
+            container.register('assessment', MockAssessmentService())
+    else:
+        container.register('assessment', MockAssessmentService())
+    
     container.register('weekly_plan', MockWeeklyPlanService())
     container.register('guidance', MockGuidanceService())
     container.register('observation', MockObservationService())
@@ -103,7 +131,28 @@ def init_services():
     container.register('summary', MockSummaryService())
     container.register('memory_update', MockMemoryUpdateService())
     container.register('reassessment', MockReassessmentService())
-    container.register('chat_assistant', MockChatAssistantService())
+    
+    if settings.use_real_chat:
+        try:
+            from services.real.chat_service import RealChatAssistantService
+            container.register('chat_assistant', RealChatAssistantService())
+            print("[Container] 使用真实对话助手（基于 LLM）")
+        except Exception as e:
+            print(f"[Container] 加载真实对话助手失败: {e}，使用 Mock")
+            container.register('chat_assistant', MockChatAssistantService())
+    else:
+        container.register('chat_assistant', MockChatAssistantService())
+    
     container.register('visualization', MockVisualizationService())
+    
+    # LLM 服务（根据配置动态加载）
+    try:
+        from services.real.llm_service import get_llm_service
+        llm = get_llm_service()
+        container.register('llm', llm)
+        print(f"[Container] LLM 服务已注册: {settings.ai_provider}")
+    except Exception as e:
+        print(f"[Container] LLM 服务注册失败: {e}")
+        print(f"[Container] 请检查 {settings.ai_provider.upper()}_API_KEY 是否配置")
     
     print("[Container] 所有服务已注册（当前使用 Mock 实现）")
