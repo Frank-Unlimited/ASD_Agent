@@ -68,12 +68,13 @@ def init_services():
         container.register('sqlite', MockSQLiteService())
     
     if settings.use_real_graphiti:
-        from services.real.graphiti_service import GraphitiService
-        container.register('graphiti', GraphitiService(
-            neo4j_uri=settings.neo4j_uri,
-            neo4j_user=settings.neo4j_user,
-            neo4j_password=settings.neo4j_password
-        ))
+        try:
+            from services.Graphiti.adapters import GraphitiServiceAdapter
+            container.register('graphiti', GraphitiServiceAdapter())
+            print("[Container] 使用真实 Graphiti 服务")
+        except Exception as e:
+            print(f"[Container] 加载真实 Graphiti 服务失败: {e}，使用 Mock")
+            container.register('graphiti', MockGraphitiService())
     else:
         container.register('graphiti', MockGraphitiService())
     

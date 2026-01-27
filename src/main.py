@@ -1,11 +1,18 @@
 """
 FastAPI 应用入口
 """
+import sys
+from pathlib import Path
+
+# 添加项目根目录到 Python 路径
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.container import init_services
-from src.langgraph import get_compiled_workflow
+from src.workflow import get_compiled_workflow
 from src.models.state import DynamicInterventionState
 from src.api.workflow import router as workflow_router
 from src.api.infrastructure import router as infrastructure_router
