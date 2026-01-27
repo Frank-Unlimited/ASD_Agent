@@ -8,6 +8,8 @@ from src.container import init_services
 from src.langgraph import get_compiled_workflow
 from src.models.state import DynamicInterventionState
 from src.api.workflow import router as workflow_router
+from src.api.infrastructure import router as infrastructure_router
+from src.api.business import router as business_router
 
 # 初始化服务容器
 init_services()
@@ -30,6 +32,8 @@ app.add_middleware(
 
 # 注册路由
 app.include_router(workflow_router)
+app.include_router(infrastructure_router)
+app.include_router(business_router)
 
 
 @app.get("/")

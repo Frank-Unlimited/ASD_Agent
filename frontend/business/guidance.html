@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时指引服务 - 测试页面</title>
+    <link rel="stylesheet" href="../common/styles.css">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <a href="../index.html" class="back-link">← 返回导航</a>
+            <h1>实时指引服务</h1>
+            <div class="subtitle">提供游戏步骤指引和个性化话术推荐 | 模块 9</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 接口 1: 获取步骤指引 -->
+        <div class="card">
+            <div class="card-header">1. 获取步骤指引</div>
+            <div class="card-description">获取游戏当前步骤的详细指引和注意事项</div>
+
+            <form id="form-get-guidance">
+                <div class="form-group">
+                    <label class="form-label">游戏 ID *</label>
+                    <input type="text" class="form-input" name="game_id" placeholder="例如: game-001" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">步骤编号 *</label>
+                    <input type="number" class="form-input" name="step" placeholder="例如: 1" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">上下文 (JSON) *</label>
+                    <textarea class="form-textarea" name="context" rows="8" placeholder='输入 JSON 格式的上下文数据' required></textarea>
+                    <div class="form-hint">包含孩子状态、进度、观察到的行为等</div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testGetGuidance()">执行请求</button>
+                    <button type="button" class="btn btn-secondary" onclick="fillExampleGetGuidance()">填充示例</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+
+            <div id="request-get-guidance"></div>
+            <div id="response-get-guidance"></div>
+        </div>
+
+        <!-- 接口 2: 推荐话术 -->
+        <div class="card">
+            <div class="card-header">2. 推荐话术</div>
+            <div class="card-description">根据当前情境和孩子特点推荐合适的互动话术</div>
+
+            <form id="form-recommend-phrases">
+                <div class="form-group">
+                    <label class="form-label">当前情境 *</label>
+                    <input type="text" class="form-input" name="situation" placeholder="例如: 孩子注意力分散" required>
+                    <div class="form-hint">描述当前的互动情境或孩子的状态</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">孩子档案 (JSON) *</label>
+                    <textarea class="form-textarea" name="child_profile" rows="8" placeholder='输入 JSON 格式的孩子档案' required></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testRecommendPhrases()">执行请求</button>
+                    <button type="button" class="btn btn-secondary" onclick="fillExampleRecommendPhrases()">填充示例</button>
+                    <button type="reset" class="btn btn-secondary">清空</button>
+                </div>
+            </form>
+
+            <div id="request-recommend-phrases"></div>
+            <div id="response-recommend-phrases"></div>
+        </div>
+    </div>
+
+    <script src="../common/api-client.js"></script>
+    <script>
+        // 示例数据
+        const examples = {
+            getGuidance: {
+                game_id: "game-001",
+                step: 1,
+                context: {
+                    child_id: "child-001",
+                    session_id: "session-abc123",
+                    child_state: {
+                        attention_level: "medium",
+                        mood: "neutral",
+                        energy_level: "high"
+                    },
+                    progress: {
+                        completed_steps: 0,
+                        success_rate: 0.0
+                    },
+                    observations: [
+                        "孩子进入房间后四处张望",
+                        "看到玩具眼睛一亮"
+                    ]
+                }
+            },
+            recommendPhrases: {
+                situation: "孩子注意力分散",
+                child_profile: {
+                    child_id: "child-001",
+                    name: "辰辰",
+                    age: 36,
+                    interests: ["旋转物体", "水流", "积木"],
+                    communication_level: "developing",
+                    attention_span: "short",
+                    preferred_reinforcement: "言语表扬+玩具奖励",
+                    sensory_preferences: {
+                        visual: "strong",
+                        auditory: "sensitive",
+                        tactile: "moderate"
+                    }
+                }
+            }
+        };
+
+        // 测试函数
+        async function testGetGuidance() {
+            const formData = getFormData('form-get-guidance');
+            const data = {
+                game_id: formData.game_id,
+                step: parseInt(formData.step),
+                context: formData.context
+            };
+            displayRequest('request-get-guidance', '/api/business/guidance/get-step-guidance', data);
+            showLoading('response-get-guidance');
+            const response = await apiClient.post('/api/business/guidance/get-step-guidance', data);
+            displayResponse('response-get-guidance', response);
+        }
+
+        async function testRecommendPhrases() {
+            const formData = getFormData('form-recommend-phrases');
+            const data = {
+                situation: formData.situation,
+                child_profile: formData.child_profile
+            };
+            displayRequest('request-recommend-phrases', '/api/business/guidance/recommend-phrases', data);
+            showLoading('response-recommend-phrases');
+            const response = await apiClient.post('/api/business/guidance/recommend-phrases', data);
+            displayResponse('response-recommend-phrases', response);
+        }
+
+        // 填充示例函数
+        function fillExampleGetGuidance() {
+            document.querySelector('#form-get-guidance [name="game_id"]').value = examples.getGuidance.game_id;
+            document.querySelector('#form-get-guidance [name="step"]').value = examples.getGuidance.step;
+            document.querySelector('#form-get-guidance [name="context"]').value = JSON.stringify(examples.getGuidance.context, null, 2);
+        }
+
+        function fillExampleRecommendPhrases() {
+            document.querySelector('#form-recommend-phrases [name="situation"]').value = examples.recommendPhrases.situation;
+            document.querySelector('#form-recommend-phrases [name="child_profile"]').value = JSON.stringify(examples.recommendPhrases.child_profile, null, 2);
+        }
+    </script>
+</body>
+</html>

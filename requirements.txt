@@ -20,6 +20,10 @@ pgvector>=0.3.0
 openai>=1.50.0
 anthropic>=0.34.0
 
+# Graphiti - 时序知识图谱
+graphiti-core>=0.17.0
+neo4j>=5.0.0
+
 # 工具库
 pydantic>=2.9.0
 pydantic-settings>=2.5.0
