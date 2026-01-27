@@ -13,10 +13,13 @@ class Settings(BaseSettings):
     environment: Literal["development", "production", "test"] = "development"
     
     # AI 服务配置
-    ai_provider: Literal["deepseek", "openai"] = "deepseek"
+    ai_provider: Literal["deepseek", "openai", "gemini"] = "deepseek"
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
     openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash-exp"
     
     # 通义千问配置（用于多模态解析）
     dashscope_api_key: str = ""
@@ -44,6 +47,10 @@ class Settings(BaseSettings):
     use_real_video_analysis: bool = False
     use_real_speech: bool = False
     use_real_document_parser: bool = False
+    
+    # 业务服务开关
+    use_real_assessment: bool = False
+    use_real_chat: bool = False
     
     # JWT 配置
     jwt_secret: str = "default-secret-change-in-production"
