@@ -42,14 +42,16 @@ class GraphitiService:
         
         # 为 Graphiti 设置环境变量（用于 reranker）
         import os
-        if self.config.ai_provider == "qwen":
-            # Qwen 使用 OpenAI 兼容模式，设置 OPENAI_API_KEY
-            api_key = settings.qwen_api_key or settings.dashscope_api_key
+        # 根据 provider 设置对应的 API key
+        if self.config.ai_provider in ["qwen", "openai"]:
+            # 这些 provider 使用 OpenAI 兼容模式
+            if self.config.ai_provider == "qwen":
+                api_key = settings.qwen_api_key or settings.dashscope_api_key
+            else:  # openai
+                api_key = settings.openai_api_key
+            
             if api_key:
                 os.environ['OPENAI_API_KEY'] = api_key
-        elif self.config.ai_provider == "openai":
-            if settings.openai_api_key:
-                os.environ['OPENAI_API_KEY'] = settings.openai_api_key
         
         # 初始化 Graphiti 客户端
         self.client = Graphiti(
@@ -67,11 +69,11 @@ class GraphitiService:
         """根据配置创建 LLM 客户端和 Embedder"""
         provider = self.config.ai_provider
         
+        # 根据 provider 动态获取配置
         if provider == "qwen":
-            # Qwen (通义千问) 配置
             api_key = settings.qwen_api_key or settings.dashscope_api_key
             if not api_key:
-                raise ValueError("QWEN_API_KEY or DASHSCOPE_API_KEY is required")
+                raise ValueError(f"{provider.upper()}_API_KEY is required")
             
             llm_config = LLMConfig(
                 api_key=api_key,

@@ -262,6 +262,117 @@ class OpenAILLMService(ILLMService):
             return {"raw_response": response, "parse_error": str(e)}
 
 
+# ============ Qwen 实现 ============
+
+class QwenLLMService(ILLMService):
+    """通义千问 LLM 服务"""
+    
+    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
+        """初始化 Qwen 客户端"""
+        from openai import AsyncOpenAI
+        
+        self.api_key = api_key or os.getenv('QWEN_API_KEY') or os.getenv('DASHSCOPE_API_KEY')
+        self.base_url = base_url or os.getenv('QWEN_BASE_URL', 'https://dashscope.aliyuncs.com') + '/compatible-mode/v1'
+        self.model = model or os.getenv('QWEN_MODEL', 'qwen-plus')
+        
+        if not self.api_key:
+            raise ValueError("QWEN_API_KEY 或 DASHSCOPE_API_KEY 未配置")
+        
+        self.client = AsyncOpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url
+        )
+        self.provider = "qwen"
+    
+    async def chat(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        **kwargs
+    ) -> str:
+        """调用 Qwen Chat API"""
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **kwargs
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"[Qwen] API 调用失败: {e}")
+            raise
+    
+    async def chat_with_system(
+        self,
+        system_prompt: str,
+        user_message: str,
+        temperature: float = 0.7,
+        max_tokens: int = 2000
+    ) -> str:
+        """带系统提示词的对话"""
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ]
+        return await self.chat(messages, temperature, max_tokens)
+    
+    async def chat_with_history(
+        self,
+        system_prompt: str,
+        conversation_history: List[Dict[str, str]],
+        user_message: str,
+        temperature: float = 0.7,
+        max_tokens: int = 2000
+    ) -> str:
+        """带历史记录的对话"""
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(conversation_history)
+        messages.append({"role": "user", "content": user_message})
+        
+        return await self.chat(messages, temperature, max_tokens)
+    
+    async def generate_json(
+        self,
+        system_prompt: str,
+        user_message: str,
+        temperature: float = 0.3,
+        max_tokens: int = 2000
+    ) -> Dict[str, Any]:
+        """生成 JSON 格式的回复"""
+        import json
+        
+        response = await self.chat_with_system(
+            system_prompt=system_prompt + "\n\n请以 JSON 格式返回结果。",
+            user_message=user_message,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+        
+        return self._parse_json_response(response)
+    
+    def _parse_json_response(self, response: str) -> Dict[str, Any]:
+        """解析 JSON 响应"""
+        import json
+        
+        try:
+            # 如果回复包含 ```json 代码块
+            if "```json" in response:
+                json_str = response.split("```json")[1].split("```")[0].strip()
+            elif "```" in response:
+                json_str = response.split("```")[1].split("```")[0].strip()
+            else:
+                json_str = response.strip()
+            
+            return json.loads(json_str)
+        except Exception as e:
+            print(f"[{self.provider}] JSON 解析失败: {e}")
+            print(f"原始回复: {response}")
+            return {"raw_response": response, "parse_error": str(e)}
+
+
 # ============ Gemini 实现 ============
 
 class GeminiLLMService(ILLMService):
@@ -408,6 +519,7 @@ class LLMFactory:
         "deepseek": DeepSeekLLMService,
         "openai": OpenAILLMService,
         "gemini": GeminiLLMService,
+        "qwen": QwenLLMService,
     }
     
     @classmethod
@@ -477,6 +589,7 @@ __all__ = [
     'DeepSeekLLMService',
     'OpenAILLMService', 
     'GeminiLLMService',
+    'QwenLLMService',
     'LLMFactory',
     'get_llm_service',
     'reset_llm_service'
