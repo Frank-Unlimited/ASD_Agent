@@ -128,8 +128,36 @@ class GraphitiService(IGraphitiService):
             
             embedder = GeminiEmbedder(config=embedder_config)
             
+        elif settings.ai_provider == "qwen":
+            # Qwen (通义千问) 配置
+            api_key = settings.qwen_api_key
+            if not api_key:
+                # 尝试使用 DASHSCOPE_API_KEY
+                api_key = settings.dashscope_api_key
+                if not api_key:
+                    raise ValueError("QWEN_API_KEY or DASHSCOPE_API_KEY is required when using Qwen")
+            
+            llm_config = LLMConfig(
+                api_key=api_key,
+                model=settings.qwen_model,
+                small_model=settings.qwen_small_model,
+                base_url=f"{settings.qwen_base_url}/compatible-mode/v1"
+            )
+            
+            llm_client = OpenAIGenericClient(config=llm_config)
+            
+            # Qwen 的 embedding
+            embedder_config = OpenAIEmbedderConfig(
+                api_key=api_key,
+                embedding_model=settings.qwen_embedding_model,
+                embedding_dim=settings.qwen_embedding_dim,
+                base_url=f"{settings.qwen_base_url}/compatible-mode/v1"
+            )
+            
+            embedder = OpenAIEmbedder(config=embedder_config)
+            
         else:
-            raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")
+            raise ValueError(f"Unsupported AI provider: {settings.ai_provider}. Supported: deepseek, openai, gemini, qwen")
         
         return llm_client, embedder
     
