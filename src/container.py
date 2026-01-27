@@ -155,9 +155,9 @@ def init_services():
         from services.real.llm_service import get_llm_service
         llm = get_llm_service()
         container.register('llm', llm)
-        print(f"[Container] LLM 服务已注册: {settings.ai_provider}")
+        print(f"[Container] LLM 服务已注册: {settings.llm_model}")
     except Exception as e:
         print(f"[Container] LLM 服务注册失败: {e}")
-        print(f"[Container] 请检查 {settings.ai_provider.upper()}_API_KEY 是否配置")
+        print(f"[Container] 请检查 LLM_API_KEY 是否配置")
     
     print("[Container] 所有服务已注册（当前使用 Mock 实现）")
