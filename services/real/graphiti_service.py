@@ -66,18 +66,18 @@ class GraphitiService(IGraphitiService):
             
             llm_config = LLMConfig(
                 api_key=api_key,
-                model="deepseek-reasoner",  # 使用 DeepSeek-R1
-                small_model="deepseek-reasoner",
+                model=settings.deepseek_model,
+                small_model=settings.deepseek_small_model,
                 base_url=f"{settings.deepseek_base_url}/v1"
             )
             
             llm_client = OpenAIGenericClient(config=llm_config)
             
-            # DeepSeek 的 embedding（使用 chat 模型）
+            # DeepSeek 的 embedding
             embedder_config = OpenAIEmbedderConfig(
                 api_key=api_key,
-                embedding_model="deepseek-chat",  # embedding 还是用 chat
-                embedding_dim=1536,
+                embedding_model=settings.deepseek_embedding_model,
+                embedding_dim=settings.deepseek_embedding_dim,
                 base_url=f"{settings.deepseek_base_url}/v1"
             )
             
@@ -92,15 +92,15 @@ class GraphitiService(IGraphitiService):
             llm_config = LLMConfig(
                 api_key=api_key,
                 model=settings.openai_model,
-                small_model=settings.openai_model
+                small_model=settings.openai_small_model
             )
             
             llm_client = OpenAIGenericClient(config=llm_config)
             
             embedder_config = OpenAIEmbedderConfig(
                 api_key=api_key,
-                embedding_model="text-embedding-3-small",
-                embedding_dim=1536
+                embedding_model=settings.openai_embedding_model,
+                embedding_dim=settings.openai_embedding_dim
             )
             
             embedder = OpenAIEmbedder(config=embedder_config)
@@ -123,13 +123,41 @@ class GraphitiService(IGraphitiService):
             
             embedder_config = GeminiEmbedderConfig(
                 api_key=api_key,
-                embedding_model="embedding-001"
+                embedding_model=settings.gemini_embedding_model
             )
             
             embedder = GeminiEmbedder(config=embedder_config)
             
+        elif settings.ai_provider == "qwen":
+            # Qwen (通义千问) 配置
+            api_key = settings.qwen_api_key
+            if not api_key:
+                # 尝试使用 DASHSCOPE_API_KEY
+                api_key = settings.dashscope_api_key
+                if not api_key:
+                    raise ValueError("QWEN_API_KEY or DASHSCOPE_API_KEY is required when using Qwen")
+            
+            llm_config = LLMConfig(
+                api_key=api_key,
+                model=settings.qwen_model,
+                small_model=settings.qwen_small_model,
+                base_url=f"{settings.qwen_base_url}/compatible-mode/v1"
+            )
+            
+            llm_client = OpenAIGenericClient(config=llm_config)
+            
+            # Qwen 的 embedding
+            embedder_config = OpenAIEmbedderConfig(
+                api_key=api_key,
+                embedding_model=settings.qwen_embedding_model,
+                embedding_dim=settings.qwen_embedding_dim,
+                base_url=f"{settings.qwen_base_url}/compatible-mode/v1"
+            )
+            
+            embedder = OpenAIEmbedder(config=embedder_config)
+            
         else:
-            raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")
+            raise ValueError(f"Unsupported AI provider: {settings.ai_provider}. Supported: deepseek, openai, gemini, qwen")
         
         return llm_client, embedder
     

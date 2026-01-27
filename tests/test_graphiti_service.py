@@ -1,8 +1,8 @@
 """
-测试 Graphiti 服务
+测试 Graphiti 服务模块
 """
 import pytest
-import asyncio
+import pytest_asyncio
 import sys
 from pathlib import Path
 
@@ -11,9 +11,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from datetime import datetime
-from services.real.graphiti_service import GraphitiService
+from services.Graphiti.adapters import GraphitiServiceAdapter
 from dotenv import load_dotenv
-import os
 
 # 加载环境变量
 load_dotenv()
@@ -23,17 +22,12 @@ load_dotenv()
 # 如果没有 Neo4j，测试会失败
 # 可以使用 Docker 快速启动: docker run -p 7688:7687 -e NEO4J_AUTH=neo4j/password neo4j:latest
 
-@pytest.fixture
-def graphiti_service():
+@pytest_asyncio.fixture
+async def graphiti_service():
     """创建 Graphiti 服务实例"""
-    service = GraphitiService(
-        neo4j_uri="bolt://localhost:7688",
-        neo4j_user="neo4j",
-        neo4j_password="password"
-    )
+    service = GraphitiServiceAdapter()
     yield service
-    # 清理
-    asyncio.run(service.close())
+    # 不关闭连接，因为使用单例模式
 
 
 @pytest.mark.asyncio
@@ -188,7 +182,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("Graphiti 服务测试")
     print("=" * 60)
-    print("\n注意：需要 Neo4j 数据库运行在 localhost:7687")
-    print("快速启动命令: docker run -p 7687:7687 -e NEO4J_AUTH=neo4j/password neo4j:latest\n")
+    print("\n注意：需要 Neo4j 数据库运行在 localhost:7688")
+    print("快速启动命令: docker run -p 7688:7687 -e NEO4J_AUTH=neo4j/password neo4j:latest\n")
     
     pytest.main([__file__, "-v", "-s"])

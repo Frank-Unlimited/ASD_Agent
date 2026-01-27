@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 
 from src.models.state import DynamicInterventionState
-from src.langgraph.workflow import (
+from src.workflow.workflow import (
     assessment_node,
     weekly_plan_node,
     game_start_node,
