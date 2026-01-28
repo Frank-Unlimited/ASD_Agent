@@ -40,28 +40,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
         request_id = f"{int(start_time * 1000)}"
         
-        # 读取请求体（如果有）
-        body = None
-        if request.method in ["POST", "PUT", "PATCH"]:
-            try:
-                body_bytes = await request.body()
-                if body_bytes:
-                    body = body_bytes.decode('utf-8')
-                    # 重新设置 body 以便后续处理
-                    async def receive():
-                        return {"type": "http.request", "body": body_bytes}
-                    request._receive = receive
-            except Exception as e:
-                logger.warning(f"无法读取请求体: {e}")
-        
-        # 记录请求信息
+        # 只记录请求路径和方法
         logger.info(f"[请求 {request_id}] {request.method} {request.url.path}")
-        if body:
-            try:
-                body_json = json.loads(body)
-                logger.info(f"[请求 {request_id}] Body: {json.dumps(body_json, ensure_ascii=False, indent=2)}")
-            except:
-                logger.info(f"[请求 {request_id}] Body: {body[:200]}...")
         
         # 处理请求
         try:
