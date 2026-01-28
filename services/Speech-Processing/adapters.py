@@ -3,8 +3,27 @@
 将 Speech-Processing 模块适配到系统的 ISpeechService 接口
 """
 import os
+import sys
 from typing import Optional
-from src.interfaces.infrastructure import ISpeechService
+
+# 条件导入系统接口
+try:
+    from src.interfaces.infrastructure import ISpeechService
+except ImportError:
+    # 独立运行时，创建一个基础接口
+    class ISpeechService:
+        """语音服务基础接口（独立运行时使用）"""
+        async def speech_to_text(self, audio_path: str) -> str:
+            raise NotImplementedError
+        
+        async def text_to_speech(self, text: str) -> str:
+            raise NotImplementedError
+        
+        def get_service_name(self) -> str:
+            raise NotImplementedError
+        
+        def get_service_version(self) -> str:
+            raise NotImplementedError
 
 # 导入核心功能
 try:

@@ -108,33 +108,40 @@ class SpeechRecognizer:
             callback_args=[]
         )
         
-        # 开始识别
-        recognizer.start(
-            aformat=self.config.asr_format,
-            sample_rate=self.config.asr_sample_rate,
-            enable_intermediate_result=enable_intermediate_result,
-            enable_punctuation_prediction=self.config.asr_enable_punctuation,
-            enable_inverse_text_normalization=self.config.asr_enable_itn
-        )
+        try:
+            # 开始识别
+            recognizer.start(
+                aformat=self.config.asr_format,
+                sample_rate=self.config.asr_sample_rate,
+                enable_intermediate_result=enable_intermediate_result,
+                enable_punctuation_prediction=self.config.asr_enable_punctuation,
+                enable_inverse_text_normalization=self.config.asr_enable_itn
+            )
+            
+            # 发送音频数据（分片发送，避免一次性创建所有切片）
+            slice_size = 640  # 每次发送640字节
+            for i in range(0, len(audio_data), slice_size):
+                audio_slice = audio_data[i:i+slice_size]
+                recognizer.send_audio(audio_slice)
+                time.sleep(0.01)  # 模拟实时发送
+            
+            # 停止识别
+            recognizer.stop()
+            
+            # 等待完成
+            self.completed.wait(timeout=30)
+            
+            if self.error:
+                raise Exception(f"识别失败: {self.error}")
+            
+            return self.result or ""
         
-        # 发送音频数据（分片发送）
-        slice_size = 640  # 每次发送640字节
-        slices = [audio_data[i:i+slice_size] for i in range(0, len(audio_data), slice_size)]
-        
-        for audio_slice in slices:
-            recognizer.send_audio(audio_slice)
-            time.sleep(0.01)  # 模拟实时发送
-        
-        # 停止识别
-        recognizer.stop()
-        
-        # 等待完成
-        self.completed.wait(timeout=30)
-        
-        if self.error:
-            raise Exception(f"识别失败: {self.error}")
-        
-        return self.result or ""
+        finally:
+            # ✅ 确保 WebSocket 连接被关闭，防止内存泄漏
+            try:
+                recognizer.shutdown()
+            except Exception as e:
+                print(f"[ASR] 关闭连接时出错: {e}")
     
     def _on_start(self, message, *args):
         """识别开始回调"""
