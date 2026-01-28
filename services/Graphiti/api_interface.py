@@ -282,3 +282,33 @@ def _extract_active_goals(memories: List[Dict[str, Any]]) -> List[Dict[str, Any]
             "progress": 0.6
         }
     ]
+
+
+# ============ 记忆清空 ============
+
+async def clear_memories(child_id: str) -> None:
+    """
+    清空指定孩子的所有记忆
+    
+    Args:
+        child_id: 孩子ID
+    """
+    service = get_service()
+    
+    # 使用 Neo4j 直接删除所有相关节点和边
+    # 注意：这是一个危险操作，需要谨慎使用
+    query = """
+    MATCH (n)
+    WHERE n.group_id = $child_id OR n.source_description CONTAINS $child_id
+    DETACH DELETE n
+    """
+    
+    try:
+        # 执行删除查询
+        async with service.client.driver.session() as session:
+            await session.run(query, child_id=child_id)
+        
+        print(f"[Graphiti API] 已清空孩子 {child_id} 的所有记忆")
+    except Exception as e:
+        print(f"[Graphiti API] 清空记忆失败: {e}")
+        raise

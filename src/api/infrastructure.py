@@ -173,6 +173,24 @@ async def sqlite_get_session_history(child_id: str, limit: int = 10):
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
+class DeleteChildRequest(BaseModel):
+    child_id: str
+
+
+@router.post("/sqlite/delete-child")
+async def sqlite_delete_child(request: DeleteChildRequest):
+    """删除孩子档案"""
+    try:
+        service = container.get('sqlite')
+        await service.delete_child(request.child_id)
+        return {
+            "success": True,
+            "message": "删除孩子档案成功"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
+
+
 # ============ 模块2: Graphiti 记忆网络模块 ============
 
 class SaveMemoriesRequest(BaseModel):
@@ -285,6 +303,24 @@ async def graphiti_build_context(request: BuildContextRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"构建失败: {str(e)}")
+
+
+class ClearMemoriesRequest(BaseModel):
+    child_id: str
+
+
+@router.post("/graphiti/clear-memories")
+async def graphiti_clear_memories(request: ClearMemoriesRequest):
+    """清空指定孩子的所有记忆"""
+    try:
+        service = container.get('graphiti')
+        await service.clear_memories(request.child_id)
+        return {
+            "success": True,
+            "message": f"已清空孩子 {request.child_id} 的所有记忆"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"清空失败: {str(e)}")
 
 
 # ============ 模块3: 知识库与 RAG 模块 ============

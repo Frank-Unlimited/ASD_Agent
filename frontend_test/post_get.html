@@ -306,6 +306,11 @@
             const url = document.getElementById('url').value;
             const bodyText = document.getElementById('body').value;
 
+            console.log('='.repeat(60));
+            console.log('📤 [前端] 准备发送请求');
+            console.log('方法:', method);
+            console.log('URL:', baseURL + url);
+
             // 显示加载状态
             document.getElementById('loading').classList.add('active');
             document.getElementById('responseMeta').style.display = 'none';
@@ -316,17 +321,21 @@
             try {
                 let response;
                 if (method === 'GET') {
+                    console.log('请求类型: GET (无请求体)');
                     response = await fetch(baseURL + url);
                 } else {
                     let body = {};
                     if (bodyText.trim()) {
                         try {
                             body = JSON.parse(bodyText);
+                            console.log('请求体:', JSON.stringify(body, null, 2));
                         } catch (e) {
+                            console.error('❌ JSON 解析失败:', e.message);
                             throw new Error('JSON 格式错误: ' + e.message);
                         }
                     }
                     
+                    console.log('🚀 [前端] 发送 POST 请求...');
                     response = await fetch(baseURL + url, {
                         method: 'POST',
                         headers: {
@@ -337,7 +346,11 @@
                 }
 
                 const duration = Date.now() - startTime;
+                console.log(`✅ [前端] 收到响应 | 状态码: ${response.status} | 耗时: ${duration}ms`);
+                
                 const data = await response.json();
+                console.log('响应数据:', JSON.stringify(data, null, 2));
+                console.log('='.repeat(60));
 
                 // 显示响应
                 displayResponse({
@@ -350,6 +363,10 @@
 
             } catch (error) {
                 const duration = Date.now() - startTime;
+                console.error('❌ [前端] 请求失败:', error.message);
+                console.error('错误详情:', error);
+                console.log('='.repeat(60));
+                
                 displayResponse({
                     success: false,
                     status: 0,

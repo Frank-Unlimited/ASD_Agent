@@ -10,7 +10,7 @@ from src.interfaces.infrastructure import ISQLiteService
 # 导入核心功能
 try:
     from .api_interface import (
-        get_child, save_child,
+        get_child, save_child, delete_child,
         create_session, get_session, update_session,
         save_weekly_plan, get_weekly_plan,
         save_observation,
@@ -18,7 +18,7 @@ try:
     )
 except ImportError:
     from api_interface import (
-        get_child, save_child,
+        get_child, save_child, delete_child,
         create_session, get_session, update_session,
         save_weekly_plan, get_weekly_plan,
         save_observation,
@@ -68,6 +68,16 @@ class SQLiteServiceAdapter(ISQLiteService):
         """
         # 调用实际实现（同步转异步）
         save_child(profile)
+    
+    async def delete_child(self, child_id: str) -> None:
+        """
+        删除孩子档案
+        
+        Args:
+            child_id: 孩子ID
+        """
+        # 调用实际实现（同步转异步）
+        delete_child(child_id)
     
     # ============ 会话管理 ============
     
