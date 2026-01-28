@@ -36,6 +36,10 @@
 - 配置多模态 LLM API 密钥（如 `DASHSCOPE_API_KEY`）
 - 文档文件路径可访问
 
+#### 文件上传服务
+- 上传目录已配置（`UPLOAD_BASE_DIR`）
+- 文件大小限制（默认 100MB）
+
 ---
 
 # SQLite API 测试
@@ -461,6 +465,84 @@ curl -X POST http://localhost:7860/api/infrastructure/document_parser/parse_scal
 curl -X POST http://localhost:7860/api/infrastructure/document_parser/parse_scale \
   -H "Content-Type: application/json" \
   -d '{"scale_type": "CARS", "scale_data": {"text": "总分：32分"}}'
+```
+
+---
+
+# 文件上传 API 测试
+
+## API 端点列表
+
+### 上传文件
+**POST** `/api/infrastructure/file_upload/upload`
+**Content-Type:** `multipart/form-data`
+
+**参数：**
+- `file`: 文件对象（必需）
+- `category`: 文件分类（可选: image/document/audio/video，不传则自动检测）
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "file_path": "E:\\pro\\hhc\\uploads\\images\\20260128_143025_abc123.jpg",
+    "filename": "20260128_143025_abc123.jpg",
+    "original_filename": "report.jpg",
+    "file_size": 1024000,
+    "category": "image"
+  },
+  "message": "文件上传成功"
+}
+```
+
+**支持格式**：
+- 图片: JPG, JPEG, PNG, BMP, WEBP
+- 文档: PDF, DOCX, DOC
+- 音频: MP3, WAV, PCM, M4A, AAC, FLAC, OGG
+- 视频: MP4, AVI, MOV, MKV
+
+---
+
+## curl 测试示例
+
+```bash
+# 上传文件（自动检测分类）
+curl -X POST http://localhost:7860/api/infrastructure/file_upload/upload \
+  -F "file=@E:/documents/report.jpg"
+
+# 上传文件（指定分类）
+curl -X POST http://localhost:7860/api/infrastructure/file_upload/upload \
+  -F "file=@E:/documents/report.jpg" \
+  -F "category=image"
+```
+
+---
+
+## 使用流程示例
+
+```javascript
+// 1. 上传文件
+const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+
+const uploadResponse = await fetch('http://localhost:7860/api/infrastructure/file_upload/upload', {
+  method: 'POST',
+  body: formData
+});
+
+const uploadResult = await uploadResponse.json();
+const filePath = uploadResult.data.file_path;
+
+// 2. 使用文件路径调用其他服务（如文档解析）
+const parseResponse = await fetch('http://localhost:7860/api/infrastructure/document_parser/parse_report', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    file_path: filePath,  // 格式: E:\\pro\\hhc\\uploads\\images\\20260128_143025_abc123.jpg
+    file_type: 'image'
+  })
+});
 ```
 
 ---

@@ -150,6 +150,14 @@ def init_services():
     
     container.register('visualization', MockVisualizationService())
     
+    # 文件上传服务（始终使用真实实现）
+    try:
+        from services.FileUpload.service import FileUploadService
+        container.register('file_upload', FileUploadService())
+        print("[Container] 文件上传服务已注册")
+    except Exception as e:
+        print(f"[Container] 文件上传服务注册失败: {e}")
+    
     # LLM 服务（根据配置动态加载）
     try:
         from services.real.llm_service import get_llm_service
