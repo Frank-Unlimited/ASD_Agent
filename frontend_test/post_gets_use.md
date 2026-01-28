@@ -486,7 +486,7 @@ curl -X POST http://localhost:7860/api/infrastructure/document_parser/parse_scal
 {
   "success": true,
   "data": {
-    "file_path": "E:/pro/hhc/uploads/images/20260128_143025_abc123.jpg",
+    "file_path": "E:\\pro\\hhc\\uploads\\images\\20260128_143025_abc123.jpg",
     "filename": "20260128_143025_abc123.jpg",
     "original_filename": "report.jpg",
     "file_size": 1024000,
@@ -539,7 +539,7 @@ const parseResponse = await fetch('http://localhost:7860/api/infrastructure/docu
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    file_path: filePath,
+    file_path: filePath,  // 格式: E:\\pro\\hhc\\uploads\\images\\20260128_143025_abc123.jpg
     file_type: 'image'
   })
 });

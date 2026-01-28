@@ -51,6 +51,25 @@
 
     <script src="../common/api-client.js"></script>
     <script>
+        // 复制路径到剪贴板
+        function copyPath() {
+            const path = window.lastUploadedPath;
+            if (path) {
+                navigator.clipboard.writeText(path).then(() => {
+                    alert('✅ 文件路径已复制到剪贴板！\n\n' + path);
+                }).catch(err => {
+                    // 降级方案
+                    const textarea = document.createElement('textarea');
+                    textarea.value = path;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    alert('✅ 文件路径已复制到剪贴板！\n\n' + path);
+                });
+            }
+        }
+        
         async function uploadFile() {
             const fileInput = document.getElementById('fileInput');
             const categorySelect = document.getElementById('categorySelect');
@@ -81,13 +100,21 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    // 打印到控制台，方便查看实际数据
+                    console.log('上传成功，返回数据:', result.data);
+                    console.log('文件路径（实际值）:', JSON.stringify(result.data.file_path));
+                    
+                    // 保存路径到全局变量，方便复制
+                    window.lastUploadedPath = result.data.file_path;
+                    
                     resultDiv.innerHTML = `
                         <div class="success">
                             <h3>✅ 上传成功</h3>
                             <div class="info-grid">
                                 <div class="info-item">
                                     <strong>文件路径：</strong>
-                                    <code>${result.data.file_path}</code>
+                                    <code id="filePath">${result.data.file_path}</code>
+                                    <button onclick="copyPath()" style="margin-left: 10px; padding: 2px 8px; cursor: pointer;">📋 复制</button>
                                 </div>
                                 <div class="info-item">
                                     <strong>文件名：</strong>
@@ -107,8 +134,12 @@
                                 </div>
                             </div>
                             <div class="tip">
-                                💡 提示：复制上面的文件路径，可以在文档解析、视频分析等接口中使用
+                                💡 提示：点击"复制"按钮复制文件路径，可以在文档解析、视频分析等接口中使用
                             </div>
+                            <details style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                                <summary style="cursor: pointer; font-weight: 600;">🔍 查看原始 JSON 数据</summary>
+                                <pre style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; overflow-x: auto;">${JSON.stringify(result.data, null, 2)}</pre>
+                            </details>
                         </div>
                     `;
                 } else {

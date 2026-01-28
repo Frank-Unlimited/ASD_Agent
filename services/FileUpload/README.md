@@ -65,7 +65,7 @@ Content-Type: multipart/form-data
 {
   "success": true,
   "data": {
-    "file_path": "E:/pro/hhc/uploads/images/20260128_143025_abc123.jpg",
+    "file_path": "E:\\pro\\hhc\\uploads\\images\\20260128_143025_abc123.jpg",
     "filename": "20260128_143025_abc123.jpg",
     "original_filename": "report.jpg",
     "file_size": 1024000,

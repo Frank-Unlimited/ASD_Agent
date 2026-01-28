@@ -107,8 +107,11 @@ class FileUploadService:
             with open(file_path, 'wb') as f:
                 f.write(content)
             
+            # 转换为 Windows 风格路径（使用双反斜杠）
+            windows_path = str(file_path.absolute()).replace('/', '\\')
+            
             return {
-                "file_path": str(file_path.absolute()),
+                "file_path": windows_path,
                 "filename": new_filename,
                 "original_filename": file.filename,
                 "file_size": file_size,
