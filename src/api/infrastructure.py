@@ -40,7 +40,7 @@ class SaveObservationRequest(BaseModel):
     observation: Dict[str, Any]
 
 
-@router.post("/sqlite/get-child")
+@router.post("/sqlite/get_child")
 async def sqlite_get_child(request: GetChildRequest):
     """获取孩子档案"""
     try:
@@ -55,7 +55,7 @@ async def sqlite_get_child(request: GetChildRequest):
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
-@router.post("/sqlite/save-child")
+@router.post("/sqlite/save_child")
 async def sqlite_save_child(request: SaveChildRequest):
     """保存孩子档案"""
     try:
@@ -69,7 +69,7 @@ async def sqlite_save_child(request: SaveChildRequest):
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
 
 
-@router.post("/sqlite/create-session")
+@router.post("/sqlite/create_session")
 async def sqlite_create_session(request: CreateSessionRequest):
     """创建干预会话"""
     try:
@@ -84,7 +84,7 @@ async def sqlite_create_session(request: CreateSessionRequest):
         raise HTTPException(status_code=500, detail=f"创建失败: {str(e)}")
 
 
-@router.post("/sqlite/get-session")
+@router.post("/sqlite/get_session")
 async def sqlite_get_session(request: GetSessionRequest):
     """获取会话信息"""
     try:
@@ -99,7 +99,7 @@ async def sqlite_get_session(request: GetSessionRequest):
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
-@router.post("/sqlite/update-session")
+@router.post("/sqlite/update_session")
 async def sqlite_update_session(request: UpdateSessionRequest):
     """更新会话信息"""
     try:
@@ -113,7 +113,7 @@ async def sqlite_update_session(request: UpdateSessionRequest):
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
 
-@router.post("/sqlite/save-weekly-plan")
+@router.post("/sqlite/save_weekly_plan")
 async def sqlite_save_weekly_plan(request: SaveWeeklyPlanRequest):
     """保存周计划"""
     try:
@@ -128,7 +128,7 @@ async def sqlite_save_weekly_plan(request: SaveWeeklyPlanRequest):
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
 
 
-@router.post("/sqlite/get-weekly-plan")
+@router.post("/sqlite/get_weekly_plan")
 async def sqlite_get_weekly_plan(request: GetWeeklyPlanRequest):
     """获取周计划"""
     try:
@@ -143,7 +143,7 @@ async def sqlite_get_weekly_plan(request: GetWeeklyPlanRequest):
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
-@router.post("/sqlite/save-observation")
+@router.post("/sqlite/save_observation")
 async def sqlite_save_observation(request: SaveObservationRequest):
     """保存观察记录"""
     try:
@@ -158,7 +158,7 @@ async def sqlite_save_observation(request: SaveObservationRequest):
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
 
 
-@router.get("/sqlite/session-history/{child_id}")
+@router.get("/sqlite/session_history/{child_id}")
 async def sqlite_get_session_history(child_id: str, limit: int = 10):
     """获取会话历史"""
     try:
@@ -177,7 +177,7 @@ class DeleteChildRequest(BaseModel):
     child_id: str
 
 
-@router.post("/sqlite/delete-child")
+@router.post("/sqlite/delete_child")
 async def sqlite_delete_child(request: DeleteChildRequest):
     """删除孩子档案"""
     try:
@@ -216,7 +216,7 @@ class BuildContextRequest(BaseModel):
     child_id: str
 
 
-@router.post("/graphiti/save-memories")
+@router.post("/graphiti/save_memories")
 async def graphiti_save_memories(request: SaveMemoriesRequest):
     """批量保存记忆"""
     try:
@@ -230,7 +230,7 @@ async def graphiti_save_memories(request: SaveMemoriesRequest):
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
 
 
-@router.post("/graphiti/get-recent-memories")
+@router.post("/graphiti/get_recent_memories")
 async def graphiti_get_recent_memories(request: GetRecentMemoriesRequest):
     """获取最近记忆"""
     try:
@@ -245,7 +245,7 @@ async def graphiti_get_recent_memories(request: GetRecentMemoriesRequest):
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
-@router.post("/graphiti/analyze-trends")
+@router.post("/graphiti/analyze_trends")
 async def graphiti_analyze_trends(request: AnalyzeTrendsRequest):
     """分析趋势"""
     try:
@@ -260,7 +260,7 @@ async def graphiti_analyze_trends(request: AnalyzeTrendsRequest):
         raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
 
 
-@router.post("/graphiti/detect-milestones")
+@router.post("/graphiti/detect_milestones")
 async def graphiti_detect_milestones(request: DetectMilestonesRequest):
     """检测里程碑"""
     try:
@@ -275,7 +275,7 @@ async def graphiti_detect_milestones(request: DetectMilestonesRequest):
         raise HTTPException(status_code=500, detail=f"检测失败: {str(e)}")
 
 
-@router.post("/graphiti/detect-plateau")
+@router.post("/graphiti/detect_plateau")
 async def graphiti_detect_plateau(request: DetectPlateauRequest):
     """检测平台期"""
     try:
@@ -290,7 +290,7 @@ async def graphiti_detect_plateau(request: DetectPlateauRequest):
         raise HTTPException(status_code=500, detail=f"检测失败: {str(e)}")
 
 
-@router.post("/graphiti/build-context")
+@router.post("/graphiti/build_context")
 async def graphiti_build_context(request: BuildContextRequest):
     """构建当前上下文"""
     try:
@@ -309,7 +309,7 @@ class ClearMemoriesRequest(BaseModel):
     child_id: str
 
 
-@router.post("/graphiti/clear-memories")
+@router.post("/graphiti/clear_memories")
 async def graphiti_clear_memories(request: ClearMemoriesRequest):
     """清空指定孩子的所有记忆"""
     try:
@@ -355,7 +355,7 @@ class GetGameRequest(BaseModel):
     game_id: str
 
 
-@router.post("/rag/search-methodology")
+@router.post("/rag/search_methodology")
 async def rag_search_methodology(request: SearchMethodologyRequest):
     """检索方法论知识库"""
     try:
@@ -370,7 +370,7 @@ async def rag_search_methodology(request: SearchMethodologyRequest):
         raise HTTPException(status_code=500, detail=f"检索失败: {str(e)}")
 
 
-@router.post("/rag/search-games")
+@router.post("/rag/search_games")
 async def rag_search_games(request: SearchGamesRequest):
     """检索游戏知识库"""
     try:
@@ -385,7 +385,7 @@ async def rag_search_games(request: SearchGamesRequest):
         raise HTTPException(status_code=500, detail=f"检索失败: {str(e)}")
 
 
-@router.post("/rag/search-games-by-dimension")
+@router.post("/rag/search_games_by_dimension")
 async def rag_search_games_by_dimension(request: SearchGamesByDimensionRequest):
     """按维度检索游戏"""
     try:
@@ -400,7 +400,7 @@ async def rag_search_games_by_dimension(request: SearchGamesByDimensionRequest):
         raise HTTPException(status_code=500, detail=f"检索失败: {str(e)}")
 
 
-@router.post("/rag/search-games-by-interest")
+@router.post("/rag/search_games_by_interest")
 async def rag_search_games_by_interest(request: SearchGamesByInterestRequest):
     """按兴趣检索游戏"""
     try:
@@ -415,7 +415,7 @@ async def rag_search_games_by_interest(request: SearchGamesByInterestRequest):
         raise HTTPException(status_code=500, detail=f"检索失败: {str(e)}")
 
 
-@router.post("/rag/search-scale")
+@router.post("/rag/search_scale")
 async def rag_search_scale(request: SearchScaleRequest):
     """检索量表知识库"""
     try:
@@ -430,7 +430,7 @@ async def rag_search_scale(request: SearchScaleRequest):
         raise HTTPException(status_code=500, detail=f"检索失败: {str(e)}")
 
 
-@router.post("/rag/search-cases")
+@router.post("/rag/search_cases")
 async def rag_search_cases(request: SearchCasesRequest):
     """检索案例知识库"""
     try:
@@ -445,7 +445,7 @@ async def rag_search_cases(request: SearchCasesRequest):
         raise HTTPException(status_code=500, detail=f"检索失败: {str(e)}")
 
 
-@router.post("/rag/get-game")
+@router.post("/rag/get_game")
 async def rag_get_game(request: GetGameRequest):
     """获取游戏详情"""
     try:
@@ -471,7 +471,7 @@ class ExtractHighlightsRequest(BaseModel):
     analysis_result: Dict[str, Any]
 
 
-@router.post("/video-analysis/analyze-video")
+@router.post("/video_analysis/analyze_video")
 async def video_analysis_analyze_video(request: AnalyzeVideoRequest):
     """分析视频"""
     try:
@@ -486,7 +486,7 @@ async def video_analysis_analyze_video(request: AnalyzeVideoRequest):
         raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
 
 
-@router.post("/video-analysis/extract-highlights")
+@router.post("/video_analysis/extract_highlights")
 async def video_analysis_extract_highlights(request: ExtractHighlightsRequest):
     """提取关键片段"""
     try:
@@ -510,7 +510,7 @@ class TextToSpeechRequest(BaseModel):
     text: str
 
 
-@router.post("/speech/speech-to-text")
+@router.post("/speech/speech_to_text")
 async def speech_speech_to_text(request: SpeechToTextRequest):
     """语音转文字"""
     try:
@@ -525,7 +525,7 @@ async def speech_speech_to_text(request: SpeechToTextRequest):
         raise HTTPException(status_code=500, detail=f"识别失败: {str(e)}")
 
 
-@router.post("/speech/text-to-speech")
+@router.post("/speech/text_to_speech")
 async def speech_text_to_speech(request: TextToSpeechRequest):
     """文字转语音"""
     try:
@@ -551,7 +551,7 @@ class ParseScaleRequest(BaseModel):
     scale_type: str
 
 
-@router.post("/document-parser/parse-report")
+@router.post("/document_parser/parse_report")
 async def document_parser_parse_report(request: ParseReportRequest):
     """解析医院报告"""
     try:
@@ -566,7 +566,7 @@ async def document_parser_parse_report(request: ParseReportRequest):
         raise HTTPException(status_code=500, detail=f"解析失败: {str(e)}")
 
 
-@router.post("/document-parser/parse-scale")
+@router.post("/document_parser/parse_scale")
 async def document_parser_parse_scale(request: ParseScaleRequest):
     """解析量表数据"""
     try:
