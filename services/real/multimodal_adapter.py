@@ -3,8 +3,8 @@
 """
 import importlib
 
-# 动态导入带连字符的模块
-multimodal_module = importlib.import_module('services.Multimodal-Understanding.adapters')
+# 动态导入多模态理解模块
+multimodal_module = importlib.import_module('services.Multimodal_Understanding.adapters')
 MultimodalVideoAnalysisService = multimodal_module.MultimodalVideoAnalysisService
 MultimodalDocumentParserService = multimodal_module.MultimodalDocumentParserService
 
