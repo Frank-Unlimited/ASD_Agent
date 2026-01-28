@@ -273,6 +273,199 @@ curl -X POST http://localhost:7860/api/infrastructure/sqlite/create-session \
 
 ---
 
+# 视频分析 API 测试
+
+## API 端点列表
+
+### 1. 分析视频
+**POST** `/api/infrastructure/video-analysis/analyze-video`
+
+```json
+{
+  "video_path": "E:\\videos\\session_20260128.mp4",
+  "context": {
+    "child_profile": {
+      "child_id": "test-child-001",
+      "name": "小明",
+      "age": 36,
+      "diagnosis": "自闭症谱系障碍"
+    },
+    "session_info": {
+      "session_id": "session-abc123",
+      "game_name": "积木游戏",
+      "focus_areas": ["eye_contact", "joint_attention"]
+    }
+  }
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "behaviors": [
+      {
+        "description": "孩子主动看向家长",
+        "timestamp": "00:15",
+        "significance": 4,
+        "type": "eye_contact"
+      },
+      {
+        "description": "重复拍手动作",
+        "timestamp": "01:20",
+        "significance": 3,
+        "type": "repetitive"
+      }
+    ],
+    "interactions": [
+      {
+        "description": "回应家长的呼唤",
+        "timestamp": "00:30",
+        "quality": 4,
+        "type": "response"
+      }
+    ],
+    "emotions": {
+      "dominant_emotion": "calm",
+      "changes": [
+        {
+          "timestamp": "02:00",
+          "from": "calm",
+          "to": "happy",
+          "trigger": "成功搭建积木"
+        }
+      ],
+      "regulation_ability": "良好，能够自我调节"
+    },
+    "attention": {
+      "duration": "moderate",
+      "quality": "good",
+      "focus_shifts": [
+        {
+          "timestamp": "01:00",
+          "from": "积木",
+          "to": "家长"
+        }
+      ]
+    },
+    "summary": "孩子在本次会话中表现良好，眼神接触有所改善",
+    "highlights": [
+      {
+        "timestamp": "00:15",
+        "description": "主动眼神接触",
+        "importance": "high"
+      }
+    ],
+    "raw_analysis": "完整的AI分析文本..."
+  },
+  "message": "视频分析完成"
+}
+```
+
+---
+
+### 2. 提取关键片段
+**POST** `/api/infrastructure/video-analysis/extract-highlights`
+
+```json
+{
+  "video_path": "E:\\videos\\session_20260128.mp4",
+  "analysis_result": {
+    "behaviors": [
+      {
+        "description": "孩子主动看向家长",
+        "timestamp": "00:15",
+        "significance": 4,
+        "type": "eye_contact"
+      },
+      {
+        "description": "重复拍手动作",
+        "timestamp": "01:20",
+        "significance": 3,
+        "type": "repetitive"
+      }
+    ],
+    "interactions": [
+      {
+        "description": "回应家长的呼唤",
+        "timestamp": "00:30",
+        "quality": 4,
+        "type": "response"
+      }
+    ]
+  }
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "timestamp": "00:15",
+      "duration": 5,
+      "type": "behavior",
+      "description": "孩子主动看向家长",
+      "importance": 4
+    },
+    {
+      "timestamp": "01:20",
+      "duration": 5,
+      "type": "behavior",
+      "description": "重复拍手动作",
+      "importance": 3
+    }
+  ],
+  "message": "提取到 2 个关键片段"
+}
+```
+
+---
+
+## 使用 curl 测试视频分析
+
+### 分析视频
+```bash
+curl -X POST http://localhost:7860/api/infrastructure/video-analysis/analyze-video \
+  -H "Content-Type: application/json" \
+  -d '{
+    "video_path": "E:\\videos\\session_20260128.mp4",
+    "context": {
+      "child_profile": {
+        "child_id": "test-child-001",
+        "name": "小明",
+        "age": 36
+      },
+      "session_info": {
+        "session_id": "session-abc123",
+        "game_name": "积木游戏"
+      }
+    }
+  }'
+```
+
+### 提取关键片段
+```bash
+curl -X POST http://localhost:7860/api/infrastructure/video-analysis/extract-highlights \
+  -H "Content-Type: application/json" \
+  -d '{
+    "video_path": "E:\\videos\\session_20260128.mp4",
+    "analysis_result": {
+      "behaviors": [
+        {
+          "description": "孩子主动看向家长",
+          "timestamp": "00:15",
+          "significance": 4
+        }
+      ]
+    }
+  }'
+```
+
+---
+
 # Graphiti API 测试
 
 ## API 端点列表
