@@ -67,6 +67,7 @@ class SpeechSynthesizer:
         Returns:
             bytes: 音频二进制数据
         """
+        # ✅ 每次合成都重置音频数据，避免累积
         self.audio_data = bytearray()
         self.error = None
         self.completed.clear()
@@ -84,25 +85,36 @@ class SpeechSynthesizer:
             callback_args=[]
         )
         
-        # 开始合成
-        synthesizer.start(
-            text=text,
-            aformat=self.config.tts_format,
-            voice=voice or self.config.tts_voice,
-            sample_rate=self.config.tts_sample_rate,
-            volume=self.config.tts_volume,
-            speech_rate=self.config.tts_speech_rate,
-            pitch_rate=self.config.tts_pitch_rate,
-            wait_complete=True
-        )
+        try:
+            # 开始合成
+            synthesizer.start(
+                text=text,
+                aformat=self.config.tts_format,
+                voice=voice or self.config.tts_voice,
+                sample_rate=self.config.tts_sample_rate,
+                volume=self.config.tts_volume,
+                speech_rate=self.config.tts_speech_rate,
+                pitch_rate=self.config.tts_pitch_rate,
+                wait_complete=True
+            )
+            
+            # 等待完成
+            self.completed.wait(timeout=60)
+            
+            if self.error:
+                raise Exception(f"合成失败: {self.error}")
+            
+            # ✅ 复制数据后清空，释放内存
+            result = bytes(self.audio_data)
+            self.audio_data.clear()
+            return result
         
-        # 等待完成
-        self.completed.wait(timeout=60)
-        
-        if self.error:
-            raise Exception(f"合成失败: {self.error}")
-        
-        return bytes(self.audio_data)
+        finally:
+            # ✅ 确保 WebSocket 连接被关闭，防止内存泄漏
+            try:
+                synthesizer.shutdown()
+            except Exception as e:
+                print(f"[TTS] 关闭连接时出错: {e}")
     
     def _on_metainfo(self, message, *args):
         """元信息回调"""

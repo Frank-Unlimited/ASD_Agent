@@ -3,6 +3,11 @@
 """
 from pydantic_settings import BaseSettings
 from typing import Literal
+from pathlib import Path
+
+
+# 获取项目根目录
+PROJECT_ROOT = Path(__file__).parent.parent
 
 
 class Settings(BaseSettings):
@@ -67,9 +72,10 @@ class Settings(BaseSettings):
     redis_db: int = 0
     
     class Config:
-        env_file = ".env"
+        env_file = str(PROJECT_ROOT / ".env")
+        env_file_encoding = 'utf-8'
         case_sensitive = False
-        # 允许从环境变量读取（支持大写和小写）
+        # 允许从环境变量读取（支持大小写和小写）
         env_prefix = ""
         extra = "ignore"
 

@@ -122,7 +122,15 @@ class NlsSpeechRecognizer:
     def shutdown(self):
         """关闭连接"""
         if self.ws:
-            self.ws.close()
+            try:
+                self.ws.close()
+                # ✅ 等待线程结束，避免资源泄漏
+                if hasattr(self, 'ws_thread') and self.ws_thread.is_alive():
+                    self.ws_thread.join(timeout=2)
+            except Exception as e:
+                print(f"[NLS-ASR] 关闭 WebSocket 时出错: {e}")
+            finally:
+                self.ws = None
     
     def _on_open(self, ws):
         """连接建立"""
@@ -254,7 +262,15 @@ class NlsSpeechSynthesizer:
     def shutdown(self):
         """关闭连接"""
         if self.ws:
-            self.ws.close()
+            try:
+                self.ws.close()
+                # ✅ 等待线程结束，避免资源泄漏
+                if hasattr(self, 'ws_thread') and self.ws_thread.is_alive():
+                    self.ws_thread.join(timeout=2)
+            except Exception as e:
+                print(f"[NLS-TTS] 关闭 WebSocket 时出错: {e}")
+            finally:
+                self.ws = None
     
     def _on_message(self, ws, message):
         """接收消息"""
