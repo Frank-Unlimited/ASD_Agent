@@ -55,6 +55,11 @@ class ISQLiteService(BaseService):
     async def get_session_history(self, child_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """获取会话历史"""
         pass
+    
+    @abstractmethod
+    async def delete_child(self, child_id: str) -> None:
+        """删除孩子档案"""
+        pass
 
 
 # ============ 模块2: Graphiti 记忆网络模块 ============
@@ -90,6 +95,11 @@ class IGraphitiService(BaseService):
     @abstractmethod
     async def build_context(self, child_id: str) -> Dict[str, Any]:
         """构建当前上下文（趋势、关注点等）"""
+        pass
+    
+    @abstractmethod
+    async def clear_memories(self, child_id: str) -> None:
+        """清空指定孩子的所有记忆"""
         pass
 
 

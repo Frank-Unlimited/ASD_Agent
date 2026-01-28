@@ -3,8 +3,8 @@
 """
 import importlib
 
-# 动态导入带连字符的模块
-speech_module = importlib.import_module('services.Speech-Processing.adapters')
+# 动态导入（使用下划线版本）
+speech_module = importlib.import_module('services.Speech_Processing.adapters')
 AliyunSpeechService = speech_module.AliyunSpeechService
 
 __all__ = ['AliyunSpeechService']

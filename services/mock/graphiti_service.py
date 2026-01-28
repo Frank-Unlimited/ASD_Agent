@@ -98,3 +98,9 @@ class MockGraphitiService(IGraphitiService):
             ],
             "lastUpdated": "2026-01-27T10:00:00"
         }
+    
+    async def clear_memories(self, child_id: str) -> None:
+        """清空指定孩子的所有记忆"""
+        print(f"[Mock Graphiti] 清空记忆: {child_id}")
+        if child_id in self.memories:
+            del self.memories[child_id]

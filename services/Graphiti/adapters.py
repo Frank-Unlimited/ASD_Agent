@@ -16,6 +16,7 @@ try:
         detect_milestones,
         detect_plateau,
         build_context,
+        clear_memories,
     )
 except ImportError:
     from api_interface import (
@@ -25,6 +26,7 @@ except ImportError:
         detect_milestones,
         detect_plateau,
         build_context,
+        clear_memories,
     )
 
 
@@ -125,6 +127,15 @@ class GraphitiServiceAdapter(IGraphitiService):
             上下文数据
         """
         return await build_context(child_id)
+    
+    async def clear_memories(self, child_id: str) -> None:
+        """
+        清空指定孩子的所有记忆
+        
+        Args:
+            child_id: 孩子ID
+        """
+        await clear_memories(child_id)
 
 
 __all__ = ['GraphitiServiceAdapter']
