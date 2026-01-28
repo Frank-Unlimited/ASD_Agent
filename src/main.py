@@ -8,8 +8,12 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from fastapi import FastAPI
+import time
+import json
+import logging
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from src.config import settings
 from src.container import init_services
 from src.workflow import get_compiled_workflow
@@ -18,8 +22,64 @@ from src.api.workflow import router as workflow_router
 from src.api.infrastructure import router as infrastructure_router
 from src.api.business import router as business_router
 
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # 初始化服务容器
 init_services()
+
+
+# 请求日志中间件
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # 记录请求开始
+        start_time = time.time()
+        request_id = f"{int(start_time * 1000)}"
+        
+        # 读取请求体（如果有）
+        body = None
+        if request.method in ["POST", "PUT", "PATCH"]:
+            try:
+                body_bytes = await request.body()
+                if body_bytes:
+                    body = body_bytes.decode('utf-8')
+                    # 重新设置 body 以便后续处理
+                    async def receive():
+                        return {"type": "http.request", "body": body_bytes}
+                    request._receive = receive
+            except Exception as e:
+                logger.warning(f"无法读取请求体: {e}")
+        
+        # 记录请求信息
+        logger.info(f"[请求 {request_id}] {request.method} {request.url.path}")
+        if body:
+            try:
+                body_json = json.loads(body)
+                logger.info(f"[请求 {request_id}] Body: {json.dumps(body_json, ensure_ascii=False, indent=2)}")
+            except:
+                logger.info(f"[请求 {request_id}] Body: {body[:200]}...")
+        
+        # 处理请求
+        try:
+            response = await call_next(request)
+            
+            # 计算耗时
+            duration = time.time() - start_time
+            
+            # 记录响应信息
+            logger.info(f"[响应 {request_id}] 状态码: {response.status_code} | 耗时: {duration:.3f}s")
+            
+            return response
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(f"[错误 {request_id}] {str(e)} | 耗时: {duration:.3f}s")
+            raise
+
 
 # 创建 FastAPI 应用
 app = FastAPI(
@@ -27,6 +87,9 @@ app = FastAPI(
     description="基于LangGraph的多Agent协同干预系统",
     version="1.0.0",
 )
+
+# 添加请求日志中间件
+app.add_middleware(RequestLoggingMiddleware)
 
 # 配置 CORS
 app.add_middleware(

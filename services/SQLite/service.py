@@ -147,6 +147,20 @@ class SQLiteService:
                     profile_data.get('metadata')
                 ))
     
+    def delete_child(self, child_id: str) -> None:
+        """删除孩子档案"""
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            # 删除孩子档案
+            cursor.execute("DELETE FROM children WHERE child_id = ?", (child_id,))
+            # 删除相关会话
+            cursor.execute("DELETE FROM sessions WHERE child_id = ?", (child_id,))
+            # 删除相关周计划
+            cursor.execute("DELETE FROM weekly_plans WHERE child_id = ?", (child_id,))
+            # 删除相关观察记录
+            cursor.execute("DELETE FROM observations WHERE child_id = ?", (child_id,))
+            conn.commit()
+    
     # ============ 会话管理 ============
     
     def create_session(self, child_id: str, game_id: str) -> str:

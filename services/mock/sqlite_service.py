@@ -128,3 +128,17 @@ class MockSQLiteService(ISQLiteService):
                 "summary": "孩子主动微笑2次，进步明显"
             }
         ][:limit]
+    
+    async def delete_child(self, child_id: str) -> None:
+        """删除孩子档案"""
+        print(f"[Mock SQLite] 删除孩子档案: {child_id}")
+        if child_id in self.children:
+            del self.children[child_id]
+        
+        # 同时删除相关会话
+        sessions_to_delete = [
+            sid for sid, session in self.sessions.items()
+            if session.get("childId") == child_id
+        ]
+        for sid in sessions_to_delete:
+            del self.sessions[sid]
