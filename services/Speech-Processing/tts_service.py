@@ -15,7 +15,7 @@ except ImportError:
 try:
     from .config import SpeechConfig
 except ImportError:
-    from config import SpeechConfig
+    from .config import SpeechConfig
 
 
 class SpeechSynthesizer:

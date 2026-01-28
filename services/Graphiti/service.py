@@ -33,23 +33,16 @@ class GraphitiService:
         self.config = config or GraphitiConfig(
             neo4j_uri=settings.neo4j_uri,
             neo4j_user=settings.neo4j_user,
-            neo4j_password=settings.neo4j_password,
-            ai_provider=settings.ai_provider
+            neo4j_password=settings.neo4j_password
         )
         
-        # 创建 LLM 客户端和 Embedder
+        # 创建 LLM 客户端和 Embedder（使用统一配置）
         llm_client, embedder = self._create_llm_client()
         
         # 为 Graphiti 设置环境变量（用于 reranker）
         import os
-        if self.config.ai_provider == "qwen":
-            # Qwen 使用 OpenAI 兼容模式，设置 OPENAI_API_KEY
-            api_key = settings.qwen_api_key or settings.dashscope_api_key
-            if api_key:
-                os.environ['OPENAI_API_KEY'] = api_key
-        elif self.config.ai_provider == "openai":
-            if settings.openai_api_key:
-                os.environ['OPENAI_API_KEY'] = settings.openai_api_key
+        if settings.llm_api_key:
+            os.environ['OPENAI_API_KEY'] = settings.llm_api_key
         
         # 初始化 Graphiti 客户端
         self.client = Graphiti(
@@ -61,107 +54,31 @@ class GraphitiService:
         )
         
         print(f"[Graphiti Service] 已连接到 Neo4j: {self.config.neo4j_uri}")
-        print(f"[Graphiti Service] 使用 LLM: {self.config.ai_provider}")
+        print(f"[Graphiti Service] 使用 LLM: {settings.llm_model}")
     
     def _create_llm_client(self):
-        """根据配置创建 LLM 客户端和 Embedder"""
-        provider = self.config.ai_provider
+        """根据统一配置创建 LLM 客户端和 Embedder"""
+        api_key = settings.llm_api_key
+        if not api_key:
+            raise ValueError("LLM_API_KEY is required")
         
-        if provider == "qwen":
-            # Qwen (通义千问) 配置
-            api_key = settings.qwen_api_key or settings.dashscope_api_key
-            if not api_key:
-                raise ValueError("QWEN_API_KEY or DASHSCOPE_API_KEY is required")
-            
-            llm_config = LLMConfig(
-                api_key=api_key,
-                model=settings.qwen_model,
-                small_model=settings.qwen_small_model,
-                base_url=f"{settings.qwen_base_url}/compatible-mode/v1"
-            )
-            
-            llm_client = OpenAIGenericClient(config=llm_config)
-            
-            embedder_config = OpenAIEmbedderConfig(
-                api_key=api_key,
-                embedding_model=settings.qwen_embedding_model,
-                embedding_dim=settings.qwen_embedding_dim,
-                base_url=f"{settings.qwen_base_url}/compatible-mode/v1"
-            )
-            
-            embedder = OpenAIEmbedder(config=embedder_config)
-            
-        elif provider == "deepseek":
-            # DeepSeek 配置（注意：不支持 json_schema）
-            api_key = settings.deepseek_api_key
-            if not api_key:
-                raise ValueError("DEEPSEEK_API_KEY is required")
-            
-            llm_config = LLMConfig(
-                api_key=api_key,
-                model=settings.deepseek_model,
-                small_model=settings.deepseek_small_model,
-                base_url=f"{settings.deepseek_base_url}/v1"
-            )
-            
-            llm_client = OpenAIGenericClient(config=llm_config)
-            
-            embedder_config = OpenAIEmbedderConfig(
-                api_key=api_key,
-                embedding_model=settings.deepseek_embedding_model,
-                embedding_dim=settings.deepseek_embedding_dim,
-                base_url=f"{settings.deepseek_base_url}/v1"
-            )
-            
-            embedder = OpenAIEmbedder(config=embedder_config)
-            
-        elif provider == "openai":
-            # OpenAI 配置
-            api_key = settings.openai_api_key
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY is required")
-            
-            llm_config = LLMConfig(
-                api_key=api_key,
-                model=settings.openai_model,
-                small_model=settings.openai_small_model
-            )
-            
-            llm_client = OpenAIGenericClient(config=llm_config)
-            
-            embedder_config = OpenAIEmbedderConfig(
-                api_key=api_key,
-                embedding_model=settings.openai_embedding_model,
-                embedding_dim=settings.openai_embedding_dim
-            )
-            
-            embedder = OpenAIEmbedder(config=embedder_config)
-            
-        elif provider == "gemini":
-            # Gemini 配置
-            from graphiti_core.llm_client.gemini_client import GeminiClient
-            from graphiti_core.embedder.gemini import GeminiEmbedder, GeminiEmbedderConfig
-            
-            api_key = settings.gemini_api_key
-            if not api_key:
-                raise ValueError("GEMINI_API_KEY is required")
-            
-            llm_config = LLMConfig(
-                api_key=api_key,
-                model=settings.gemini_model
-            )
-            
-            llm_client = GeminiClient(config=llm_config)
-            
-            embedder_config = GeminiEmbedderConfig(
-                api_key=api_key,
-                embedding_model=settings.gemini_embedding_model
-            )
-            
-            embedder = GeminiEmbedder(config=embedder_config)
-            
-        else:
-            raise ValueError(f"Unsupported AI provider: {provider}")
+        llm_config = LLMConfig(
+            api_key=api_key,
+            model=settings.llm_model,
+            small_model=settings.llm_small_model,
+            base_url=settings.llm_base_url
+        )
+        
+        llm_client = OpenAIGenericClient(config=llm_config)
+        
+        embedder_config = OpenAIEmbedderConfig(
+            api_key=api_key,
+            embedding_model=settings.llm_embedding_model,
+            embedding_dim=settings.llm_embedding_dim,
+            base_url=settings.llm_base_url
+        )
+        
+        embedder = OpenAIEmbedder(config=embedder_config)
         
         return llm_client, embedder
     

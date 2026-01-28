@@ -15,29 +15,36 @@ load_dotenv()
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7688")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
-QWEN_API_KEY = os.getenv("QWEN_API_KEY", "")
-QWEN_BASE_URL = os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen-plus")
+LLM_SMALL_MODEL = os.getenv("LLM_SMALL_MODEL", "qwen-flash")
+LLM_EMBEDDING_MODEL = os.getenv("LLM_EMBEDDING_MODEL", "text-embedding-v3")
+LLM_EMBEDDING_DIM = int(os.getenv("LLM_EMBEDDING_DIM", "1536"))
+
+# 为 Graphiti 的 reranker 设置环境变量
+os.environ['OPENAI_API_KEY'] = LLM_API_KEY
 
 
 async def init_graphiti():
     """使用 Graphiti 官方方法初始化索引"""
     print("正在初始化 Graphiti...")
     
-    # 配置 LLM（使用 Qwen）
+    # 配置 LLM（使用统一配置）
     llm_config = LLMConfig(
-        api_key=QWEN_API_KEY,
-        model="qwen-flash",
-        small_model="qwen-flash",
-        base_url=f"{QWEN_BASE_URL}/compatible-mode/v1"
+        api_key=LLM_API_KEY,
+        model=LLM_MODEL,
+        small_model=LLM_SMALL_MODEL,
+        base_url=LLM_BASE_URL
     )
     llm_client = OpenAIGenericClient(config=llm_config)
     
     # 配置 Embedder
     embedder_config = OpenAIEmbedderConfig(
-        api_key=QWEN_API_KEY,
-        embedding_model="text-embedding-v3",
-        embedding_dim=1536,
-        base_url=f"{QWEN_BASE_URL}/compatible-mode/v1"
+        api_key=LLM_API_KEY,
+        embedding_model=LLM_EMBEDDING_MODEL,
+        embedding_dim=LLM_EMBEDDING_DIM,
+        base_url=LLM_BASE_URL
     )
     embedder = OpenAIEmbedder(config=embedder_config)
     

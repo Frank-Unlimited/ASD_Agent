@@ -12,41 +12,20 @@ class Settings(BaseSettings):
     port: int = 7860
     environment: Literal["development", "production", "test"] = "development"
     
-    # AI 服务配置
-    ai_provider: Literal["deepseek", "openai", "gemini", "qwen"] = "deepseek"
-    deepseek_api_key: str = ""
-    deepseek_base_url: str = "https://api.deepseek.com"
-    deepseek_model: str = "deepseek-reasoner"
-    deepseek_small_model: str = "deepseek-chat"
-    deepseek_embedding_model: str = "deepseek-chat"
-    deepseek_embedding_dim: int = 1536
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
-    openai_small_model: str = "gpt-4o-mini"
-    openai_embedding_model: str = "text-embedding-3-small"
-    openai_embedding_dim: int = 1536
-    gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash-exp"
-    gemini_embedding_model: str = "embedding-001"
+    # LLM 统一配置（所有模块使用这些配置）
+    llm_api_key: str = ""
+    llm_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    llm_model: str = "qwen-plus"
+    llm_small_model: str = "qwen-flash"
+    llm_embedding_model: str = "text-embedding-v3"
+    llm_embedding_dim: int = 1536
     
-    # 通义千问配置
-    qwen_api_key: str = ""
-    qwen_base_url: str = "https://dashscope.aliyuncs.com"
-    qwen_model: str = "qwen-plus"
-    qwen_small_model: str = "qwen-flash"
-    qwen_embedding_model: str = "text-embedding-v3"
-    qwen_embedding_dim: int = 1536
-    
-    # 通义千问配置（用于多模态解析）
-    dashscope_api_key: str = ""
-    
-    # 阿里云服务配置
+    # 阿里云服务配置（用于语音、多模态等特定服务）
     aliyun_access_key_id: str = ""
     aliyun_access_key_secret: str = ""
-    
-    # 阿里云智能语音配置
     aliyun_nls_appkey: str = ""
     aliyun_nls_token: str = ""
+    dashscope_api_key: str = ""  # 用于多模态服务
     
     # 数据库配置
     sqlite_db_path: str = "./data/asd_intervention.db"
@@ -90,6 +69,9 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        # 允许从环境变量读取（支持大写和小写）
+        env_prefix = ""
+        extra = "ignore"
 
 
 # 全局配置实例
