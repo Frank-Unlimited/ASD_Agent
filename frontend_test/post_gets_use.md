@@ -1,10 +1,40 @@
 # API 测试指南
 
-## 前置条件
+本文档提供所有基础设施服务的 API 测试示例。
 
-1. 启动 Neo4j 容器（端口 7688）- Graphiti 需要
-2. 启动后端服务：`python src/main.py`（端口 7860）
-3. 确保 `.env` 中 `USE_REAL_GRAPHITI=true` 和 `USE_REAL_SQLITE=true`
+---
+
+## 全局前置条件
+
+### 基础环境
+- 后端服务已启动（端口 7860）
+- Python 环境：`conda activate asd_agent`
+
+### 服务配置（.env 文件）
+
+#### SQLite 数据管理
+- `USE_REAL_SQLITE=true`
+- 数据库文件路径正确配置
+
+#### Graphiti 记忆网络
+- `USE_REAL_GRAPHITI=true`
+- Neo4j 容器已启动（端口 7688）
+- Neo4j 连接配置：`NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`
+
+#### 视频分析服务
+- `USE_REAL_VIDEO_ANALYSIS=true`
+- 配置多模态 LLM API 密钥（如 `DASHSCOPE_API_KEY`）
+- 视频文件路径可访问
+
+#### 语音处理服务
+- `USE_REAL_SPEECH=true`
+- 配置阿里云语音服务：`ALIYUN_APPKEY`, `ALIYUN_TOKEN`
+- （可选）安装 ffmpeg 用于音频格式转换
+
+#### 文档解析服务
+- `USE_REAL_DOCUMENT_PARSER=true`
+- 配置多模态 LLM API 密钥（如 `DASHSCOPE_API_KEY`）
+- 文档文件路径可访问
 
 ---
 
@@ -13,7 +43,7 @@
 ## API 端点列表
 
 ### 1. 保存孩子档案
-**POST** `/api/infrastructure/sqlite/save-child`
+**POST** `/api/infrastructure/sqlite/save_child`
 
 ```json
 {
@@ -44,7 +74,7 @@
 ---
 
 ### 2. 获取孩子档案
-**POST** `/api/infrastructure/sqlite/get-child`
+**POST** `/api/infrastructure/sqlite/get_child`
 
 ```json
 {
@@ -60,24 +90,16 @@
     "child_id": "test-child-001",
     "name": "小明",
     "age": 36,
-    "gender": "男",
-    "diagnosis": "自闭症谱系障碍",
     "eye_contact": 5.0,
-    "joint_attention": 4.5,
-    "imitation": 3.8,
-    "emotional_response": 4.2,
-    "strengths": ["喜欢积木", "专注力好"],
-    "challenges": ["眼神接触少", "语言表达困难"],
-    "created_at": "2026-01-28T14:30:00",
-    "updated_at": "2026-01-28T14:30:00"
+    "...": "..."
   }
 }
 ```
 
 ---
 
-### 3. 创建干预会话（后面的session_id都要改成这个模块生成的id）
-**POST** `/api/infrastructure/sqlite/create-session`
+### 3. 创建干预会话
+**POST** `/api/infrastructure/sqlite/create_session`
 
 ```json
 {
@@ -93,14 +115,14 @@
   "data": {
     "session_id": "session-abc123"
   },
-  "message": "会话已创建"
+  "message": "创建会话成功"
 }
 ```
 
 ---
 
 ### 4. 更新会话信息
-**POST** `/api/infrastructure/sqlite/update-session`
+**POST** `/api/infrastructure/sqlite/update_session`
 
 ```json
 {
@@ -112,29 +134,16 @@
         "type": "smile",
         "timestamp": "2026-01-28T14:35:00",
         "description": "孩子微笑了"
-      },
-      {
-        "type": "eye_contact",
-        "timestamp": "2026-01-28T14:36:00",
-        "description": "主动眼神接触3秒"
       }
     ]
   }
 }
 ```
 
-**响应：**
-```json
-{
-  "success": true,
-  "message": "更新会话成功"
-}
-```
-
 ---
 
 ### 5. 保存观察记录
-**POST** `/api/infrastructure/sqlite/save-observation`
+**POST** `/api/infrastructure/sqlite/save_observation`
 
 ```json
 {
@@ -143,27 +152,15 @@
     "child_id": "test-child-001",
     "observation_type": "quick",
     "timestamp": "2026-01-28T14:35:00",
-    "content": "孩子在玩积木时主动看向家长，持续约3秒",
-    "tags": ["eye_contact", "joint_attention"]
+    "content": "孩子在玩积木时主动看向家长，持续约3秒"
   }
-}
-```
-
-**响应：**
-```json
-{
-  "success": true,
-  "data": {
-    "observation_id": "obs-xyz789"
-  },
-  "message": "保存观察记录成功"
 }
 ```
 
 ---
 
 ### 6. 保存周计划
-**POST** `/api/infrastructure/sqlite/save-weekly-plan`
+**POST** `/api/infrastructure/sqlite/save_weekly_plan`
 
 ```json
 {
@@ -172,103 +169,40 @@
     "week_start": "2026-01-27",
     "week_end": "2026-02-02",
     "weekly_goal": "提升眼神接触频率和持续时间",
-    "daily_plans": [
-      {
-        "day": "Monday",
-        "activities": [
-          {
-            "time": "09:00",
-            "activity": "积木游戏",
-            "goal": "眼神接触3次以上"
-          }
-        ]
-      }
-    ]
+    "daily_plans": [...]
   }
-}
-```
-
-**响应：**
-```json
-{
-  "success": true,
-  "data": {
-    "plan_id": "plan-123"
-  },
-  "message": "保存周计划成功"
 }
 ```
 
 ---
 
 ### 7. 获取会话历史
-**GET** `/api/infrastructure/sqlite/session-history/{child_id}?limit=10`
-
-**URL 参数：**
-- `child_id`: 孩子ID (路径参数)
-- `limit`: 返回数量限制 (查询参数，默认10)
+**GET** `/api/infrastructure/sqlite/session_history/{child_id}?limit=10`
 
 **示例URL：**
 ```
-http://localhost:7860/api/infrastructure/sqlite/session-history/test-child-001?limit=10
-```
-
-**响应：**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "session_id": "session-abc123",
-      "game_id": "game-001",
-      "game_name": "积木游戏",
-      "status": "completed",
-      "created_at": "2026-01-28T14:30:00",
-      "duration": 1800
-    }
-  ],
-  "message": "获取到 1 条会话历史"
-}
+http://localhost:7860/api/infrastructure/sqlite/session_history/test-child-001?limit=10
 ```
 
 ---
 
-## 使用 curl 测试 SQLite
+## curl 测试示例
 
-### 保存孩子档案
 ```bash
-curl -X POST http://localhost:7860/api/infrastructure/sqlite/save-child \
+# 保存孩子档案
+curl -X POST http://localhost:7860/api/infrastructure/sqlite/save_child \
   -H "Content-Type: application/json" \
-  -d '{
-    "profile": {
-      "child_id": "test-child-001",
-      "name": "小明",
-      "age": 36,
-      "gender": "男",
-      "diagnosis": "自闭症谱系障碍",
-      "eye_contact": 5.0,
-      "strengths": ["喜欢积木", "专注力好"]
-    }
-  }'
-```
+  -d '{"profile": {"child_id": "test-child-001", "name": "小明", "age": 36}}'
 
-### 获取孩子档案
-```bash
-curl -X POST http://localhost:7860/api/infrastructure/sqlite/get-child \
+# 获取孩子档案
+curl -X POST http://localhost:7860/api/infrastructure/sqlite/get_child \
   -H "Content-Type: application/json" \
-  -d '{
-    "child_id": "test-child-001"
-  }'
-```
+  -d '{"child_id": "test-child-001"}'
 
-### 创建会话
-```bash
-curl -X POST http://localhost:7860/api/infrastructure/sqlite/create-session \
+# 创建会话
+curl -X POST http://localhost:7860/api/infrastructure/sqlite/create_session \
   -H "Content-Type: application/json" \
-  -d '{
-    "child_id": "test-child-001",
-    "game_id": "game-001"
-  }'
+  -d '{"child_id": "test-child-001", "game_id": "game-001"}'
 ```
 
 ---
@@ -278,7 +212,7 @@ curl -X POST http://localhost:7860/api/infrastructure/sqlite/create-session \
 ## API 端点列表
 
 ### 1. 分析视频
-**POST** `/api/infrastructure/video-analysis/analyze-video`
+**POST** `/api/infrastructure/video_analysis/analyze_video`
 
 ```json
 {
@@ -287,8 +221,7 @@ curl -X POST http://localhost:7860/api/infrastructure/sqlite/create-session \
     "child_profile": {
       "child_id": "test-child-001",
       "name": "小明",
-      "age": 36,
-      "diagnosis": "自闭症谱系障碍"
+      "age": 36
     },
     "session_info": {
       "session_id": "session-abc123",
@@ -304,60 +237,11 @@ curl -X POST http://localhost:7860/api/infrastructure/sqlite/create-session \
 {
   "success": true,
   "data": {
-    "behaviors": [
-      {
-        "description": "孩子主动看向家长",
-        "timestamp": "00:15",
-        "significance": 4,
-        "type": "eye_contact"
-      },
-      {
-        "description": "重复拍手动作",
-        "timestamp": "01:20",
-        "significance": 3,
-        "type": "repetitive"
-      }
-    ],
-    "interactions": [
-      {
-        "description": "回应家长的呼唤",
-        "timestamp": "00:30",
-        "quality": 4,
-        "type": "response"
-      }
-    ],
-    "emotions": {
-      "dominant_emotion": "calm",
-      "changes": [
-        {
-          "timestamp": "02:00",
-          "from": "calm",
-          "to": "happy",
-          "trigger": "成功搭建积木"
-        }
-      ],
-      "regulation_ability": "良好，能够自我调节"
-    },
-    "attention": {
-      "duration": "moderate",
-      "quality": "good",
-      "focus_shifts": [
-        {
-          "timestamp": "01:00",
-          "from": "积木",
-          "to": "家长"
-        }
-      ]
-    },
-    "summary": "孩子在本次会话中表现良好，眼神接触有所改善",
-    "highlights": [
-      {
-        "timestamp": "00:15",
-        "description": "主动眼神接触",
-        "importance": "high"
-      }
-    ],
-    "raw_analysis": "完整的AI分析文本..."
+    "behaviors": [...],
+    "interactions": [...],
+    "emotions": {...},
+    "attention": {...},
+    "summary": "孩子在本次会话中表现良好"
   },
   "message": "视频分析完成"
 }
@@ -366,7 +250,7 @@ curl -X POST http://localhost:7860/api/infrastructure/sqlite/create-session \
 ---
 
 ### 2. 提取关键片段
-**POST** `/api/infrastructure/video-analysis/extract-highlights`
+**POST** `/api/infrastructure/video_analysis/extract_highlights`
 
 ```json
 {
@@ -376,22 +260,7 @@ curl -X POST http://localhost:7860/api/infrastructure/sqlite/create-session \
       {
         "description": "孩子主动看向家长",
         "timestamp": "00:15",
-        "significance": 4,
-        "type": "eye_contact"
-      },
-      {
-        "description": "重复拍手动作",
-        "timestamp": "01:20",
-        "significance": 3,
-        "type": "repetitive"
-      }
-    ],
-    "interactions": [
-      {
-        "description": "回应家长的呼唤",
-        "timestamp": "00:30",
-        "quality": 4,
-        "type": "response"
+        "significance": 4
       }
     ]
   }
@@ -409,59 +278,189 @@ curl -X POST http://localhost:7860/api/infrastructure/sqlite/create-session \
       "type": "behavior",
       "description": "孩子主动看向家长",
       "importance": 4
-    },
-    {
-      "timestamp": "01:20",
-      "duration": 5,
-      "type": "behavior",
-      "description": "重复拍手动作",
-      "importance": 3
     }
   ],
-  "message": "提取到 2 个关键片段"
+  "message": "提取到 1 个关键片段"
 }
 ```
 
 ---
 
-## 使用 curl 测试视频分析
+## curl 测试示例
 
-### 分析视频
 ```bash
-curl -X POST http://localhost:7860/api/infrastructure/video-analysis/analyze-video \
+# 分析视频
+curl -X POST http://localhost:7860/api/infrastructure/video_analysis/analyze_video \
   -H "Content-Type: application/json" \
-  -d '{
-    "video_path": "E:\\videos\\session_20260128.mp4",
-    "context": {
-      "child_profile": {
-        "child_id": "test-child-001",
-        "name": "小明",
-        "age": 36
-      },
-      "session_info": {
-        "session_id": "session-abc123",
-        "game_name": "积木游戏"
-      }
-    }
-  }'
+  -d '{"video_path": "E:\\videos\\test.mp4", "context": {"child_profile": {"child_id": "test-child-001"}}}'
+
+# 提取关键片段
+curl -X POST http://localhost:7860/api/infrastructure/video_analysis/extract_highlights \
+  -H "Content-Type: application/json" \
+  -d '{"video_path": "E:\\videos\\test.mp4", "analysis_result": {"behaviors": []}}'
 ```
 
-### 提取关键片段
+---
+
+# 语音服务 API 测试
+
+## API 端点列表
+
+### 1. 语音转文字 (ASR)
+**POST** `/api/infrastructure/speech/speech_to_text`
+
+```json
+{
+  "audio_path": "E:\\audio\\observation_20260128.mp3"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "text": "孩子今天主动看向我三次，每次持续大约两到三秒钟"
+  },
+  "message": "语音识别完成"
+}
+```
+
+**支持格式**：MP3, WAV, PCM, M4A, AAC, FLAC, OGG
+
+---
+
+### 2. 文字转语音 (TTS)
+**POST** `/api/infrastructure/speech/text_to_speech`
+
+```json
+{
+  "text": "小明，我们一起来玩积木吧！"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "audio_path": "C:\\Users\\windows\\AppData\\Local\\Temp\\tts_a1b2c3d4.wav"
+  },
+  "message": "语音合成完成"
+}
+```
+
+---
+
+## curl 测试示例
+
 ```bash
-curl -X POST http://localhost:7860/api/infrastructure/video-analysis/extract-highlights \
+# 语音转文字
+curl -X POST http://localhost:7860/api/infrastructure/speech/speech_to_text \
   -H "Content-Type: application/json" \
-  -d '{
-    "video_path": "E:\\videos\\session_20260128.mp4",
-    "analysis_result": {
-      "behaviors": [
-        {
-          "description": "孩子主动看向家长",
-          "timestamp": "00:15",
-          "significance": 4
-        }
-      ]
-    }
-  }'
+  -d '{"audio_path": "E:\\audio\\test.mp3"}'
+
+# 文字转语音
+curl -X POST http://localhost:7860/api/infrastructure/speech/text_to_speech \
+  -H "Content-Type: application/json" \
+  -d '{"text": "小明，我们一起来玩积木吧！"}'
+```
+
+---
+
+# 文档解析服务 API 测试
+
+## API 端点列表
+
+### 1. 解析医院报告
+**POST** `/api/infrastructure/document_parser/parse_report`
+
+```json
+{
+  "file_path": "E:\\documents\\diagnosis_report.jpg",
+  "file_type": "image"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "raw_text": "完整的解析文本...",
+    "diagnosis": "诊断结果摘要",
+    "severity": "严重程度评估",
+    "recommendations": ["建议1", "建议2"],
+    "file_path": "E:\\documents\\diagnosis_report.jpg"
+  },
+  "message": "报告解析完成"
+}
+```
+
+**支持格式**：JPG, PNG, BMP, WEBP, PDF, DOCX
+
+---
+
+### 2. 解析量表数据
+**POST** `/api/infrastructure/document_parser/parse_scale`
+
+**使用图片：**
+```json
+{
+  "scale_type": "ABC",
+  "scale_data": {
+    "image_path": "E:\\documents\\abc_scale.jpg"
+  }
+}
+```
+
+**使用文本：**
+```json
+{
+  "scale_type": "CARS",
+  "scale_data": {
+    "text": "CARS量表评估结果\n总分：32分"
+  }
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "scale_type": "ABC",
+    "total_score": 8,
+    "dimension_scores": {...},
+    "severity_level": "轻度",
+    "interpretation": "解读文本...",
+    "recommendations": [...]
+  },
+  "message": "量表解析完成"
+}
+```
+
+**支持量表**：ABC, CARS, PEP-3, ADOS, WISC
+
+---
+
+## curl 测试示例
+
+```bash
+# 解析医院报告
+curl -X POST http://localhost:7860/api/infrastructure/document_parser/parse_report \
+  -H "Content-Type: application/json" \
+  -d '{"file_path": "E:\\documents\\report.jpg", "file_type": "image"}'
+
+# 解析量表（图片）
+curl -X POST http://localhost:7860/api/infrastructure/document_parser/parse_scale \
+  -H "Content-Type: application/json" \
+  -d '{"scale_type": "ABC", "scale_data": {"image_path": "E:\\documents\\abc.jpg"}}'
+
+# 解析量表（文本）
+curl -X POST http://localhost:7860/api/infrastructure/document_parser/parse_scale \
+  -H "Content-Type: application/json" \
+  -d '{"scale_type": "CARS", "scale_data": {"text": "总分：32分"}}'
 ```
 
 ---
@@ -471,7 +470,7 @@ curl -X POST http://localhost:7860/api/infrastructure/video-analysis/extract-hig
 ## API 端点列表
 
 ### 1. 保存记忆
-**POST** `/api/infrastructure/graphiti/save-memories`
+**POST** `/api/infrastructure/graphiti/save_memories`
 
 ```json
 {
@@ -497,7 +496,7 @@ curl -X POST http://localhost:7860/api/infrastructure/video-analysis/extract-hig
 ---
 
 ### 2. 获取最近记忆
-**POST** `/api/infrastructure/graphiti/get-recent-memories`
+**POST** `/api/infrastructure/graphiti/get_recent_memories`
 
 ```json
 {
@@ -506,28 +505,10 @@ curl -X POST http://localhost:7860/api/infrastructure/video-analysis/extract-hig
 }
 ```
 
-**响应：**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "timestamp": "2026-01-28T14:30:00",
-      "type": "observation",
-      "content": "孩子主动眼神接触3次",
-      "source": "uuid-xxx",
-      "target": "uuid-yyy",
-      "confidence": 0.8
-    }
-  ],
-  "message": "获取到 1 条记忆"
-}
-```
-
 ---
 
 ### 3. 构建上下文
-**POST** `/api/infrastructure/graphiti/build-context`
+**POST** `/api/infrastructure/graphiti/build_context`
 
 ```json
 {
@@ -540,24 +521,10 @@ curl -X POST http://localhost:7860/api/infrastructure/video-analysis/extract-hig
 {
   "success": true,
   "data": {
-    "recentTrends": {
-      "eye_contact": {
-        "dimension": "eye_contact",
-        "trend": "improving",
-        "rate": 0.5,
-        "dataPoints": 15
-      }
-    },
-    "attentionPoints": ["eye_contact 进展良好"],
-    "activeGoals": [
-      {
-        "goal": "提升眼神接触频率",
-        "status": "in_progress",
-        "progress": 0.6
-      }
-    ],
-    "recentMilestones": [],
-    "lastUpdated": "2026-01-28T14:30:00"
+    "recentTrends": {...},
+    "attentionPoints": [...],
+    "activeGoals": [...],
+    "recentMilestones": [...]
   },
   "message": "上下文构建完成"
 }
@@ -566,34 +533,19 @@ curl -X POST http://localhost:7860/api/infrastructure/video-analysis/extract-hig
 ---
 
 ### 4. 分析趋势
-**POST** `/api/infrastructure/graphiti/analyze-trends`
+**POST** `/api/infrastructure/graphiti/analyze_trends`
 
 ```json
 {
   "child_id": "test-child-001",
   "dimension": "眼神接触"
-}
-```
-
-**响应：**
-```json
-{
-  "success": true,
-  "data": {
-    "dimension": "眼神接触",
-    "trend": "improving",
-    "rate": 0.5,
-    "dataPoints": 15,
-    "lastUpdated": "2026-01-28T14:30:00"
-  },
-  "message": "趋势分析完成"
 }
 ```
 
 ---
 
 ### 5. 检测里程碑
-**POST** `/api/infrastructure/graphiti/detect-milestones`
+**POST** `/api/infrastructure/graphiti/detect_milestones`
 
 ```json
 {
@@ -601,27 +553,10 @@ curl -X POST http://localhost:7860/api/infrastructure/video-analysis/extract-hig
 }
 ```
 
-**响应：**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "timestamp": "2026-01-28T14:30:00",
-      "type": "breakthrough",
-      "description": "首次主动眼神接触超过5秒",
-      "dimension": "eye_contact",
-      "significance": "high"
-    }
-  ],
-  "message": "检测到 1 个里程碑"
-}
-```
-
 ---
 
 ### 6. 检测平台期
-**POST** `/api/infrastructure/graphiti/detect-plateau`
+**POST** `/api/infrastructure/graphiti/detect_plateau`
 
 ```json
 {
@@ -630,24 +565,10 @@ curl -X POST http://localhost:7860/api/infrastructure/video-analysis/extract-hig
 }
 ```
 
-**响应：**
-```json
-{
-  "success": true,
-  "data": {
-    "dimension": "眼神接触",
-    "isPlateau": false,
-    "duration": 0,
-    "suggestion": "继续当前计划"
-  },
-  "message": "平台期检测完成"
-}
-```
-
 ---
 
 ### 7. 清空记忆
-**POST** `/api/infrastructure/graphiti/clear-memories`
+**POST** `/api/infrastructure/graphiti/clear_memories`
 
 ```json
 {
@@ -655,169 +576,35 @@ curl -X POST http://localhost:7860/api/infrastructure/video-analysis/extract-hig
 }
 ```
 
-**响应：**
-```json
-{
-  "success": true,
-  "message": "已清空孩子 test-child-001 的所有记忆"
-}
-```
-
 ---
 
-## 使用 curl 测试
+## curl 测试示例
 
-### 保存记忆
 ```bash
-curl -X POST http://localhost:7860/api/infrastructure/graphiti/save-memories \
+# 保存记忆
+curl -X POST http://localhost:7860/api/infrastructure/graphiti/save_memories \
   -H "Content-Type: application/json" \
-  -d '{
-    "child_id": "test-child-001",
-    "memories": [
-      {
-        "timestamp": "2026-01-28T14:30:00",
-        "type": "observation",
-        "content": "孩子主动眼神接触3次"
-      }
-    ]
-  }'
-```
+  -d '{"child_id": "test-child-001", "memories": [{"timestamp": "2026-01-28T14:30:00", "type": "observation", "content": "孩子主动眼神接触3次"}]}'
 
-### 获取记忆
-```bash
-curl -X POST http://localhost:7860/api/infrastructure/graphiti/get-recent-memories \
-  -H "Content-Type: application/json" \
-  -d '{
-    "child_id": "test-child-001",
-    "days": 7
-  }'
-```
-
-### 构建上下文
-```bash
-curl -X POST http://localhost:7860/api/infrastructure/graphiti/build-context \
-  -H "Content-Type: application/json" \
-  -d '{
-    "child_id": "test-child-001"
-  }'
-```
-
----
-
-## 使用 Python requests 测试
-
-```python
-import requests
-import json
-
-BASE_URL = "http://localhost:7860"
-
-# 1. 保存记忆
-response = requests.post(
-    f"{BASE_URL}/api/infrastructure/graphiti/save-memories",
-    json={
-        "child_id": "test-child-001",
-        "memories": [
-            {
-                "timestamp": "2026-01-28T14:30:00",
-                "type": "observation",
-                "content": "孩子主动眼神接触3次"
-            }
-        ]
-    }
-)
-print("保存记忆:", response.json())
-
-# 2. 获取记忆
-response = requests.post(
-    f"{BASE_URL}/api/infrastructure/graphiti/get-recent-memories",
-    json={
-        "child_id": "test-child-001",
-        "days": 7
-    }
-)
-print("获取记忆:", response.json())
-
-# 3. 构建上下文
-response = requests.post(
-    f"{BASE_URL}/api/infrastructure/graphiti/build-context",
-    json={
-        "child_id": "test-child-001"
-    }
-)
-print("构建上下文:", response.json())
-```
-
----
-
-## 使用 post_get.html 测试
-
-1. 打开 `frontend_test/post_get.html`
-2. 选择 **POST** 方法
-3. 输入 URL：`/api/infrastructure/graphiti/save-memories`
-4. 输入请求体：
-```json
-{
-  "child_id": "test-child-001",
-  "memories": [
-    {
-      "timestamp": "2026-01-28T14:30:00",
-      "type": "observation",
-      "content": "孩子主动眼神接触3次"
-    }
-  ]
-}
-```
-5. 点击"发送请求"
-
----
-
-## 验证数据是否保存
-
-### 方法 1：通过 API 查询
-```bash
-curl -X POST http://localhost:7860/api/infrastructure/graphiti/get-recent-memories \
+# 获取记忆
+curl -X POST http://localhost:7860/api/infrastructure/graphiti/get_recent_memories \
   -H "Content-Type: application/json" \
   -d '{"child_id": "test-child-001", "days": 7}'
-```
 
-### 方法 2：直接查询 Neo4j
-打开 Neo4j Browser（http://localhost:7475）
-
-```cypher
-// 查询所有节点数量
-MATCH (n) RETURN count(n) as node_count
-
-// 查询所有边数量
-MATCH ()-[r]->() RETURN count(r) as edge_count
-
-// 查询最近的边
-MATCH ()-[r]->()
-RETURN r.fact, r.created_at
-ORDER BY r.created_at DESC
-LIMIT 10
-
-// 查询特定孩子的数据
-MATCH (n)
-WHERE n.group_id = 'test-child-001' OR n.source_description CONTAINS 'test-child-001'
-RETURN n
-LIMIT 20
+# 构建上下文
+curl -X POST http://localhost:7860/api/infrastructure/graphiti/build_context \
+  -H "Content-Type: application/json" \
+  -d '{"child_id": "test-child-001"}'
 ```
 
 ---
 
 ## 常见问题
 
-### 1. 保存成功但 Neo4j 中看不到数据
-- 检查 `child_id` 是否正确
-- 使用正确的 Cypher 查询（见上方）
-- 数据可能以边（Edge）的形式存储，不是节点
+### Neo4j 连接问题
+- 检查容器状态：`docker ps`
+- 检查端口：7688（bolt）、7475（web UI）
+- 验证 `.env` 配置
 
-### 2. 后端日志不显示
-- 确保使用最新版本的 `src/main.py`（包含日志中间件）
-- 重启后端服务
-
-### 3. 连接 Neo4j 失败
-- 检查 Neo4j 容器是否运行：`docker ps`
-- 检查端口是否正确：7688（bolt）、7475（web UI）
-- 检查 `.env` 中的 Neo4j 配置
+### 多模态服务配置
+视频分析和文档解析需要配置 LLM API 密钥（如 `DASHSCOPE_API_KEY`）

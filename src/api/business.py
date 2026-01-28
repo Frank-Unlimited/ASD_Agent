@@ -20,7 +20,7 @@ class CreateObservationFrameworkRequest(BaseModel):
     portrait: Dict[str, Any]
 
 
-@router.post("/assessment/build-portrait")
+@router.post("/assessment/build_portrait")
 async def assessment_build_portrait(request: BuildPortraitRequest):
     """构建孩子画像"""
     try:
@@ -35,7 +35,7 @@ async def assessment_build_portrait(request: BuildPortraitRequest):
         raise HTTPException(status_code=500, detail=f"构建失败: {str(e)}")
 
 
-@router.post("/assessment/create-observation-framework")
+@router.post("/assessment/create_observation_framework")
 async def assessment_create_observation_framework(request: CreateObservationFrameworkRequest):
     """创建观察框架"""
     try:
@@ -63,7 +63,7 @@ class CalculatePriorityDimensionsRequest(BaseModel):
     trends: Dict[str, Any]
 
 
-@router.post("/weekly-plan/generate")
+@router.post("/weekly_plan/generate")
 async def weekly_plan_generate(request: GenerateWeeklyPlanRequest):
     """生成周计划"""
     try:
@@ -83,7 +83,7 @@ async def weekly_plan_generate(request: GenerateWeeklyPlanRequest):
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 
-@router.post("/weekly-plan/calculate-priority-dimensions")
+@router.post("/weekly_plan/calculate_priority_dimensions")
 async def weekly_plan_calculate_priority(request: CalculatePriorityDimensionsRequest):
     """计算优先维度"""
     try:
@@ -110,7 +110,7 @@ class RecommendPhrasesRequest(BaseModel):
     child_profile: Dict[str, Any]
 
 
-@router.post("/guidance/get-step-guidance")
+@router.post("/guidance/get_step_guidance")
 async def guidance_get_step_guidance(request: GetStepGuidanceRequest):
     """获取步骤指引"""
     try:
@@ -125,7 +125,7 @@ async def guidance_get_step_guidance(request: GetStepGuidanceRequest):
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
-@router.post("/guidance/recommend-phrases")
+@router.post("/guidance/recommend_phrases")
 async def guidance_recommend_phrases(request: RecommendPhrasesRequest):
     """推荐话术"""
     try:
@@ -156,7 +156,7 @@ class StructureObservationRequest(BaseModel):
     context: Dict[str, Any]
 
 
-@router.post("/observation/capture-quick")
+@router.post("/observation/capture_quick")
 async def observation_capture_quick(request: CaptureQuickObservationRequest):
     """捕获快捷观察"""
     try:
@@ -175,7 +175,7 @@ async def observation_capture_quick(request: CaptureQuickObservationRequest):
         raise HTTPException(status_code=500, detail=f"捕获失败: {str(e)}")
 
 
-@router.post("/observation/capture-voice")
+@router.post("/observation/capture_voice")
 async def observation_capture_voice(request: CaptureVoiceObservationRequest):
     """捕获语音观察"""
     try:
@@ -217,7 +217,7 @@ class CrossValidateRequest(BaseModel):
     video_analysis: Dict[str, Any]
 
 
-@router.post("/video-validation/analyze-and-validate")
+@router.post("/video_validation/analyze_and_validate")
 async def video_validation_analyze_and_validate(request: AnalyzeAndValidateRequest):
     """分析视频并验证观察"""
     try:
@@ -236,7 +236,7 @@ async def video_validation_analyze_and_validate(request: AnalyzeAndValidateReque
         raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
 
 
-@router.post("/video-validation/cross-validate")
+@router.post("/video_validation/cross_validate")
 async def video_validation_cross_validate(request: CrossValidateRequest):
     """交叉验证"""
     try:
@@ -267,7 +267,7 @@ class GenerateFinalSummaryRequest(BaseModel):
     parent_feedback: Dict[str, Any]
 
 
-@router.post("/summary/generate-preliminary")
+@router.post("/summary/generate_preliminary")
 async def summary_generate_preliminary(request: GeneratePreliminarySummaryRequest):
     """生成初步总结"""
     try:
@@ -286,7 +286,7 @@ async def summary_generate_preliminary(request: GeneratePreliminarySummaryReques
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 
-@router.post("/summary/generate-feedback-form")
+@router.post("/summary/generate_feedback_form")
 async def summary_generate_feedback_form(request: GenerateFeedbackFormRequest):
     """生成反馈表"""
     try:
@@ -301,7 +301,7 @@ async def summary_generate_feedback_form(request: GenerateFeedbackFormRequest):
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 
-@router.post("/summary/generate-final")
+@router.post("/summary/generate_final")
 async def summary_generate_final(request: GenerateFinalSummaryRequest):
     """生成最终总结"""
     try:
@@ -330,7 +330,7 @@ class RefreshContextRequest(BaseModel):
     child_id: str
 
 
-@router.post("/memory-update/update")
+@router.post("/memory_update/update")
 async def memory_update_update(request: UpdateMemoryRequest):
     """更新记忆网络"""
     try:
@@ -345,7 +345,7 @@ async def memory_update_update(request: UpdateMemoryRequest):
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
 
-@router.post("/memory-update/refresh-context")
+@router.post("/memory_update/refresh_context")
 async def memory_update_refresh_context(request: RefreshContextRequest):
     """刷新上下文"""
     try:
@@ -375,7 +375,7 @@ class CheckAdjustmentNeededRequest(BaseModel):
     reassessment_result: Dict[str, Any]
 
 
-@router.post("/reassessment/reassess-child")
+@router.post("/reassessment/reassess_child")
 async def reassessment_reassess_child(request: ReassessChildRequest):
     """重新评估孩子"""
     try:
@@ -394,7 +394,7 @@ async def reassessment_reassess_child(request: ReassessChildRequest):
         raise HTTPException(status_code=500, detail=f"评估失败: {str(e)}")
 
 
-@router.post("/reassessment/update-portrait")
+@router.post("/reassessment/update_portrait")
 async def reassessment_update_portrait(request: UpdatePortraitRequest):
     """更新画像"""
     try:
@@ -409,7 +409,7 @@ async def reassessment_update_portrait(request: UpdatePortraitRequest):
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
 
-@router.post("/reassessment/check-adjustment-needed")
+@router.post("/reassessment/check_adjustment_needed")
 async def reassessment_check_adjustment_needed(request: CheckAdjustmentNeededRequest):
     """检查是否需要调整计划"""
     try:
@@ -435,7 +435,7 @@ class RouteQueryRequest(BaseModel):
     query: str
 
 
-@router.post("/chat-assistant/chat")
+@router.post("/chat_assistant/chat")
 async def chat_assistant_chat(request: ChatRequest):
     """对话"""
     try:
@@ -454,7 +454,7 @@ async def chat_assistant_chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=f"对话失败: {str(e)}")
 
 
-@router.post("/chat-assistant/route-query")
+@router.post("/chat_assistant/route_query")
 async def chat_assistant_route_query(request: RouteQueryRequest):
     """路由查询"""
     try:
@@ -493,7 +493,7 @@ class GenerateMedicalReportRequest(BaseModel):
     time_range: str
 
 
-@router.post("/visualization/generate-radar-chart")
+@router.post("/visualization/generate_radar_chart")
 async def visualization_generate_radar_chart(request: GenerateRadarChartRequest):
     """生成雷达图数据"""
     try:
@@ -508,7 +508,7 @@ async def visualization_generate_radar_chart(request: GenerateRadarChartRequest)
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 
-@router.post("/visualization/generate-timeline")
+@router.post("/visualization/generate_timeline")
 async def visualization_generate_timeline(request: GenerateTimelineRequest):
     """生成时间线数据"""
     try:
@@ -523,7 +523,7 @@ async def visualization_generate_timeline(request: GenerateTimelineRequest):
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 
-@router.post("/visualization/generate-trend-chart")
+@router.post("/visualization/generate_trend_chart")
 async def visualization_generate_trend_chart(request: GenerateTrendChartRequest):
     """生成趋势图数据"""
     try:
@@ -542,7 +542,7 @@ async def visualization_generate_trend_chart(request: GenerateTrendChartRequest)
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 
-@router.post("/visualization/generate-parent-report")
+@router.post("/visualization/generate_parent_report")
 async def visualization_generate_parent_report(request: GenerateParentReportRequest):
     """生成家长版报告"""
     try:
@@ -557,7 +557,7 @@ async def visualization_generate_parent_report(request: GenerateParentReportRequ
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 
-@router.post("/visualization/generate-medical-report")
+@router.post("/visualization/generate_medical_report")
 async def visualization_generate_medical_report(request: GenerateMedicalReportRequest):
     """生成医生版报告"""
     try:
