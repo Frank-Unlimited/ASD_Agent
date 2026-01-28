@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        # 允许从环境变量读取（支持大写和小写）
+        env_prefix = ""
+        extra = "ignore"
 
 
 # 全局配置实例

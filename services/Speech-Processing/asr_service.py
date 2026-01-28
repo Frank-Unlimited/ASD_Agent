@@ -18,7 +18,7 @@ try:
     from .config import SpeechConfig
     from .utils import convert_audio_to_pcm
 except ImportError:
-    from config import SpeechConfig
+    from .config import SpeechConfig
     try:
         from utils import convert_audio_to_pcm
     except ImportError:
