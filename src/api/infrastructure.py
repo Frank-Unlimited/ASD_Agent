@@ -1,8 +1,8 @@
 """
 基础设施层 API 路由
-提供 6 个基础设施服务的 REST API 端点
+提供 7 个基础设施服务的 REST API 端点
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 
@@ -579,3 +579,40 @@ async def document_parser_parse_scale(request: ParseScaleRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"解析失败: {str(e)}")
+
+
+# ============ 模块7: 文件上传模块 ============
+
+@router.post("/file_upload/upload")
+async def file_upload_upload(
+    file: UploadFile = File(...),
+    category: Optional[str] = None
+):
+    """
+    上传文件到服务器本地
+    
+    参数:
+        - file: 文件对象（必需）
+        - category: 文件分类（可选: image/document/audio/video，不传则自动检测）
+    
+    返回:
+        {
+            "file_path": "完整文件路径",
+            "filename": "生成的文件名",
+            "original_filename": "原始文件名",
+            "file_size": 文件大小（字节）,
+            "category": "文件分类"
+        }
+    """
+    try:
+        service = container.get('file_upload')
+        result = await service.upload_file(file, category)
+        return {
+            "success": True,
+            "data": result,
+            "message": "文件上传成功"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
