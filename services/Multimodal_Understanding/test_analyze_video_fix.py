@@ -12,8 +12,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# 动态导入带连字符的模块
-multimodal_adapters = importlib.import_module('services.Multimodal-Understanding.adapters')
+# 动态导入多模态理解模块
+multimodal_adapters = importlib.import_module('services.Multimodal_Understanding.adapters')
 MultimodalVideoAnalysisService = multimodal_adapters.MultimodalVideoAnalysisService
 
 

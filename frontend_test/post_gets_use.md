@@ -1,10 +1,279 @@
-# Graphiti API 测试指南
+# API 测试指南
 
 ## 前置条件
 
-1. 启动 Neo4j 容器（端口 7688）
+1. 启动 Neo4j 容器（端口 7688）- Graphiti 需要
 2. 启动后端服务：`python src/main.py`（端口 7860）
-3. 确保 `.env` 中 `USE_REAL_GRAPHITI=true`
+3. 确保 `.env` 中 `USE_REAL_GRAPHITI=true` 和 `USE_REAL_SQLITE=true`
+
+---
+
+# SQLite API 测试
+
+## API 端点列表
+
+### 1. 保存孩子档案
+**POST** `/api/infrastructure/sqlite/save-child`
+
+```json
+{
+  "profile": {
+    "child_id": "test-child-001",
+    "name": "小明",
+    "age": 36,
+    "gender": "男",
+    "diagnosis": "自闭症谱系障碍",
+    "eye_contact": 5.0,
+    "joint_attention": 4.5,
+    "imitation": 3.8,
+    "emotional_response": 4.2,
+    "strengths": ["喜欢积木", "专注力好"],
+    "challenges": ["眼神接触少", "语言表达困难"]
+  }
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "message": "保存孩子档案成功"
+}
+```
+
+---
+
+### 2. 获取孩子档案
+**POST** `/api/infrastructure/sqlite/get-child`
+
+```json
+{
+  "child_id": "test-child-001"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "child_id": "test-child-001",
+    "name": "小明",
+    "age": 36,
+    "gender": "男",
+    "diagnosis": "自闭症谱系障碍",
+    "eye_contact": 5.0,
+    "joint_attention": 4.5,
+    "imitation": 3.8,
+    "emotional_response": 4.2,
+    "strengths": ["喜欢积木", "专注力好"],
+    "challenges": ["眼神接触少", "语言表达困难"],
+    "created_at": "2026-01-28T14:30:00",
+    "updated_at": "2026-01-28T14:30:00"
+  }
+}
+```
+
+---
+
+### 3. 创建干预会话（后面的session_id都要改成这个模块生成的id）
+**POST** `/api/infrastructure/sqlite/create-session`
+
+```json
+{
+  "child_id": "test-child-001",
+  "game_id": "game-001"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "session_id": "session-abc123"
+  },
+  "message": "会话已创建"
+}
+```
+
+---
+
+### 4. 更新会话信息
+**POST** `/api/infrastructure/sqlite/update-session`
+
+```json
+{
+  "session_id": "session-abc123",
+  "data": {
+    "status": "in_progress",
+    "quick_observations": [
+      {
+        "type": "smile",
+        "timestamp": "2026-01-28T14:35:00",
+        "description": "孩子微笑了"
+      },
+      {
+        "type": "eye_contact",
+        "timestamp": "2026-01-28T14:36:00",
+        "description": "主动眼神接触3秒"
+      }
+    ]
+  }
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "message": "更新会话成功"
+}
+```
+
+---
+
+### 5. 保存观察记录
+**POST** `/api/infrastructure/sqlite/save-observation`
+
+```json
+{
+  "observation": {
+    "session_id": "session-abc123",
+    "child_id": "test-child-001",
+    "observation_type": "quick",
+    "timestamp": "2026-01-28T14:35:00",
+    "content": "孩子在玩积木时主动看向家长，持续约3秒",
+    "tags": ["eye_contact", "joint_attention"]
+  }
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "observation_id": "obs-xyz789"
+  },
+  "message": "保存观察记录成功"
+}
+```
+
+---
+
+### 6. 保存周计划
+**POST** `/api/infrastructure/sqlite/save-weekly-plan`
+
+```json
+{
+  "plan": {
+    "child_id": "test-child-001",
+    "week_start": "2026-01-27",
+    "week_end": "2026-02-02",
+    "weekly_goal": "提升眼神接触频率和持续时间",
+    "daily_plans": [
+      {
+        "day": "Monday",
+        "activities": [
+          {
+            "time": "09:00",
+            "activity": "积木游戏",
+            "goal": "眼神接触3次以上"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "plan_id": "plan-123"
+  },
+  "message": "保存周计划成功"
+}
+```
+
+---
+
+### 7. 获取会话历史
+**GET** `/api/infrastructure/sqlite/session-history/{child_id}?limit=10`
+
+**URL 参数：**
+- `child_id`: 孩子ID (路径参数)
+- `limit`: 返回数量限制 (查询参数，默认10)
+
+**示例URL：**
+```
+http://localhost:7860/api/infrastructure/sqlite/session-history/test-child-001?limit=10
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "session_id": "session-abc123",
+      "game_id": "game-001",
+      "game_name": "积木游戏",
+      "status": "completed",
+      "created_at": "2026-01-28T14:30:00",
+      "duration": 1800
+    }
+  ],
+  "message": "获取到 1 条会话历史"
+}
+```
+
+---
+
+## 使用 curl 测试 SQLite
+
+### 保存孩子档案
+```bash
+curl -X POST http://localhost:7860/api/infrastructure/sqlite/save-child \
+  -H "Content-Type: application/json" \
+  -d '{
+    "profile": {
+      "child_id": "test-child-001",
+      "name": "小明",
+      "age": 36,
+      "gender": "男",
+      "diagnosis": "自闭症谱系障碍",
+      "eye_contact": 5.0,
+      "strengths": ["喜欢积木", "专注力好"]
+    }
+  }'
+```
+
+### 获取孩子档案
+```bash
+curl -X POST http://localhost:7860/api/infrastructure/sqlite/get-child \
+  -H "Content-Type: application/json" \
+  -d '{
+    "child_id": "test-child-001"
+  }'
+```
+
+### 创建会话
+```bash
+curl -X POST http://localhost:7860/api/infrastructure/sqlite/create-session \
+  -H "Content-Type: application/json" \
+  -d '{
+    "child_id": "test-child-001",
+    "game_id": "game-001"
+  }'
+```
+
+---
+
+# Graphiti API 测试
 
 ## API 端点列表
 
@@ -13,7 +282,7 @@
 
 ```json
 {
-  "child_id": "test-001",
+  "child_id": "test-child-001",
   "memories": [
     {
       "timestamp": "2026-01-28T14:30:00",
@@ -39,7 +308,7 @@
 
 ```json
 {
-  "child_id": "test-001",
+  "child_id": "test-child-001",
   "days": 7
 }
 ```
@@ -69,7 +338,7 @@
 
 ```json
 {
-  "child_id": "test-001"
+  "child_id": "test-child-001"
 }
 ```
 
@@ -108,7 +377,7 @@
 
 ```json
 {
-  "child_id": "test-001",
+  "child_id": "test-child-001",
   "dimension": "眼神接触"
 }
 ```
@@ -135,7 +404,7 @@
 
 ```json
 {
-  "child_id": "test-001"
+  "child_id": "test-child-001"
 }
 ```
 
@@ -163,7 +432,7 @@
 
 ```json
 {
-  "child_id": "test-001",
+  "child_id": "test-child-001",
   "dimension": "眼神接触"
 }
 ```
@@ -189,7 +458,7 @@
 
 ```json
 {
-  "child_id": "test-001"
+  "child_id": "test-child-001"
 }
 ```
 
@@ -197,7 +466,7 @@
 ```json
 {
   "success": true,
-  "message": "已清空孩子 test-001 的所有记忆"
+  "message": "已清空孩子 test-child-001 的所有记忆"
 }
 ```
 
@@ -210,7 +479,7 @@
 curl -X POST http://localhost:7860/api/infrastructure/graphiti/save-memories \
   -H "Content-Type: application/json" \
   -d '{
-    "child_id": "test-001",
+    "child_id": "test-child-001",
     "memories": [
       {
         "timestamp": "2026-01-28T14:30:00",
@@ -226,7 +495,7 @@ curl -X POST http://localhost:7860/api/infrastructure/graphiti/save-memories \
 curl -X POST http://localhost:7860/api/infrastructure/graphiti/get-recent-memories \
   -H "Content-Type: application/json" \
   -d '{
-    "child_id": "test-001",
+    "child_id": "test-child-001",
     "days": 7
   }'
 ```
@@ -236,7 +505,7 @@ curl -X POST http://localhost:7860/api/infrastructure/graphiti/get-recent-memori
 curl -X POST http://localhost:7860/api/infrastructure/graphiti/build-context \
   -H "Content-Type: application/json" \
   -d '{
-    "child_id": "test-001"
+    "child_id": "test-child-001"
   }'
 ```
 
@@ -254,7 +523,7 @@ BASE_URL = "http://localhost:7860"
 response = requests.post(
     f"{BASE_URL}/api/infrastructure/graphiti/save-memories",
     json={
-        "child_id": "test-001",
+        "child_id": "test-child-001",
         "memories": [
             {
                 "timestamp": "2026-01-28T14:30:00",
@@ -270,7 +539,7 @@ print("保存记忆:", response.json())
 response = requests.post(
     f"{BASE_URL}/api/infrastructure/graphiti/get-recent-memories",
     json={
-        "child_id": "test-001",
+        "child_id": "test-child-001",
         "days": 7
     }
 )
@@ -280,7 +549,7 @@ print("获取记忆:", response.json())
 response = requests.post(
     f"{BASE_URL}/api/infrastructure/graphiti/build-context",
     json={
-        "child_id": "test-001"
+        "child_id": "test-child-001"
     }
 )
 print("构建上下文:", response.json())
@@ -296,7 +565,7 @@ print("构建上下文:", response.json())
 4. 输入请求体：
 ```json
 {
-  "child_id": "test-001",
+  "child_id": "test-child-001",
   "memories": [
     {
       "timestamp": "2026-01-28T14:30:00",
@@ -316,7 +585,7 @@ print("构建上下文:", response.json())
 ```bash
 curl -X POST http://localhost:7860/api/infrastructure/graphiti/get-recent-memories \
   -H "Content-Type: application/json" \
-  -d '{"child_id": "test-001", "days": 7}'
+  -d '{"child_id": "test-child-001", "days": 7}'
 ```
 
 ### 方法 2：直接查询 Neo4j
@@ -337,7 +606,7 @@ LIMIT 10
 
 // 查询特定孩子的数据
 MATCH (n)
-WHERE n.group_id = 'test-001' OR n.source_description CONTAINS 'test-001'
+WHERE n.group_id = 'test-child-001' OR n.source_description CONTAINS 'test-child-001'
 RETURN n
 LIMIT 20
 ```
