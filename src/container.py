@@ -192,4 +192,27 @@ def init_services():
     except Exception as e:
         print(f"[Container] 观察记录服务注册失败: {e}")
 
+    # 业务服务：游戏推荐服务（直接依赖基础服务）
+    try:
+        from services.game import GameRecommenderService
+        game_recommender = GameRecommenderService(
+            sqlite_service=container.get('sqlite'),
+            llm_service=container.get('llm')
+        )
+        container.register('game_recommender', game_recommender)
+        print("[Container] 游戏推荐服务已注册")
+    except Exception as e:
+        print(f"[Container] 游戏推荐服务注册失败: {e}")
+
+    # 业务服务：游戏会话管理服务
+    try:
+        from services.game import GameSessionService
+        game_session = GameSessionService(
+            sqlite_service=container.get('sqlite')
+        )
+        container.register('game_session', game_session)
+        print("[Container] 游戏会话管理服务已注册")
+    except Exception as e:
+        print(f"[Container] 游戏会话管理服务注册失败: {e}")
+
     print("[Container] 所有服务已注册（当前使用 Mock 实现）")
