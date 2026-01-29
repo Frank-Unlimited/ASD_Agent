@@ -1,27 +1,33 @@
 """
-Graphiti 记忆网络模块
-基于 graphiti-core 实现的时序记忆图谱
+Graphiti 记忆网络模块 - 完全重构版本
+基于自定义图结构的时序记忆分析系统
 """
 
+# 导入 API 接口
 from .api_interface import (
-    save_memories,
-    get_recent_memories,
-    analyze_trends,
-    detect_milestones,
-    detect_plateau,
-    build_context,
+    save_observations,
+    get_full_trend,
+    get_dimension_trend,
+    get_quick_summary,
+    get_milestones,
+    get_correlations,
+    refresh_correlations,
+    clear_child_data
 )
 
+# 导入适配器
 from .adapters import GraphitiServiceAdapter
 
 __all__ = [
-    'save_memories',
-    'get_recent_memories',
-    'analyze_trends',
-    'detect_milestones',
-    'detect_plateau',
-    'build_context',
+    # API 接口
+    'save_observations',
+    'get_full_trend',
+    'get_dimension_trend',
+    'get_quick_summary',
+    'get_milestones',
+    'get_correlations',
+    'refresh_correlations',
+    'clear_child_data',
+    # 适配器
     'GraphitiServiceAdapter',
 ]
-
-__version__ = '1.0.0'
