@@ -1,6 +1,12 @@
 """
 档案管理服务
 负责创建、更新和查询孩子档案
+
+依赖的基础服务：
+- Multimodal_Understanding: 解析档案图片
+- Graphiti: 保存初始画像到知识图谱
+- SQLite: 存储档案数据
+- LLM: 结构化提取信息
 """
 import json
 import uuid
@@ -17,11 +23,11 @@ from src.models.profile import (
     DiagnosisLevel,
     Gender,
 )
-from src.interfaces.infrastructure import (
-    IDocumentParserService,
-    ISQLiteService,
-    IGraphitiService,
-)
+
+# 导入基础服务
+from services.Multimodal_Understanding.api_interface import parse_image
+from services.Multimodal_Understanding.utils import encode_local_image
+from services.Graphiti.api_interface import save_memories
 
 
 class ProfileService:
@@ -29,56 +35,68 @@ class ProfileService:
 
     def __init__(
         self,
-        document_parser: IDocumentParserService,
-        sqlite_service: ISQLiteService,
-        graphiti_service: IGraphitiService,
-        llm_service: Any,  # LLM服务用于结构化提取
+        sqlite_service: Any,  # SQLite服务
+        llm_service: Any,  # LLM服务
     ):
-        self.document_parser = document_parser
+        """
+        初始化档案管理服务
+
+        Args:
+            sqlite_service: SQLite数据库服务
+            llm_service: LLM服务（用于结构化提取）
+        """
         self.sqlite = sqlite_service
-        self.graphiti = graphiti_service
         self.llm = llm_service
 
     async def create_profile_from_image(
         self,
         image_path: str,
-        file_type: str = "image"
     ) -> ProfileCreateResponse:
         """
         从档案图片创建孩子档案
 
         流程：
-        1. 使用文档解析服务解析图片
+        1. 使用Multimodal_Understanding解析图片
         2. 使用LLM提取结构化信息
         3. 创建初步档案（等待家长补充姓名、性别等）
         4. 保存到SQLite
         5. 返回解析结果和child_id
 
         Args:
-            image_path: 图片文件路径
-            file_type: 文件类型（默认image）
+            image_path: 图片文件路径（已上传到本地）
 
         Returns:
             ProfileCreateResponse: 包含child_id和解析数据
         """
         print(f"\n[ProfileService] 开始解析档案图片: {image_path}")
 
-        # 1. 解析图片
-        raw_parsed_data = await self.document_parser.parse_report(
-            file_path=image_path,
-            file_type=file_type
-        )
+        # 1. 编码图片为base64
+        image_url = encode_local_image(image_path)
 
-        # 2. 使用LLM提取结构化信息
-        parsed_data = await self._extract_structured_profile_data(
-            raw_parsed_data.get("raw_text", "")
-        )
-        parsed_data.raw_text = raw_parsed_data.get("raw_text", "")
+        # 2. 使用Multimodal_Understanding解析图片
+        prompt = """
+请详细解析这份医院报告或评估档案，提取：
+1. 诊断结果（主要诊断、诊断依据）
+2. 严重程度（轻度/中度/重度）
+3. 出生日期
+4. 评估日期
+5. 各项发展维度的评估结果
+6. 观察到的兴趣点
+7. 医生建议
 
-        # 3. 生成child_id
+请尽可能详细地提取所有信息。
+"""
+        raw_text = parse_image(image_url, prompt)
+        print(f"[ProfileService] 图片解析完成，字符数: {len(raw_text)}")
+
+        # 3. 使用LLM提取结构化信息
+        parsed_data = await self._extract_structured_profile_data(raw_text)
+        parsed_data.raw_text = raw_text
+
+        # 4. 生成child_id
         child_id = f"child-{uuid.uuid4().hex[:12]}"
 
-        # 4. 创建初步档案（姓名和性别待补充）
+        # 5. 创建初步档案（姓名和性别待补充）
         profile = ChildProfile(
             child_id=child_id,
             name="待补充",  # 家长后续补充
@@ -100,7 +118,7 @@ class ProfileService:
             notes=f"系统自动解析。关键发现: {', '.join(parsed_data.key_findings[:3])}"
         )
 
-        # 5. 保存到SQLite
+        # 6. 保存到SQLite
         await self.sqlite.save_child({
             "childId": child_id,
             "name": profile.name,
@@ -352,9 +370,9 @@ class ProfileService:
                 }
             })
 
-        # 保存到Graphiti
+        # 保存到Graphiti（使用基础服务的API函数）
         if memories:
-            await self.graphiti.save_memories(
+            await save_memories(
                 child_id=profile.child_id,
                 memories=memories
             )
