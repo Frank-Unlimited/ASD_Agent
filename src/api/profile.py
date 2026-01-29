@@ -1,10 +1,12 @@
 """
 档案管理 API
+
+API层负责：
+1. 使用FileUploadService上传文件
+2. 调用ProfileService处理业务逻辑
+3. 返回响应
 """
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from typing import Optional
-import os
-import uuid
 
 from src.models.profile import (
     ProfileCreateResponse,
@@ -24,36 +26,32 @@ async def upload_archive_image(
     上传档案图片并解析
 
     流程：
-    1. 保存上传的图片文件
-    2. 调用档案服务解析图片
+    1. 使用FileUploadService保存上传的图片文件
+    2. 调用ProfileService解析图片并创建档案
     3. 返回解析结果和child_id
 
     注意：此时返回的档案中name和gender是待补充的，需要调用PATCH接口补充
     """
     try:
-        # 1. 保存上传的文件
-        upload_dir = "uploads/archives"
-        os.makedirs(upload_dir, exist_ok=True)
+        # 1. 使用FileUploadService上传文件
+        file_upload_service = container.get('file_upload')
+        upload_result = await file_upload_service.upload_file(
+            file=file,
+            category="documents"  # 档案图片归类为documents
+        )
 
-        file_ext = os.path.splitext(file.filename)[1]
-        file_name = f"archive-{uuid.uuid4().hex[:12]}{file_ext}"
-        file_path = os.path.join(upload_dir, file_name)
+        print(f"[API] 档案图片已上传: {upload_result['file_path']}")
 
-        with open(file_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
-
-        print(f"[API] 档案图片已保存: {file_path}")
-
-        # 2. 调用档案服务解析
+        # 2. 调用ProfileService解析图片并创建档案
         profile_service = container.get('profile')
         result = await profile_service.create_profile_from_image(
-            image_path=file_path,
-            file_type="image"
+            image_path=upload_result['file_path']
         )
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"档案上传失败: {str(e)}")
 

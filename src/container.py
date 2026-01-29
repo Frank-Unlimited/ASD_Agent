@@ -168,13 +168,11 @@ def init_services():
         print(f"[Container] LLM 服务注册失败: {e}")
         print(f"[Container] 请检查 LLM_API_KEY 是否配置")
 
-    # 业务服务：档案管理服务
+    # 业务服务：档案管理服务（直接依赖基础服务）
     try:
         from services.profile import ProfileService
         profile_service = ProfileService(
-            document_parser=container.get('document_parser'),
             sqlite_service=container.get('sqlite'),
-            graphiti_service=container.get('graphiti'),
             llm_service=container.get('llm')
         )
         container.register('profile', profile_service)
