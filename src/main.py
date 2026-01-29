@@ -20,6 +20,7 @@ from src.api.workflow import router as workflow_router
 from src.api.infrastructure import router as infrastructure_router
 from src.api.business import router as business_router
 from src.api.profile import router as profile_router
+from src.api.observation import router as observation_router
 
 # 配置日志
 logging.basicConfig(
@@ -84,6 +85,7 @@ app.include_router(workflow_router)
 app.include_router(infrastructure_router)
 app.include_router(business_router)
 app.include_router(profile_router)
+app.include_router(observation_router)
 
 
 @app.get("/")

@@ -180,4 +180,16 @@ def init_services():
     except Exception as e:
         print(f"[Container] 档案管理服务注册失败: {e}")
 
+    # 业务服务：观察记录服务（直接依赖基础服务）
+    try:
+        from services.observation import ObservationService
+        observation_service = ObservationService(
+            sqlite_service=container.get('sqlite'),
+            llm_service=container.get('llm')
+        )
+        container.register('observation', observation_service)
+        print("[Container] 观察记录服务已注册")
+    except Exception as e:
+        print(f"[Container] 观察记录服务注册失败: {e}")
+
     print("[Container] 所有服务已注册（当前使用 Mock 实现）")
