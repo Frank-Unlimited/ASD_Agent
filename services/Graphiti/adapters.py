@@ -2,32 +2,13 @@
 系统适配器
 将 Graphiti 模块适配到系统的 IGraphitiService 接口
 """
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # 导入系统接口
 from src.interfaces.infrastructure import IGraphitiService
 
 # 导入核心功能
-try:
-    from .api_interface import (
-        save_memories,
-        get_recent_memories,
-        analyze_trends,
-        detect_milestones,
-        detect_plateau,
-        build_context,
-        clear_memories,
-    )
-except ImportError:
-    from api_interface import (
-        save_memories,
-        get_recent_memories,
-        analyze_trends,
-        detect_milestones,
-        detect_plateau,
-        build_context,
-        clear_memories,
-    )
+from . import api_interface
 
 
 class GraphitiServiceAdapter(IGraphitiService):
@@ -43,99 +24,132 @@ class GraphitiServiceAdapter(IGraphitiService):
     
     def get_service_version(self) -> str:
         """获取服务版本"""
-        return "1.0.0"
+        return "2.0.0"  # 重构版本
     
-    # ============ 记忆管理 ============
+    # ============ 数据存储接口 ============
     
-    async def save_memories(self, child_id: str, memories: List[Dict[str, Any]]) -> None:
+    async def save_observations(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        批量保存记忆（优化：一次性写入）
+        保存观察数据
+        
+        Args:
+            input_data: 标准输入 JSON
+        
+        Returns:
+            操作结果
+        """
+        return await api_interface.save_observations(input_data)
+    
+    # ============ 趋势分析接口 ============
+    
+    async def get_full_trend(self, child_id: str) -> Dict[str, Any]:
+        """
+        获取完整趋势分析
         
         Args:
             child_id: 孩子ID
-            memories: 记忆列表
+        
+        Returns:
+            完整趋势分析结果
         """
-        await save_memories(child_id, memories)
+        return await api_interface.get_full_trend(child_id)
     
-    async def get_recent_memories(self, child_id: str, days: int = 7) -> List[Dict[str, Any]]:
+    async def get_dimension_trend(
+        self,
+        child_id: str,
+        dimension: str,
+        include_data_points: bool = True
+    ) -> Dict[str, Any]:
         """
-        获取最近记忆
+        获取单维度趋势
+        
+        Args:
+            child_id: 孩子ID
+            dimension: 维度名称
+            include_data_points: 是否包含原始数据点
+        
+        Returns:
+            单维度趋势数据
+        """
+        return await api_interface.get_dimension_trend(child_id, dimension, include_data_points)
+    
+    async def get_quick_summary(self, child_id: str) -> Dict[str, Any]:
+        """
+        获取快速摘要
+        
+        Args:
+            child_id: 孩子ID
+        
+        Returns:
+            趋势摘要
+        """
+        return await api_interface.get_quick_summary(child_id)
+    
+    # ============ 里程碑接口 ============
+    
+    async def get_milestones(
+        self,
+        child_id: str,
+        days: Optional[int] = None,
+        dimension: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        获取里程碑
         
         Args:
             child_id: 孩子ID
             days: 最近多少天
-            
-        Returns:
-            记忆列表
-        """
-        return await get_recent_memories(child_id, days)
-    
-    # ============ 趋势分析 ============
-    
-    async def analyze_trends(self, child_id: str, dimension: str) -> Dict[str, Any]:
-        """
-        分析趋势
+            dimension: 指定维度
         
-        Args:
-            child_id: 孩子ID
-            dimension: 维度名称
-            
-        Returns:
-            趋势分析结果
-        """
-        return await analyze_trends(child_id, dimension)
-    
-    # ============ 里程碑检测 ============
-    
-    async def detect_milestones(self, child_id: str) -> List[Dict[str, Any]]:
-        """
-        检测里程碑
-        
-        Args:
-            child_id: 孩子ID
-            
         Returns:
             里程碑列表
         """
-        return await detect_milestones(child_id)
+        return await api_interface.get_milestones(child_id, days, dimension)
     
-    # ============ 平台期检测 ============
+    # ============ 关联分析接口 ============
     
-    async def detect_plateau(self, child_id: str, dimension: str) -> Dict[str, Any]:
+    async def get_correlations(
+        self,
+        child_id: str,
+        min_correlation: float = 0.3
+    ) -> Dict[str, Any]:
         """
-        检测平台期
+        获取维度关联
         
         Args:
             child_id: 孩子ID
-            dimension: 维度名称
-            
+            min_correlation: 最小相关系数阈值
+        
         Returns:
-            平台期检测结果
+            关联列表
         """
-        return await detect_plateau(child_id, dimension)
+        return await api_interface.get_correlations(child_id, min_correlation)
     
-    # ============ 上下文构建 ============
-    
-    async def build_context(self, child_id: str) -> Dict[str, Any]:
+    async def refresh_correlations(self, child_id: str) -> Dict[str, Any]:
         """
-        构建当前上下文（趋势、关注点等）
+        刷新关联分析
         
         Args:
             child_id: 孩子ID
-            
+        
         Returns:
-            上下文数据
+            操作结果
         """
-        return await build_context(child_id)
+        return await api_interface.refresh_correlations(child_id)
     
-    async def clear_memories(self, child_id: str) -> None:
+    # ============ 工具函数 ============
+    
+    async def clear_child_data(self, child_id: str) -> Dict[str, Any]:
         """
-        清空指定孩子的所有记忆
+        清空孩子的所有数据
         
         Args:
             child_id: 孩子ID
+        
+        Returns:
+            操作结果
         """
-        await clear_memories(child_id)
+        return await api_interface.clear_child_data(child_id)
 
 
 __all__ = ['GraphitiServiceAdapter']

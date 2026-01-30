@@ -191,134 +191,144 @@ async def sqlite_delete_child(request: DeleteChildRequest):
         raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
 
 
-# ============ 模块2: Graphiti 记忆网络模块 ============
+# ============ 模块2: Graphiti 记忆网络模块（重构版本）============
 
-class SaveMemoriesRequest(BaseModel):
+class SaveObservationsRequest(BaseModel):
+    """保存观察数据请求（新标准格式）"""
     child_id: str
-    memories: List[Dict[str, Any]]
+    timestamp: str
+    source: str
+    session_id: Optional[str] = None
+    observations: List[Dict[str, Any]]
+    milestone: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
 
-class GetRecentMemoriesRequest(BaseModel):
-    child_id: str
-    days: int = 7
-
-class AnalyzeTrendsRequest(BaseModel):
-    child_id: str
-    dimension: str
-
-class DetectMilestonesRequest(BaseModel):
+class GetFullTrendRequest(BaseModel):
     child_id: str
 
-class DetectPlateauRequest(BaseModel):
+class GetDimensionTrendRequest(BaseModel):
     child_id: str
     dimension: str
+    include_data_points: bool = True
 
-class BuildContextRequest(BaseModel):
+class GetQuickSummaryRequest(BaseModel):
+    child_id: str
+
+class GetMilestonesRequest(BaseModel):
+    child_id: str
+    days: Optional[int] = None
+    dimension: Optional[str] = None
+
+class GetCorrelationsRequest(BaseModel):
+    child_id: str
+    min_correlation: float = 0.3
+
+class RefreshCorrelationsRequest(BaseModel):
+    child_id: str
+
+class ClearChildDataRequest(BaseModel):
     child_id: str
 
 
-@router.post("/graphiti/save_memories")
-async def graphiti_save_memories(request: SaveMemoriesRequest):
-    """批量保存记忆"""
+@router.post("/graphiti/save_observations")
+async def graphiti_save_observations(request: SaveObservationsRequest):
+    """
+    保存观察数据（新标准接口）
+    
+    输入格式见设计文档第3节
+    """
     try:
         service = container.get('graphiti')
-        await service.save_memories(request.child_id, request.memories)
-        return {
-            "success": True,
-            "message": f"成功保存 {len(request.memories)} 条记忆"
-        }
+        result = await service.save_observations(request.dict())
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
 
 
-@router.post("/graphiti/get_recent_memories")
-async def graphiti_get_recent_memories(request: GetRecentMemoriesRequest):
-    """获取最近记忆"""
+@router.post("/graphiti/get_full_trend")
+async def graphiti_get_full_trend(request: GetFullTrendRequest):
+    """获取完整趋势分析"""
     try:
         service = container.get('graphiti')
-        result = await service.get_recent_memories(request.child_id, request.days)
-        return {
-            "success": True,
-            "data": result,
-            "message": f"获取到 {len(result)} 条记忆"
-        }
+        result = await service.get_full_trend(request.child_id)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
-@router.post("/graphiti/analyze_trends")
-async def graphiti_analyze_trends(request: AnalyzeTrendsRequest):
-    """分析趋势"""
+@router.post("/graphiti/get_dimension_trend")
+async def graphiti_get_dimension_trend(request: GetDimensionTrendRequest):
+    """获取单维度趋势"""
     try:
         service = container.get('graphiti')
-        result = await service.analyze_trends(request.child_id, request.dimension)
-        return {
-            "success": True,
-            "data": result,
-            "message": "趋势分析完成"
-        }
+        result = await service.get_dimension_trend(
+            request.child_id,
+            request.dimension,
+            request.include_data_points
+        )
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
-@router.post("/graphiti/detect_milestones")
-async def graphiti_detect_milestones(request: DetectMilestonesRequest):
-    """检测里程碑"""
+@router.post("/graphiti/get_quick_summary")
+async def graphiti_get_quick_summary(request: GetQuickSummaryRequest):
+    """获取快速摘要"""
     try:
         service = container.get('graphiti')
-        result = await service.detect_milestones(request.child_id)
-        return {
-            "success": True,
-            "data": result,
-            "message": f"检测到 {len(result)} 个里程碑"
-        }
+        result = await service.get_quick_summary(request.child_id)
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"检测失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
-@router.post("/graphiti/detect_plateau")
-async def graphiti_detect_plateau(request: DetectPlateauRequest):
-    """检测平台期"""
+@router.post("/graphiti/get_milestones")
+async def graphiti_get_milestones(request: GetMilestonesRequest):
+    """获取里程碑"""
     try:
         service = container.get('graphiti')
-        result = await service.detect_plateau(request.child_id, request.dimension)
-        return {
-            "success": True,
-            "data": result,
-            "message": "平台期检测完成"
-        }
+        result = await service.get_milestones(
+            request.child_id,
+            request.days,
+            request.dimension
+        )
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"检测失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
-@router.post("/graphiti/build_context")
-async def graphiti_build_context(request: BuildContextRequest):
-    """构建当前上下文"""
+@router.post("/graphiti/get_correlations")
+async def graphiti_get_correlations(request: GetCorrelationsRequest):
+    """获取维度关联"""
     try:
         service = container.get('graphiti')
-        result = await service.build_context(request.child_id)
-        return {
-            "success": True,
-            "data": result,
-            "message": "上下文构建完成"
-        }
+        result = await service.get_correlations(
+            request.child_id,
+            request.min_correlation
+        )
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"构建失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 
-class ClearMemoriesRequest(BaseModel):
-    child_id: str
-
-
-@router.post("/graphiti/clear_memories")
-async def graphiti_clear_memories(request: ClearMemoriesRequest):
-    """清空指定孩子的所有记忆"""
+@router.post("/graphiti/refresh_correlations")
+async def graphiti_refresh_correlations(request: RefreshCorrelationsRequest):
+    """刷新关联分析"""
     try:
         service = container.get('graphiti')
-        await service.clear_memories(request.child_id)
-        return {
-            "success": True,
-            "message": f"已清空孩子 {request.child_id} 的所有记忆"
-        }
+        result = await service.refresh_correlations(request.child_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"刷新失败: {str(e)}")
+
+
+@router.post("/graphiti/clear_child_data")
+async def graphiti_clear_child_data(request: ClearChildDataRequest):
+    """清空孩子的所有数据"""
+    try:
+        service = container.get('graphiti')
+        result = await service.clear_child_data(request.child_id)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"清空失败: {str(e)}")
 

@@ -62,44 +62,63 @@ class ISQLiteService(BaseService):
         pass
 
 
-# ============ 模块2: Graphiti 记忆网络模块 ============
+# ============ 模块2: Graphiti 记忆网络模块（v2.0）============
 
 class IGraphitiService(BaseService):
-    """Graphiti 记忆网络接口"""
+    """Graphiti 记忆网络接口 - v2.0 重构版本"""
     
     @abstractmethod
-    async def save_memories(self, child_id: str, memories: List[Dict[str, Any]]) -> None:
-        """批量保存记忆（优化：一次性写入）"""
+    async def save_observations(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """保存观察数据（新标准格式）"""
         pass
     
     @abstractmethod
-    async def get_recent_memories(self, child_id: str, days: int = 7) -> List[Dict[str, Any]]:
-        """获取最近记忆"""
+    async def get_full_trend(self, child_id: str) -> Dict[str, Any]:
+        """获取完整趋势分析"""
         pass
     
     @abstractmethod
-    async def analyze_trends(self, child_id: str, dimension: str) -> Dict[str, Any]:
-        """分析趋势"""
+    async def get_dimension_trend(
+        self,
+        child_id: str,
+        dimension: str,
+        include_data_points: bool = True
+    ) -> Dict[str, Any]:
+        """获取单维度趋势"""
         pass
     
     @abstractmethod
-    async def detect_milestones(self, child_id: str) -> List[Dict[str, Any]]:
-        """检测里程碑"""
+    async def get_quick_summary(self, child_id: str) -> Dict[str, Any]:
+        """获取快速摘要"""
         pass
     
     @abstractmethod
-    async def detect_plateau(self, child_id: str, dimension: str) -> Dict[str, Any]:
-        """检测平台期"""
+    async def get_milestones(
+        self,
+        child_id: str,
+        days: Optional[int] = None,
+        dimension: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """获取里程碑"""
         pass
     
     @abstractmethod
-    async def build_context(self, child_id: str) -> Dict[str, Any]:
-        """构建当前上下文（趋势、关注点等）"""
+    async def get_correlations(
+        self,
+        child_id: str,
+        min_correlation: float = 0.3
+    ) -> Dict[str, Any]:
+        """获取维度关联"""
         pass
     
     @abstractmethod
-    async def clear_memories(self, child_id: str) -> None:
-        """清空指定孩子的所有记忆"""
+    async def refresh_correlations(self, child_id: str) -> Dict[str, Any]:
+        """刷新关联分析"""
+        pass
+    
+    @abstractmethod
+    async def clear_child_data(self, child_id: str) -> Dict[str, Any]:
+        """清空孩子的所有数据"""
         pass
 
 

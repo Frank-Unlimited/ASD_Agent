@@ -547,54 +547,68 @@ const parseResponse = await fetch('http://localhost:7860/api/infrastructure/docu
 
 ---
 
-# Graphiti API 测试
+# Graphiti API 测试（重构版本 v2.0）
+
+## 概述
+
+Graphiti 模块已完全重构，采用自定义图结构存储观察数据，提供多维度趋势分析、平台期检测、异常检测和跨维度关联分析功能。
 
 ## API 端点列表
 
-### 1. 保存记忆
-**POST** `/api/infrastructure/graphiti/save_memories`
+### 1. 保存观察数据（新标准接口）
+**POST** `/api/infrastructure/graphiti/save_observations`
 
 ```json
 {
-  "child_id": "test-child-001",
-  "memories": [
+  "child_id": "child-001",
+  "timestamp": "2026-01-29T14:30:00Z",
+  "source": "observation_agent",
+  "session_id": "session-20260129-001",
+  "observations": [
     {
-      "timestamp": "2026-01-28T14:30:00",
-      "type": "observation",
-      "content": "孩子主动眼神接触3次，持续时间约2-3秒"
+      "dimension": "eye_contact",
+      "value": 8,
+      "value_type": "score",
+      "context": "积木游戏中主动看向家长",
+      "confidence": 0.85
+    },
+    {
+      "dimension": "spontaneous_smile",
+      "value": 3,
+      "value_type": "count",
+      "context": "游戏过程中的微笑次数",
+      "confidence": 0.90
     }
-  ]
+  ],
+  "milestone": {
+    "detected": true,
+    "type": "first_time",
+    "description": "首次主动发起眼神接触",
+    "dimension": "eye_contact"
+  }
 }
 ```
+
+**支持的维度**：
+- **六大情绪里程碑**：self_regulation, intimacy, two_way_communication, complex_communication, emotional_ideas, logical_thinking
+- **行为观察维度**：eye_contact, spontaneous_smile, verbal_attempt, repetitive_behavior, sensory_response, social_initiation
 
 **响应：**
 ```json
 {
   "success": true,
-  "message": "成功保存 1 条记忆"
+  "message": "成功保存 2 条观察记录"
 }
 ```
 
 ---
 
-### 2. 获取最近记忆
-**POST** `/api/infrastructure/graphiti/get_recent_memories`
+### 2. 获取完整趋势分析
+**POST** `/api/infrastructure/graphiti/get_full_trend`
 
 ```json
 {
-  "child_id": "test-child-001",
-  "days": 7
-}
-```
-
----
-
-### 3. 构建上下文
-**POST** `/api/infrastructure/graphiti/build_context`
-
-```json
-{
-  "child_id": "test-child-001"
+  "child_id": "child-001"
 }
 ```
 
@@ -603,58 +617,216 @@ const parseResponse = await fetch('http://localhost:7860/api/infrastructure/docu
 {
   "success": true,
   "data": {
-    "recentTrends": {...},
-    "attentionPoints": [...],
-    "activeGoals": [...],
-    "recentMilestones": [...]
-  },
-  "message": "上下文构建完成"
+    "child_id": "child-001",
+    "child_name": "辰辰",
+    "analysis_time": "2026-01-29T15:00:00Z",
+    "dimensions": {
+      "eye_contact": {
+        "dimension": "eye_contact",
+        "display_name": "眼神接触",
+        "category": "behavior",
+        "current_value": 7.5,
+        "baseline_value": 2.0,
+        "total_improvement": 2.75,
+        "trend_7d": {
+          "direction": "improving",
+          "rate": 0.15,
+          "confidence": 0.82,
+          "p_value": 0.03
+        },
+        "trend_30d": {...},
+        "trend_90d": {...},
+        "plateau": {
+          "is_plateau": false,
+          "duration_days": 0,
+          "suggestion": "继续当前计划"
+        },
+        "anomaly": {
+          "has_anomaly": false,
+          "anomaly_type": "none",
+          "anomaly_value": 0,
+          "anomaly_date": "",
+          "interpretation": "无异常"
+        },
+        "data_point_count": 45
+      }
+    },
+    "recent_milestones": [...],
+    "total_milestones": 8,
+    "correlations": [...],
+    "summary": {
+      "attention_dimensions": ["repetitive_behavior"],
+      "improving_dimensions": ["eye_contact", "spontaneous_smile"],
+      "stable_dimensions": ["self_regulation"],
+      "overall_status": "good",
+      "recommendation": "眼神接触和双向沟通进展良好..."
+    }
+  }
 }
 ```
 
 ---
 
-### 4. 分析趋势
-**POST** `/api/infrastructure/graphiti/analyze_trends`
+### 3. 获取单维度趋势
+**POST** `/api/infrastructure/graphiti/get_dimension_trend`
 
 ```json
 {
-  "child_id": "test-child-001",
-  "dimension": "眼神接触"
+  "child_id": "child-001",
+  "dimension": "eye_contact",
+  "include_data_points": true
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "dimension": "eye_contact",
+    "display_name": "眼神接触",
+    "current_value": 7.5,
+    "baseline_value": 2.0,
+    "total_improvement": 2.75,
+    "trend_7d": {...},
+    "trend_30d": {...},
+    "trend_90d": {...},
+    "plateau": {...},
+    "anomaly": {...},
+    "data_points": [
+      {
+        "timestamp": "2026-01-22T10:00:00Z",
+        "value": 6.0,
+        "source": "observation_agent",
+        "confidence": 0.85,
+        "context": "积木游戏"
+      }
+    ],
+    "data_point_count": 45
+  }
 }
 ```
 
 ---
 
-### 5. 检测里程碑
-**POST** `/api/infrastructure/graphiti/detect_milestones`
+### 4. 获取快速摘要
+**POST** `/api/infrastructure/graphiti/get_quick_summary`
 
 ```json
 {
-  "child_id": "test-child-001"
+  "child_id": "child-001"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "attention_dimensions": ["repetitive_behavior"],
+    "improving_dimensions": ["eye_contact", "spontaneous_smile"],
+    "stable_dimensions": ["self_regulation"],
+    "overall_status": "good",
+    "recommendation": "眼神接触和双向沟通进展良好，建议继续当前游戏类型"
+  }
 }
 ```
 
 ---
 
-### 6. 检测平台期
-**POST** `/api/infrastructure/graphiti/detect_plateau`
+### 5. 获取里程碑
+**POST** `/api/infrastructure/graphiti/get_milestones`
 
 ```json
 {
-  "child_id": "test-child-001",
-  "dimension": "眼神接触"
+  "child_id": "child-001",
+  "days": 30,
+  "dimension": "eye_contact"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "milestone_id": "mile-20260129-001",
+      "dimension": "eye_contact",
+      "type": "first_time",
+      "description": "首次主动发起眼神接触",
+      "timestamp": "2026-01-29T14:30:00Z",
+      "significance": "high"
+    }
+  ]
 }
 ```
 
 ---
 
-### 7. 清空记忆
-**POST** `/api/infrastructure/graphiti/clear_memories`
+### 6. 获取维度关联
+**POST** `/api/infrastructure/graphiti/get_correlations`
 
 ```json
 {
-  "child_id": "test-child-001"
+  "child_id": "child-001",
+  "min_correlation": 0.3
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "dimension_a": "eye_contact",
+      "dimension_b": "two_way_communication",
+      "correlation": 0.72,
+      "lag_days": 5,
+      "relationship": "eye_contact 可能促进 two_way_communication（正相关，领先 5 天）",
+      "confidence": 0.95,
+      "p_value": 0.001
+    }
+  ]
+}
+```
+
+---
+
+### 7. 刷新关联分析
+**POST** `/api/infrastructure/graphiti/refresh_correlations`
+
+```json
+{
+  "child_id": "child-001"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "message": "关联分析已刷新"
+}
+```
+
+---
+
+### 8. 清空孩子数据
+**POST** `/api/infrastructure/graphiti/clear_child_data`
+
+```json
+{
+  "child_id": "child-001"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "message": "已清空孩子 child-001 的所有数据"
 }
 ```
 
@@ -663,21 +835,80 @@ const parseResponse = await fetch('http://localhost:7860/api/infrastructure/docu
 ## curl 测试示例
 
 ```bash
-# 保存记忆
-curl -X POST http://localhost:7860/api/infrastructure/graphiti/save_memories \
+# 保存观察数据
+curl -X POST http://localhost:7860/api/infrastructure/graphiti/save_observations \
   -H "Content-Type: application/json" \
-  -d '{"child_id": "test-child-001", "memories": [{"timestamp": "2026-01-28T14:30:00", "type": "observation", "content": "孩子主动眼神接触3次"}]}'
+  -d '{
+    "child_id": "child-001",
+    "timestamp": "2026-01-29T14:30:00Z",
+    "source": "observation_agent",
+    "observations": [
+      {
+        "dimension": "eye_contact",
+        "value": 8,
+        "value_type": "score",
+        "context": "积木游戏中主动看向家长",
+        "confidence": 0.85
+      }
+    ]
+  }'
 
-# 获取记忆
-curl -X POST http://localhost:7860/api/infrastructure/graphiti/get_recent_memories \
+# 获取完整趋势
+curl -X POST http://localhost:7860/api/infrastructure/graphiti/get_full_trend \
   -H "Content-Type: application/json" \
-  -d '{"child_id": "test-child-001", "days": 7}'
+  -d '{"child_id": "child-001"}'
 
-# 构建上下文
-curl -X POST http://localhost:7860/api/infrastructure/graphiti/build_context \
+# 获取单维度趋势
+curl -X POST http://localhost:7860/api/infrastructure/graphiti/get_dimension_trend \
   -H "Content-Type: application/json" \
-  -d '{"child_id": "test-child-001"}'
+  -d '{"child_id": "child-001", "dimension": "eye_contact", "include_data_points": false}'
+
+# 获取快速摘要
+curl -X POST http://localhost:7860/api/infrastructure/graphiti/get_quick_summary \
+  -H "Content-Type: application/json" \
+  -d '{"child_id": "child-001"}'
+
+# 获取里程碑
+curl -X POST http://localhost:7860/api/infrastructure/graphiti/get_milestones \
+  -H "Content-Type: application/json" \
+  -d '{"child_id": "child-001", "days": 30}'
+
+# 获取关联
+curl -X POST http://localhost:7860/api/infrastructure/graphiti/get_correlations \
+  -H "Content-Type: application/json" \
+  -d '{"child_id": "child-001", "min_correlation": 0.3}'
+
+# 刷新关联分析
+curl -X POST http://localhost:7860/api/infrastructure/graphiti/refresh_correlations \
+  -H "Content-Type: application/json" \
+  -d '{"child_id": "child-001"}'
 ```
+
+---
+
+## 数据格式说明
+
+### 观察值类型（value_type）
+- `score`: 评分（0-10）
+- `count`: 计数（次数）
+- `duration`: 持续时间（秒）
+- `boolean`: 布尔值（0或1）
+
+### 趋势方向（direction）
+- `improving`: 上升趋势
+- `stable`: 稳定
+- `declining`: 下降趋势
+
+### 里程碑类型（type）
+- `first_time`: 首次出现
+- `breakthrough`: 突破性进步
+- `significant_improvement`: 显著改善
+- `consistency`: 稳定表现
+
+### 整体状态（overall_status）
+- `excellent`: 优秀
+- `good`: 良好
+- `attention_needed`: 需要关注
 
 ---
 
@@ -686,7 +917,14 @@ curl -X POST http://localhost:7860/api/infrastructure/graphiti/build_context \
 ### Neo4j 连接问题
 - 检查容器状态：`docker ps`
 - 检查端口：7688（bolt）、7475（web UI）
-- 验证 `.env` 配置
+- 验证 `.env` 配置：`NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`
 
-### 多模态服务配置
-视频分析和文档解析需要配置 LLM API 密钥（如 `DASHSCOPE_API_KEY`）
+### 数据不足问题
+- 趋势分析需要最少数据点：7天≥3个，30天≥7个，90天≥15个
+- 关联分析需要最少10个数据点
+- 平台期检测需要最少14天数据
+
+### 性能优化
+- 首次使用时会自动创建索引
+- 定期调用 `refresh_correlations` 更新关联关系
+- 大量数据时建议分批保存
