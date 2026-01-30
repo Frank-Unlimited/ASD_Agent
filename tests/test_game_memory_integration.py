@@ -8,7 +8,7 @@ from datetime import datetime
 
 from services.Memory.service import get_memory_service
 from services.Memory.config import MemoryConfig
-from services.Graphiti.models.nodes import Person
+from services.Memory.models.nodes import Person
 
 
 @pytest.mark.asyncio

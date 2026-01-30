@@ -122,7 +122,7 @@ print(support)
 ### 手动记录行为（不使用 LLM）
 
 ```python
-from services.Graphiti.models.nodes import Behavior
+from services.Memory.models.nodes import Behavior
 
 # 创建行为节点
 behavior = Behavior(
