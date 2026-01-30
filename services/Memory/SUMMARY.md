@@ -130,7 +130,7 @@ services/Graphiti/      # Graphiti 模块（只负责图存储）
 
 ```python
 from services.Memory import get_memory_service
-from services.Graphiti.models.nodes import Person, Behavior
+from services.Memory.models.nodes import Person, Behavior
 
 # 获取服务
 memory = await get_memory_service()

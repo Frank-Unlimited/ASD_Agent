@@ -365,10 +365,10 @@ context = await graphiti.build_context(child_id="child-001")
 #### 方式 2: 直接使用
 
 ```python
-from services.Graphiti import GraphitiServiceAdapter
+from services.Memory import get_memory_service
 
-graphiti = GraphitiServiceAdapter()
-await graphiti.save_memories(child_id, memories)
+memory = await get_memory_service()
+await memory.record_behavior(child_id, raw_input, input_type)
 ```
 
 ### 添加新服务

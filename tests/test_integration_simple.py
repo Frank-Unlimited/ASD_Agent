@@ -10,7 +10,7 @@ sys.path.insert(0, '.')
 
 from services.Memory.service import get_memory_service
 from services.Memory.config import MemoryConfig
-from services.Graphiti.models.nodes import Person
+from services.Memory.models.nodes import Person
 
 
 async def test_complete_cycle():

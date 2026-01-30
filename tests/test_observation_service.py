@@ -8,7 +8,7 @@ sys.path.insert(0, '.')
 from datetime import datetime
 from services.Memory.service import get_memory_service
 from services.Observation import ObservationService
-from services.Graphiti.models.nodes import Person
+from services.Memory.models.nodes import Person
 
 
 async def test_observation_service():

@@ -33,7 +33,7 @@ async def test_observation_api():
     
     # 创建测试孩子
     print("\n[2/4] 创建测试孩子...")
-    from services.Graphiti.models.nodes import Person
+    from services.Memory.models.nodes import Person
     
     child = Person(
         person_id="test_api_child_001",
