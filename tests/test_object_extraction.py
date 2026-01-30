@@ -21,7 +21,7 @@ async def test_object_extraction():
     memory = await get_memory_service()
     
     # 创建测试孩子
-    from services.Graphiti.models.nodes import Person
+    from services.Memory.models.nodes import Person
     child = Person(
         person_id="test_obj_child",
         person_type="child",

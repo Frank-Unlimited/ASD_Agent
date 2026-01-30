@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from services.Memory import get_memory_service
-from services.Graphiti.models.nodes import Person, Behavior, Object
+from services.Memory.models.nodes import Person, Behavior, Object
 
 
 def print_section(title):

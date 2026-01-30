@@ -66,7 +66,7 @@ async def test_memory_llm():
     
     # ============ 2. 创建孩子档案 ============
     print_section("2. 创建孩子档案")
-    from services.Graphiti.models.nodes import Person
+    from services.Memory.models.nodes import Person
     
     child = Person(
         person_type="child",
