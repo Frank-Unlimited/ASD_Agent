@@ -328,6 +328,24 @@ class GameSessionSummary(BaseModel):
         description="结合历史数据的趋势观察"
     )
     
+    # 兴趣验证（新增）
+    interest_verification: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="兴趣点验证结果"
+    )
+    
+    # 意外发现（新增）
+    unexpected_discoveries: List[str] = Field(
+        default_factory=list,
+        description="游戏中的意外发现（新兴趣点）"
+    )
+    
+    # 试错结果（新增）
+    interest_trial_result: Optional[Dict[str, Any]] = Field(
+        None,
+        description="如果本次游戏是兴趣试错，给出验证结论"
+    )
+    
     # 数据依据
     data_sources_used: List[str] = Field(
         default_factory=list,

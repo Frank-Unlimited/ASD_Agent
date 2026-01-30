@@ -1,14 +1,14 @@
 """
 游戏推荐 Prompt 模板
 """
-from typing import Optional, Any
+from typing import Optional, Any, Dict, Union
 from src.models.profile import ChildProfile
 
 
 def build_game_recommendation_prompt(
-    child_profile: ChildProfile,
-    recent_assessments: Optional[str],
-    recent_games: Optional[str],
+    child_profile: Union[ChildProfile, Dict[str, Any]],
+    recent_assessments: Optional[Dict[str, Any]],
+    recent_games: Optional[list],
     focus_dimension: Optional[str],
     duration_preference: Optional[int]
 ) -> str:
@@ -16,43 +16,74 @@ def build_game_recommendation_prompt(
     构建游戏推荐的 System Prompt
     
     Args:
-        child_profile: 孩子档案
-        recent_assessments: 近期评估结果摘要（从 MemoryService 获取）
-        recent_games: 近期游戏总结（从 MemoryService 获取）
+        child_profile: 孩子档案（ChildProfile 对象或字典）
+        recent_assessments: 近期评估结果（从 MemoryService 获取）
+        recent_games: 近期游戏列表（从 MemoryService 获取）
         focus_dimension: 用户希望关注的维度
         duration_preference: 用户期望的时长（分钟）
         
     Returns:
         System Prompt 字符串
     """
+    # 兼容 ChildProfile 对象和字典
+    if isinstance(child_profile, ChildProfile):
+        name = child_profile.name
+        birth_date = child_profile.birth_date
+        diagnosis = child_profile.diagnosis or '未知'
+        diagnosis_level = child_profile.diagnosis_level.value if child_profile.diagnosis_level else '未知程度'
+        development_dimensions = child_profile.development_dimensions
+        interests = child_profile.interests
+    else:
+        name = child_profile.get('name', '未命名')
+        birth_date = child_profile.get('birth_date', '')
+        diagnosis = child_profile.get('diagnosis', '未知')
+        diagnosis_level = child_profile.get('diagnosis_level', '未知程度')
+        development_dimensions = child_profile.get('development_dimensions', [])
+        interests = child_profile.get('interests', [])
+    
+    # 计算年龄
+    age = _calculate_age(birth_date) if birth_date else '未知'
+    
     # 构建孩子档案信息
     profile_info = f"""
 ## 孩子档案
-- 姓名：{child_profile.name}
-- 年龄：{_calculate_age(child_profile.birth_date)}
-- 诊断：{child_profile.diagnosis or '未知'} ({child_profile.diagnosis_level.value if child_profile.diagnosis_level else '未知程度'})
+- 姓名：{name}
+- 年龄：{age}
+- 诊断：{diagnosis} ({diagnosis_level})
 """
     
     # 发展维度信息
-    if child_profile.development_dimensions:
+    if development_dimensions:
         profile_info += "\n### 发展维度评估\n"
-        for dim in child_profile.development_dimensions:
-            level_desc = f"{dim.current_level}/10" if dim.current_level else "未评估"
-            profile_info += f"- {dim.dimension_name}: {level_desc}\n"
+        for dim in development_dimensions:
+            if isinstance(dim, dict):
+                dim_name = dim.get('dimension_name', '未知维度')
+                level = dim.get('current_level')
+                level_desc = f"{level}/10" if level is not None else "未评估"
+            else:
+                dim_name = dim.dimension_name
+                level_desc = f"{dim.current_level}/10" if dim.current_level else "未评估"
+            profile_info += f"- {dim_name}: {level_desc}\n"
     
     # 兴趣点信息
-    if child_profile.interests:
+    if interests:
         profile_info += "\n### 兴趣点\n"
-        for interest in child_profile.interests:
-            intensity_desc = f"(强度: {interest.intensity}/10)" if interest.intensity else ""
-            profile_info += f"- {interest.name} {intensity_desc}\n"
+        for interest in interests:
+            if isinstance(interest, dict):
+                interest_name = interest.get('name', '未知兴趣')
+                intensity = interest.get('intensity')
+                intensity_desc = f"(强度: {intensity}/10)" if intensity is not None else ""
+            else:
+                interest_name = interest.name
+                intensity_desc = f"(强度: {interest.intensity}/10)" if interest.intensity else ""
+            profile_info += f"- {interest_name} {intensity_desc}\n"
 
     # 近期评估信息
     assessment_info = ""
     if recent_assessments:
         assessment_info = f"""
 ## 近期评估趋势
-{recent_assessments}
+{_format_assessment(recent_assessments)}
 """
     else:
         assessment_info = """
@@ -62,10 +93,10 @@ def build_game_recommendation_prompt(
     
     # 近期游戏信息
     game_history_info = ""
-    if recent_games:
+    if recent_games and len(recent_games) > 0:
         game_history_info = f"""
 ## 近期游戏总结
-{recent_games}
+{_format_games(recent_games)}
 """
     else:
         game_history_info = """
@@ -318,19 +349,19 @@ def build_game_summary_prompt(
 """
     
     # 组装完整 Prompt
-    system_prompt = f"""
+    system_prompt = """
 你是一位经验丰富的 ASD（自闭症谱系障碍）儿童地板时光干预专家和评估师。
 你的任务是基于游戏实施数据，生成客观、专业、可操作的总结报告。
 
 **重要：请用中文回复，所有总结内容都必须使用中文。**
 
-{profile_info}
+""" + profile_info + """
 
-{game_plan_info}
+""" + game_plan_info + """
 
-{implementation_info}
+""" + implementation_info + """
 
-{context_info}
+""" + context_info + """
 
 ## 总结要求
 
@@ -369,9 +400,28 @@ def build_game_summary_prompt(
    - 在 data_sources_used 字段中列出实际使用的数据来源
    - 不要编造不存在的数据
 
+8. **兴趣验证**（重要）：
+   - 评估游戏中使用的兴趣点是否有效
+   - 分析孩子对这些对象的真实反应：是主动参与还是被动配合？参与度如何？持续时间如何？
+   - 如果孩子对某个"预期兴趣点"反应冷淡，明确指出该兴趣点可能需要重新评估
+   - 在 interest_verification 字段中给出结构化的验证结果
+
+9. **意外发现**（重要）：
+   - 记录游戏中的"意外时刻"
+   - 孩子是否对游戏设计之外的事物表现出兴趣？
+   - 比如对包装纸、背景音乐、光影变化、玩具盒子的图案等
+   - 这些意外发现往往揭示孩子的真实兴趣，比预设的兴趣点更重要
+   - 在 unexpected_discoveries 字段中列出所有意外发现
+
+10. **试错结果**（如适用）：
+    - 如果本次游戏是为了验证某个兴趣点（比如档案中标记为高兴趣，但实际表现未知）
+    - 给出明确的验证结论："验证成功"或"验证失败"
+    - 在 interest_trial_result 字段中提供详细的试错分析
+    - 包括：tested_interest（测试的兴趣点）、result（success/failure）、evidence（证据）、recommendation（建议）
+
 ## 输出格式
 
-请以 JSON 格式返回完整的总结报告，包含以下字段：
+请以 JSON 格式返回完整的总结报告，**必须包含**以下所有字段：
 
 - overall_assessment: 整体评价（200-300字，全面总结本次游戏）
 - success_level: 成功程度（excellent/good/fair/poor）
@@ -383,9 +433,87 @@ def build_game_summary_prompt(
 - parent_feedback: 对家长表现的反馈和建议
 - recommendations_for_next: 下次游戏的建议（3-5条）
 - trend_observation: 趋势观察（如果有历史数据）
+- **interest_verification**: 兴趣验证结果（**必填**，结构化对象）
+- **unexpected_discoveries**: 意外发现列表（**必填**，即使为空数组也要输出）
+- **interest_trial_result**: 试错结果（**必填**，如果本次不是兴趣验证游戏，输出 null）
 - data_sources_used: 使用的数据来源列表
 
-**请用中文生成完整的总结报告，以 JSON 格式返回。**
+**特别注意**：interest_verification、unexpected_discoveries、interest_trial_result 这三个字段是本次更新的重点，**必须输出**，不能省略！
+
+**兴趣验证字段示例**（interest_verification）：
+```json
+{
+  "interest_verification": {
+    "verified_interests": [
+      {
+        "interest_name": "彩色积木",
+        "engagement_level": "high",
+        "evidence": "孩子主动拿起积木，持续玩了10分钟，眼神专注"
+      }
+    ],
+    "unverified_interests": [
+      {
+        "interest_name": "旋转玩具",
+        "engagement_level": "low",
+        "evidence": "孩子对旋转玩具反应冷淡，只玩了不到1分钟就放下"
+      }
+    ],
+    "notes": "彩色积木确认为真实兴趣，旋转玩具可能不是孩子的真实兴趣"
+  }
+}
+```
+
+**意外发现字段示例**（unexpected_discoveries）：
+```json
+{
+  "unexpected_discoveries": [
+    "孩子对积木盒子上的图案特别感兴趣，反复观察",
+    "游戏中播放的背景音乐让孩子停下来专注倾听"
+  ]
+}
+```
+如果没有意外发现，输出空数组：`"unexpected_discoveries": []`
+
+**试错结果字段示例**（interest_trial_result）：
+```json
+{
+  "interest_trial_result": {
+    "tested_interest": "音乐玩具",
+    "result": "success",
+    "evidence": "孩子听到音乐后立即转头，主动靠近音乐玩具，尝试按按钮",
+    "recommendation": "确认孩子对音乐有兴趣，建议在后续游戏中增加音乐元素"
+  }
+}
+```
+如果本次游戏不是为了验证兴趣，输出：`"interest_trial_result": null`
+
+**请用中文生成完整的总结报告，以 JSON 格式返回。确保包含所有字段，特别是 interest_verification、unexpected_discoveries、interest_trial_result 这三个新增字段。**
 """
     
     return system_prompt.strip()
+
+
+def _format_assessment(assessment: Optional[Dict[str, Any]]) -> str:
+    """格式化评估数据"""
+    if not assessment:
+        return "暂无评估数据"
+    
+    # TODO: 根据实际的评估数据结构格式化
+    return str(assessment)
+
+
+def _format_games(games: Optional[list]) -> str:
+    """格式化游戏列表"""
+    if not games or len(games) == 0:
+        return "暂无游戏记录"
+    
+    result = []
+    for game in games[:5]:  # 只显示最近5个
+        if isinstance(game, dict):
+            name = game.get('name', '未命名游戏')
+            status = game.get('status', 'unknown')
+            result.append(f"- {name} (状态: {status})")
+        else:
+            result.append(f"- {str(game)}")
+    
+    return "\n".join(result)

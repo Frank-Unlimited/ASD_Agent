@@ -24,20 +24,18 @@ class GameRecommender:
     
     def __init__(
         self,
-        profile_service: Any,
-        # memory_service: Any,  # TODO: MemoryService 还未实现
-        sqlite_service: Any
+        sqlite_service: Any,
+        memory_service: Any
     ):
         """
         初始化游戏推荐服务
         
         Args:
-            profile_service: 档案服务
-            sqlite_service: SQLite 服务
+            sqlite_service: SQLite 服务（获取孩子档案）
+            memory_service: Memory 服务（获取评估和游戏历史）
         """
-        self.profile_service = profile_service
-        # self.memory_service = memory_service  # TODO
         self.sqlite = sqlite_service
+        self.memory_service = memory_service
         self.llm = get_llm_service()
     
     async def recommend_game(
@@ -64,17 +62,22 @@ class GameRecommender:
         """
         print(f"\n[GameRecommender] 开始推荐游戏: child_id={request.child_id}")
         
-        # 1. 获取孩子档案
-        profile = await self.profile_service.get_profile(request.child_id)
+        # 1. 获取孩子档案（从 SQLite）
+        profile = self.sqlite.get_child(request.child_id)
         if not profile:
             raise ValueError(f"孩子档案不存在: {request.child_id}")
         
         print(f"[GameRecommender] 获取档案成功: {profile.name}")
         
         # 2. 获取近期评估和游戏总结
-        # TODO: 从 MemoryService 获取
-        recent_assessments = None  # await self.memory_service.get_recent_assessments(request.child_id)
-        recent_games = None  # await self.memory_service.get_recent_games_summary(request.child_id)
+        recent_assessments = await self.memory_service.get_latest_assessment(
+            child_id=request.child_id,
+            assessment_type="comprehensive"
+        )
+        recent_games = await self.memory_service.get_recent_games(
+            child_id=request.child_id,
+            limit=5
+        )
         
         # 3. 构建 System Prompt
         system_prompt = build_game_recommendation_prompt(
@@ -139,6 +142,9 @@ class GameRecommender:
         # 10. 保存到 SQLite
         await self._save_game_plan(game_plan)
         
+        # 11. 保存到 Memory（Graphiti）
+        await self._save_game_to_memory(game_plan)
+        
         # 11. 构建响应
         response = GameRecommendResponse(
             game_plan=game_plan,
@@ -158,17 +164,45 @@ class GameRecommender:
         Args:
             game_plan: 游戏方案
         """
-        # TODO: 根据 SQLite 服务的实际接口调整
-        # 这里假设有一个 save_game_plan 方法
         try:
-            await self.sqlite.save_game_plan({
-                "game_id": game_plan.game_id,
-                "child_id": game_plan.child_id,
-                "data": game_plan.dict()
-            })
-            print(f"[GameRecommender] 游戏方案已保存到数据库: {game_plan.game_id}")
+            # TODO: 根据 SQLite 服务的实际接口调整
+            # 暂时跳过，因为 SQLite 服务还没有 save_game_plan 方法
+            print(f"[GameRecommender] ⚠️ SQLite 保存游戏方案功能待实现: {game_plan.game_id}")
         except Exception as e:
             print(f"[GameRecommender] 保存游戏方案失败: {e}")
+            # 不抛出异常，允许推荐继续
+    
+    async def _save_game_to_memory(self, game_plan: GamePlan) -> None:
+        """
+        保存游戏方案到 Memory（Graphiti）
+        
+        Args:
+            game_plan: 游戏方案
+        """
+        try:
+            # 转换 GamePlan 为 Memory 服务需要的格式
+            game_data = {
+                "game_id": game_plan.game_id,
+                "child_id": game_plan.child_id,
+                "name": game_plan.title,
+                "description": game_plan.description,
+                "created_at": game_plan.created_at,
+                "status": game_plan.status,
+                "design": {
+                    "target_dimension": game_plan.target_dimension.value if game_plan.target_dimension else None,
+                    "goals": game_plan.goals.dict() if game_plan.goals else {},
+                    "steps": [step.dict() for step in game_plan.steps] if game_plan.steps else [],
+                    "materials_needed": game_plan.materials_needed or [],
+                    "design_rationale": game_plan.design_rationale,
+                    "trend_analysis_summary": game_plan.trend_analysis_summary
+                },
+                "implementation": {}  # 推荐时还没有实施数据
+            }
+            
+            await self.memory_service.save_game(game_data)
+            print(f"[GameRecommender] 游戏方案已保存到 Memory: {game_plan.game_id}")
+        except Exception as e:
+            print(f"[GameRecommender] 保存游戏方案到 Memory 失败: {e}")
             # 不抛出异常，允许推荐继续
 
 

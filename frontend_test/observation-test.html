@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>行为观察测试 - ASD地板时光干预系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            margin-left: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .quick-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .quick-btn {
+            padding: 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            color: #667eea;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .quick-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .result pre {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+
+        .observations-list {
+            margin-top: 20px;
+        }
+
+        .observation-item {
+            padding: 15px;
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .observation-item .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .observation-item .event-type {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #667eea;
+            color: white;
+        }
+
+        .observation-item .significance {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .observation-item .significance.breakthrough {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .observation-item .significance.improvement {
+            background: #51cf66;
+            color: white;
+        }
+
+        .observation-item .significance.normal {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .observation-item .description {
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .observation-item .timestamp {
+            color: #999;
+            font-size: 12px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌟 行为观察测试</h1>
+            <p>测试 Memory 驱动的行为记录系统</p>
+        </div>
+
+        <!-- 配置区 -->
+        <div class="card">
+            <h2>⚙️ 配置</h2>
+            <div class="form-group">
+                <label>API 地址</label>
+                <input type="text" id="apiUrl" value="http://localhost:8000" placeholder="http://localhost:8000">
+            </div>
+            <div class="form-group">
+                <label>孩子 ID</label>
+                <input type="text" id="childId" value="test_child_001" placeholder="test_child_001">
+            </div>
+        </div>
+
+        <!-- 文字观察 -->
+        <div class="card">
+            <h2>📝 文字观察记录</h2>
+            <div class="form-group">
+                <label>观察内容</label>
+                <textarea id="textObservation" placeholder="例如：今天小明主动把积木递给我，还看着我的眼睛笑了"></textarea>
+            </div>
+            <div class="form-group">
+                <label>地点（可选）</label>
+                <input type="text" id="textLocation" placeholder="例如：家里客厅">
+            </div>
+            <button class="btn btn-primary" onclick="recordTextObservation()">提交观察</button>
+            <div id="textResult" class="result"></div>
+        </div>
+
+        <!-- 快速按钮 -->
+        <div class="card">
+            <h2>⚡ 快速记录按钮</h2>
+            <p style="color: #666; margin-bottom: 15px;">点击按钮快速记录常见行为</p>
+            <div class="quick-buttons">
+                <button class="quick-btn" onclick="recordQuickButton('eye_contact')">
+                    👁️ 主动眼神接触
+                </button>
+                <button class="quick-btn" onclick="recordQuickButton('share_toy')">
+                    🎁 主动分享玩具
+                </button>
+                <button class="quick-btn" onclick="recordQuickButton('emotional_outburst')">
+                    😢 情绪波动
+                </button>
+                <button class="quick-btn" onclick="recordQuickButton('refuse_interaction')">
+                    🚫 拒绝互动
+                </button>
+                <button class="quick-btn" onclick="recordQuickButton('first_time')">
+                    ✨ 首次新行为
+                </button>
+                <button class="quick-btn" onclick="recordQuickButton('breakthrough')">
+                    🎉 突破性进步
+                </button>
+            </div>
+            <div id="quickResult" class="result"></div>
+        </div>
+
+        <!-- 最近观察 -->
+        <div class="card">
+            <h2>📋 最近观察记录</h2>
+            <button class="btn btn-primary" onclick="loadRecentObservations()">刷新记录</button>
+            <button class="btn btn-secondary" onclick="loadStats()">查看统计</button>
+            
+            <div class="loading" id="observationsLoading">
+                <div class="spinner"></div>
+                <p>加载中...</p>
+            </div>
+            
+            <div id="observationsList" class="observations-list"></div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="card">
+            <h2>📊 统计信息</h2>
+            <button class="btn btn-primary" onclick="loadStats()">刷新统计</button>
+            
+            <div class="loading" id="statsLoading">
+                <div class="spinner"></div>
+                <p>加载中...</p>
+            </div>
+            
+            <div id="statsGrid" class="stats-grid"></div>
+            <div id="statsResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // 获取 API 地址和孩子 ID
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value;
+        }
+
+        function getChildId() {
+            return document.getElementById('childId').value;
+        }
+
+        // 显示结果
+        function showResult(elementId, success, message, data = null) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${success ? 'success' : 'error'}`;
+            element.style.display = 'block';
+            
+            let html = `<strong>${success ? '✅ 成功' : '❌ 错误'}</strong><br>${message}`;
+            
+            if (data) {
+                html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            
+            element.innerHTML = html;
+            
+            // 3秒后自动隐藏成功消息
+            if (success) {
+                setTimeout(() => {
+                    element.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // 文字观察记录
+        async function recordTextObservation() {
+            const text = document.getElementById('textObservation').value.trim();
+            const location = document.getElementById('textLocation').value.trim();
+            
+            if (!text) {
+                showResult('textResult', false, '请输入观察内容');
+                return;
+            }
+            
+            const childId = getChildId();
+            const apiUrl = getApiUrl();
+            
+            const payload = {
+                child_id: childId,
+                text: text,
+                context: location ? { location: location } : null
+            };
+            
+            console.log('='.repeat(80));
+            console.log('[前端] 发送文字观察请求');
+            console.log('[输入] API URL:', `${apiUrl}/api/observation/text`);
+            console.log('[输入] Payload:', JSON.stringify(payload, null, 2));
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${apiUrl}/api/observation/text`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const duration = Date.now() - startTime;
+                console.log(`[响应] 状态码: ${response.status}`);
+                console.log(`[响应] 耗时: ${duration}ms`);
+                
+                const data = await response.json();
+                console.log('[输出] Response:', JSON.stringify(data, null, 2));
+                console.log('='.repeat(80));
+                
+                if (response.ok) {
+                    showResult('textResult', true, '观察记录成功！', {
+                        behavior_id: data.behavior_id,
+                        description: data.description,
+                        event_type: data.event_type,
+                        significance: data.significance
+                    });
+                    
+                    // 清空输入
+                    document.getElementById('textObservation').value = '';
+                    document.getElementById('textLocation').value = '';
+                    
+                    // 自动刷新列表
+                    setTimeout(() => loadRecentObservations(), 500);
+                } else {
+                    console.error('[错误]', data);
+                    showResult('textResult', false, data.detail || '记录失败', data);
+                }
+            } catch (error) {
+                console.error('[错误] 网络错误:', error);
+                console.log('='.repeat(80));
+                showResult('textResult', false, `网络错误: ${error.message}`);
+            }
+        }
+
+        // 快速按钮记录
+        async function recordQuickButton(buttonType) {
+            const childId = getChildId();
+            const apiUrl = getApiUrl();
+            
+            const payload = {
+                child_id: childId,
+                button_type: buttonType,
+                context: null
+            };
+            
+            console.log('='.repeat(80));
+            console.log('[前端] 发送快速按钮请求');
+            console.log('[输入] API URL:', `${apiUrl}/api/observation/quick`);
+            console.log('[输入] Payload:', JSON.stringify(payload, null, 2));
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${apiUrl}/api/observation/quick`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const duration = Date.now() - startTime;
+                console.log(`[响应] 状态码: ${response.status}`);
+                console.log(`[响应] 耗时: ${duration}ms`);
+                
+                const data = await response.json();
+                console.log('[输出] Response:', JSON.stringify(data, null, 2));
+                console.log('='.repeat(80));
+                
+                if (response.ok) {
+                    showResult('quickResult', true, `快速记录成功：${data.description}`, {
+                        behavior_id: data.behavior_id,
+                        button_type: data.button_type,
+                        significance: data.significance
+                    });
+                    
+                    // 自动刷新列表
+                    setTimeout(() => loadRecentObservations(), 500);
+                } else {
+                    console.error('[错误]', data);
+                    showResult('quickResult', false, data.detail || '记录失败', data);
+                }
+            } catch (error) {
+                console.error('[错误] 网络错误:', error);
+                console.log('='.repeat(80));
+                showResult('quickResult', false, `网络错误: ${error.message}`);
+            }
+        }
+
+        // 加载最近观察
+        async function loadRecentObservations() {
+            const childId = getChildId();
+            const apiUrl = getApiUrl();
+            const loading = document.getElementById('observationsLoading');
+            const list = document.getElementById('observationsList');
+            
+            loading.classList.add('active');
+            list.innerHTML = '';
+            
+            console.log('='.repeat(80));
+            console.log('[前端] 获取最近观察');
+            console.log('[输入] API URL:', `${apiUrl}/api/observation/recent/${childId}?limit=20`);
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${apiUrl}/api/observation/recent/${childId}?limit=20`);
+                const duration = Date.now() - startTime;
+                
+                console.log(`[响应] 状态码: ${response.status}`);
+                console.log(`[响应] 耗时: ${duration}ms`);
+                
+                const data = await response.json();
+                console.log(`[输出] 记录数: ${data.count}`);
+                console.log('='.repeat(80));
+                
+                loading.classList.remove('active');
+                
+                if (response.ok && data.success) {
+                    if (data.observations.length === 0) {
+                        list.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">暂无观察记录</p>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    data.observations.forEach(obs => {
+                        const timestamp = new Date(obs.timestamp).toLocaleString('zh-CN');
+                        html += `
+                            <div class="observation-item">
+                                <div class="header-row">
+                                    <span class="event-type">${obs.event_type || 'other'}</span>
+                                    <span class="significance ${obs.significance || 'normal'}">${obs.significance || 'normal'}</span>
+                                </div>
+                                <div class="description">${obs.description || obs.raw_input || '无描述'}</div>
+                                <div class="timestamp">🕐 ${timestamp}</div>
+                            </div>
+                        `;
+                    });
+                    
+                    list.innerHTML = html;
+                } else {
+                    console.error('[错误]', data);
+                    list.innerHTML = `<p style="text-align: center; color: #f44336; padding: 20px;">加载失败: ${data.detail || '未知错误'}</p>`;
+                }
+            } catch (error) {
+                console.error('[错误] 网络错误:', error);
+                console.log('='.repeat(80));
+                loading.classList.remove('active');
+                list.innerHTML = `<p style="text-align: center; color: #f44336; padding: 20px;">网络错误: ${error.message}</p>`;
+            }
+        }
+
+        // 加载统计信息
+        async function loadStats() {
+            const childId = getChildId();
+            const apiUrl = getApiUrl();
+            const loading = document.getElementById('statsLoading');
+            const grid = document.getElementById('statsGrid');
+            const result = document.getElementById('statsResult');
+            
+            loading.classList.add('active');
+            grid.innerHTML = '';
+            result.style.display = 'none';
+            
+            try {
+                const response = await fetch(`${apiUrl}/api/observation/stats/${childId}?days=7`);
+                const data = await response.json();
+                
+                loading.classList.remove('active');
+                
+                if (response.ok && data.success) {
+                    const stats = data.stats;
+                    
+                    let html = `
+                        <div class="stat-card">
+                            <div class="number">${stats.total_count}</div>
+                            <div class="label">总记录数</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="number">${stats.breakthrough_count}</div>
+                            <div class="label">突破性进步</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="number">${stats.days}</div>
+                            <div class="label">统计天数</div>
+                        </div>
+                    `;
+                    
+                    grid.innerHTML = html;
+                    
+                    // 显示详细统计
+                    showResult('statsResult', true, '统计加载成功', {
+                        event_types: stats.event_types,
+                        significance_counts: stats.significance_counts,
+                        recent_breakthroughs: stats.recent_breakthroughs
+                    });
+                } else {
+                    showResult('statsResult', false, data.detail || '加载失败', data);
+                }
+            } catch (error) {
+                loading.classList.remove('active');
+                showResult('statsResult', false, `网络错误: ${error.message}`);
+            }
+        }
+
+        // 页面加载时自动加载数据
+        window.addEventListener('load', () => {
+            loadRecentObservations();
+            loadStats();
+        });
+
+        // 回车提交
+        document.getElementById('textObservation').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                recordTextObservation();
+            }
+        });
+    </script>
+</body>
+</html>
