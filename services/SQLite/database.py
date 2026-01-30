@@ -55,35 +55,35 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
-            # 孩子档案表
+            # 孩子档案表（对齐 src/models/profile.py）
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS children (
                     child_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
-                    age INTEGER NOT NULL,
                     gender TEXT NOT NULL,
+                    birth_date TEXT NOT NULL,
+                    
+                    -- 诊断信息
                     diagnosis TEXT,
+                    diagnosis_level TEXT,
+                    diagnosis_date TEXT,
                     
-                    -- 6大维度评分
-                    eye_contact REAL,
-                    two_way_communication REAL,
-                    emotional_expression REAL,
-                    problem_solving REAL,
-                    creative_thinking REAL,
-                    logical_thinking REAL,
+                    -- 发展维度（JSON 数组）
+                    development_dimensions TEXT,  -- JSON: List[DevelopmentDimension]
                     
-                    -- JSON字段
-                    custom_dimensions TEXT,  -- JSON
-                    strengths TEXT,  -- JSON array
-                    weaknesses TEXT,  -- JSON array
-                    interests TEXT,  -- JSON array
-                    observation_framework TEXT,  -- JSON
-                    focus_points TEXT,  -- JSON array
+                    -- 兴趣点（JSON 数组）
+                    interests TEXT,  -- JSON: List[InterestPoint]
+                    
+                    -- 档案文件
+                    archive_files TEXT,  -- JSON: List[str]
+                    
+                    -- 额外信息
+                    notes TEXT,
+                    custom_fields TEXT,  -- JSON
                     
                     -- 元数据
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    metadata TEXT  -- JSON
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             
@@ -182,6 +182,113 @@ class DatabaseManager:
                 )
             """)
             
+            # 游戏方案表
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS game_plans (
+                    game_id TEXT PRIMARY KEY,
+                    child_id TEXT NOT NULL,
+                    
+                    -- 基础信息
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    estimated_duration INTEGER NOT NULL,
+                    
+                    -- 目标和依据
+                    target_dimension TEXT NOT NULL,
+                    additional_dimensions TEXT,  -- JSON array
+                    interest_points_used TEXT,  -- JSON array
+                    design_rationale TEXT NOT NULL,
+                    
+                    -- 游戏内容（JSON）
+                    steps TEXT NOT NULL,  -- JSON: List[GameStep]
+                    precautions TEXT,  -- JSON: List[GamePrecaution]
+                    goals TEXT NOT NULL,  -- JSON: GameGoal
+                    
+                    -- 材料和环境
+                    materials_needed TEXT,  -- JSON array
+                    environment_setup TEXT,
+                    
+                    -- 状态
+                    status TEXT DEFAULT 'recommended',
+                    scheduled_date TIMESTAMP,
+                    
+                    -- 元数据
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    recommended_by TEXT DEFAULT 'AI',
+                    trend_analysis_summary TEXT,
+                    
+                    FOREIGN KEY (child_id) REFERENCES children(child_id)
+                )
+            """)
+            
+            # 游戏会话表（实施记录）
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS game_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    game_id TEXT NOT NULL,
+                    child_id TEXT NOT NULL,
+                    
+                    -- 时间信息
+                    start_time TIMESTAMP NOT NULL,
+                    end_time TIMESTAMP,
+                    actual_duration INTEGER,
+                    
+                    -- 观察记录（JSON）
+                    parent_observations TEXT,  -- JSON: List[ParentObservation]
+                    
+                    -- 视频分析
+                    has_video INTEGER DEFAULT 0,
+                    video_path TEXT,
+                    video_analysis TEXT,  -- JSON: VideoAnalysisSummary
+                    
+                    -- 状态
+                    status TEXT DEFAULT 'in_progress',
+                    
+                    -- 总结和评估
+                    session_summary TEXT,
+                    child_engagement_score REAL,
+                    goal_achievement_score REAL,
+                    parent_satisfaction_score REAL,
+                    
+                    -- 元数据
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    notes TEXT,
+                    
+                    FOREIGN KEY (game_id) REFERENCES game_plans(game_id),
+                    FOREIGN KEY (child_id) REFERENCES children(child_id)
+                )
+            """)
+            
+            # 评估报告表
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS assessments (
+                    assessment_id TEXT PRIMARY KEY,
+                    child_id TEXT NOT NULL,
+                    
+                    -- 评估类型
+                    assessment_type TEXT NOT NULL,  -- comprehensive/lightweight
+                    
+                    -- 时间信息
+                    timestamp TIMESTAMP NOT NULL,
+                    time_range_days INTEGER,
+                    
+                    -- 评估报告（JSON）
+                    report TEXT NOT NULL,  -- JSON: AssessmentReport
+                    interest_heatmap TEXT,  -- JSON: InterestHeatmap
+                    dimension_trends TEXT,  -- JSON: DimensionTrends
+                    
+                    -- 关联游戏（如果是轻量级评估）
+                    game_id TEXT,
+                    
+                    -- 元数据
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    
+                    FOREIGN KEY (child_id) REFERENCES children(child_id),
+                    FOREIGN KEY (game_id) REFERENCES game_plans(game_id)
+                )
+            """)
+            
             # 创建索引
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_child_id ON sessions(child_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status)")
@@ -189,6 +296,14 @@ class DatabaseManager:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_weekly_plans_week_start ON weekly_plans(week_start)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_observations_session_id ON observations(session_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_observations_child_id ON observations(child_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_game_plans_child_id ON game_plans(child_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_game_plans_status ON game_plans(status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_game_sessions_child_id ON game_sessions(child_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_game_sessions_status ON game_sessions(status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_assessments_child_id ON assessments(child_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_assessments_type ON assessments(assessment_type)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_assessments_timestamp ON assessments(timestamp)")
             
             print(f"[SQLite] 数据库表创建成功: {self.db_path}")
     

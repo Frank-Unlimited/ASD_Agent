@@ -1,6 +1,6 @@
 """
-观察记录服务模块
+行为观察服务模块
 """
-from services.observation.observation_service import ObservationService
+from .service import ObservationService
 
 __all__ = ['ObservationService']

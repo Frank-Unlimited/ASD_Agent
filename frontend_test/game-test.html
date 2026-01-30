@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏功能测试 - ASD地板时光干预系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .result pre {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .status.online {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 游戏功能测试</h1>
+            <p>测试游戏推荐和管理功能</p>
+        </div>
+
+        <!-- 配置区 -->
+        <div class="card">
+            <h2>⚙️ 配置</h2>
+            <div class="form-group">
+                <label>API 地址</label>
+                <input type="text" id="apiUrl" value="http://localhost:7860" placeholder="http://localhost:7860">
+            </div>
+            <div class="form-group">
+                <label>孩子 ID</label>
+                <input type="text" id="childId" value="test_child_001" placeholder="test_child_001">
+            </div>
+            <button class="btn btn-primary" onclick="checkApiStatus()">检查 API 状态</button>
+            <div id="apiStatus" class="status" style="display: none; margin-top: 15px;"></div>
+        </div>
+
+        <!-- 游戏推荐 -->
+        <div class="card">
+            <h2>🎮 游戏推荐</h2>
+            <p style="color: #666; margin-bottom: 15px;">为孩子推荐个性化的地板时光游戏</p>
+            
+            <div class="form-group">
+                <label>重点关注维度（可选）</label>
+                <select id="focusDimension">
+                    <option value="">-- 自动选择 --</option>
+                    <option value="eye_contact">眼神接触</option>
+                    <option value="joint_attention">共同注意力</option>
+                    <option value="social_interaction">社交互动</option>
+                    <option value="language">语言沟通</option>
+                    <option value="imitation">模仿能力</option>
+                    <option value="emotional_regulation">情绪调节</option>
+                    <option value="play_skills">游戏技能</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>期望时长（分钟，可选）</label>
+                <input type="number" id="duration" placeholder="15" min="5" max="60">
+            </div>
+            
+            <button class="btn btn-primary" onclick="recommendGame()">🎯 推荐游戏</button>
+            <div id="recommendResult" class="result"></div>
+        </div>
+
+        <!-- 游戏日历 -->
+        <div class="card">
+            <h2>📅 游戏日历</h2>
+            <p style="color: #666; margin-bottom: 15px;">查看孩子的所有游戏方案</p>
+            <button class="btn btn-primary" onclick="getGameCalendar()">获取游戏日历</button>
+            <div id="calendarResult" class="result"></div>
+        </div>
+
+        <!-- 游戏总结 -->
+        <div class="card">
+            <h2>📝 游戏总结</h2>
+            <p style="color: #666; margin-bottom: 15px;">为已完成的游戏会话生成总结报告</p>
+            
+            <div class="form-group">
+                <label>会话 ID</label>
+                <input type="text" id="sessionId" placeholder="session-xxx" value="session-b2c2df4e4f47">
+            </div>
+            
+            <button class="btn btn-primary" onclick="summarizeGame()">📊 生成游戏总结</button>
+            <div id="summarizeResult" class="result"></div>
+        </div>
+
+        <!-- API 测试 -->
+        <div class="card">
+            <h2>🔧 API 测试</h2>
+            <p style="color: #666; margin-bottom: 15px;">测试各个 API 端点</p>
+            <button class="btn btn-primary" onclick="testAllApis()">测试所有 API</button>
+            <div id="testResult" class="result"></div>
+        </div>
+
+        <!-- 控制台日志 -->
+        <div class="card">
+            <h2>📋 控制台日志</h2>
+            <p style="color: #666; margin-bottom: 15px;">查看详细的请求和响应日志</p>
+            <div id="consoleLog" style="background: #f5f5f5; padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px; white-space: pre-wrap;"></div>
+            <button class="btn btn-primary" onclick="clearConsoleLog()" style="margin-top: 10px;">清空日志</button>
+        </div>
+    </div>
+
+    <script>
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value;
+        }
+
+        function getChildId() {
+            return document.getElementById('childId').value;
+        }
+
+        function showResult(elementId, success, message, data = null) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${success ? 'success' : 'error'}`;
+            element.style.display = 'block';
+            
+            let html = message;
+            
+            if (typeof data === 'string') {
+                html = data;
+            } else if (data) {
+                html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            
+            element.innerHTML = html;
+        }
+
+        async function checkApiStatus() {
+            const apiUrl = getApiUrl();
+            const statusDiv = document.getElementById('apiStatus');
+            
+            console.log('='.repeat(80));
+            console.log('[前端] 检查 API 状态');
+            console.log('[输入] API URL:', apiUrl);
+            
+            try {
+                const response = await fetch(`${apiUrl}/health`, { timeout: 5000 });
+                const data = await response.json();
+                
+                console.log('[输出] Status:', data);
+                console.log('='.repeat(80));
+                
+                if (response.ok && data.status === 'healthy') {
+                    statusDiv.className = 'status online';
+                    statusDiv.textContent = '✅ API 在线';
+                    statusDiv.style.display = 'block';
+                } else {
+                    statusDiv.className = 'status offline';
+                    statusDiv.textContent = '❌ API 异常';
+                    statusDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('[错误]', error);
+                console.log('='.repeat(80));
+                statusDiv.className = 'status offline';
+                statusDiv.textContent = '❌ 无法连接到 API';
+                statusDiv.style.display = 'block';
+            }
+        }
+
+        async function recommendGame() {
+            const childId = getChildId();
+            const apiUrl = getApiUrl();
+            const focusDimension = document.getElementById('focusDimension').value;
+            const duration = document.getElementById('duration').value;
+            
+            console.log('='.repeat(80));
+            console.log('[前端] 推荐游戏');
+            
+            const requestData = {
+                child_id: childId
+            };
+            
+            if (focusDimension) {
+                requestData.focus_dimension = focusDimension;
+            }
+            
+            if (duration) {
+                requestData.duration_preference = parseInt(duration);
+            }
+            
+            console.log('[输入] Request:', JSON.stringify(requestData, null, 2));
+            
+            // 显示加载状态
+            const resultDiv = document.getElementById('recommendResult');
+            resultDiv.className = 'result';
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<strong>⏳ 正在生成游戏方案...</strong><br>这可能需要 10-30 秒，请耐心等待';
+            
+            try {
+                const startTime = Date.now();
+                console.log('[请求] POST', `${apiUrl}/api/game/recommend`);
+                
+                const response = await fetch(`${apiUrl}/api/game/recommend`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const endTime = Date.now();
+                const duration = ((endTime - startTime) / 1000).toFixed(2);
+                
+                console.log('[响应] 状态码:', response.status);
+                console.log('[响应] 耗时:', duration, '秒');
+                
+                const data = await response.json();
+                console.log('[输出] Response:', JSON.stringify(data, null, 2));
+                console.log('='.repeat(80));
+                
+                if (response.ok) {
+                    const gamePlan = data.game_plan || {};
+                    
+                    let html = `<strong>✅ 游戏推荐成功！</strong><br>`;
+                    html += `<div style="margin-top: 15px; text-align: left;">`;
+                    html += `<h3 style="color: #667eea; margin-bottom: 10px;">🎮 ${gamePlan.title || 'N/A'}</h3>`;
+                    html += `<p><strong>描述：</strong>${gamePlan.description || 'N/A'}</p>`;
+                    html += `<p><strong>目标维度：</strong>${gamePlan.target_dimension || 'N/A'}</p>`;
+                    html += `<p><strong>预计时长：</strong>${gamePlan.estimated_duration || 'N/A'} 分钟</p>`;
+                    
+                    // 游戏目标
+                    if (gamePlan.goals) {
+                        html += `<p><strong>主要目标：</strong>${gamePlan.goals.primary_goal || 'N/A'}</p>`;
+                        if (gamePlan.goals.secondary_goals && gamePlan.goals.secondary_goals.length > 0) {
+                            html += `<p><strong>次要目标：</strong></p><ul>`;
+                            gamePlan.goals.secondary_goals.forEach(goal => {
+                                html += `<li>${goal}</li>`;
+                            });
+                            html += `</ul>`;
+                        }
+                    }
+                    
+                    // 游戏步骤
+                    if (gamePlan.steps && gamePlan.steps.length > 0) {
+                        html += `<p><strong>游戏步骤：</strong>（共 ${gamePlan.steps.length} 步）</p>`;
+                        html += `<ol>`;
+                        gamePlan.steps.slice(0, 3).forEach(step => {
+                            html += `<li><strong>${step.title}</strong>: ${step.description.substring(0, 100)}...</li>`;
+                        });
+                        if (gamePlan.steps.length > 3) {
+                            html += `<li>... 还有 ${gamePlan.steps.length - 3} 个步骤</li>`;
+                        }
+                        html += `</ol>`;
+                    }
+                    
+                    // 所需材料
+                    if (gamePlan.materials_needed && gamePlan.materials_needed.length > 0) {
+                        html += `<p><strong>所需材料：</strong></p><ul>`;
+                        gamePlan.materials_needed.forEach(material => {
+                            html += `<li>${material}</li>`;
+                        });
+                        html += `</ul>`;
+                    }
+                    
+                    // 设计依据
+                    if (gamePlan.design_rationale) {
+                        html += `<p><strong>设计依据：</strong>${gamePlan.design_rationale.substring(0, 200)}...</p>`;
+                    }
+                    
+                    html += `</div>`;
+                    html += `<pre style="margin-top: 15px; max-height: 300px; overflow-y: auto;">${JSON.stringify(data, null, 2)}</pre>`;
+                    
+                    showResult('recommendResult', true, '', html);
+                } else {
+                    showResult('recommendResult', false, data.detail || '推荐失败', data);
+                }
+            } catch (error) {
+                console.error('[错误]', error);
+                console.log('='.repeat(80));
+                showResult('recommendResult', false, `网络错误: ${error.message}`);
+            }
+        }
+
+        async function getGameCalendar() {
+            const childId = getChildId();
+            const apiUrl = getApiUrl();
+            
+            console.log('='.repeat(80));
+            console.log('[前端] 获取游戏日历');
+            console.log('[输入] API URL:', `${apiUrl}/api/game/calendar/${childId}`);
+            
+            try {
+                const response = await fetch(`${apiUrl}/api/game/calendar/${childId}`);
+                
+                console.log('[响应] 状态码:', response.status);
+                
+                const data = await response.json();
+                console.log('[输出] Response:', JSON.stringify(data, null, 2));
+                console.log('='.repeat(80));
+                
+                if (response.ok) {
+                    showResult('calendarResult', true, '获取成功', data);
+                } else {
+                    showResult('calendarResult', false, data.detail || '获取失败', data);
+                }
+            } catch (error) {
+                console.error('[错误]', error);
+                console.log('='.repeat(80));
+                showResult('calendarResult', false, `网络错误: ${error.message}`);
+            }
+        }
+
+        async function summarizeGame() {
+            const sessionId = document.getElementById('sessionId').value;
+            const apiUrl = getApiUrl();
+            
+            if (!sessionId) {
+                showResult('summarizeResult', false, '请输入会话 ID');
+                return;
+            }
+            
+            console.log('='.repeat(80));
+            console.log('[前端] 生成游戏总结');
+            
+            const requestData = {
+                session_id: sessionId
+            };
+            
+            console.log('[输入] Request:', JSON.stringify(requestData, null, 2));
+            
+            // 显示加载状态
+            const resultDiv = document.getElementById('summarizeResult');
+            resultDiv.className = 'result';
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<strong>⏳ 正在生成游戏总结...</strong><br>这可能需要 10-30 秒，请耐心等待';
+            
+            try {
+                const startTime = Date.now();
+                console.log('[请求] POST', `${apiUrl}/api/game/summarize`);
+                
+                const response = await fetch(`${apiUrl}/api/game/summarize`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const endTime = Date.now();
+                const duration = ((endTime - startTime) / 1000).toFixed(2);
+                
+                console.log('[响应] 状态码:', response.status);
+                console.log('[响应] 耗时:', duration, '秒');
+                
+                const data = await response.json();
+                console.log('[输出] Response:', JSON.stringify(data, null, 2));
+                console.log('='.repeat(80));
+                
+                if (response.ok) {
+                    const summary = data.summary || {};
+                    
+                    let html = `<strong>✅ 游戏总结生成成功！</strong><br>`;
+                    html += `<div style="margin-top: 15px; text-align: left;">`;
+                    
+                    // 整体评价
+                    if (summary.overall_assessment) {
+                        html += `<h3 style="color: #667eea; margin-bottom: 10px;">📋 整体评价</h3>`;
+                        html += `<p style="line-height: 1.6; margin-bottom: 15px;">${summary.overall_assessment.substring(0, 300)}...</p>`;
+                    }
+                    
+                    // 成功程度
+                    if (summary.success_level) {
+                        const levelEmoji = {
+                            'excellent': '🌟',
+                            'good': '👍',
+                            'fair': '👌',
+                            'poor': '😔'
+                        };
+                        html += `<p><strong>成功程度：</strong>${levelEmoji[summary.success_level] || ''} ${summary.success_level}</p>`;
+                    }
+                    
+                    // 目标达成
+                    if (summary.goal_achievement) {
+                        html += `<h3 style="color: #667eea; margin: 15px 0 10px;">🎯 目标达成</h3>`;
+                        html += `<p><strong>主要目标：</strong>${summary.goal_achievement.primary_goal_achieved ? '✅ 已达成' : '❌ 未达成'}</p>`;
+                        if (summary.goal_achievement.achievement_details) {
+                            html += `<p>${summary.goal_achievement.achievement_details.substring(0, 200)}...</p>`;
+                        }
+                    }
+                    
+                    // 维度进展
+                    if (summary.dimension_progress && summary.dimension_progress.length > 0) {
+                        html += `<h3 style="color: #667eea; margin: 15px 0 10px;">📊 维度进展</h3>`;
+                        html += `<ul>`;
+                        summary.dimension_progress.slice(0, 3).forEach(dim => {
+                            html += `<li><strong>${dim.dimension_name}:</strong> ${dim.performance_score}/10`;
+                            if (dim.progress_description) {
+                                html += ` - ${dim.progress_description.substring(0, 100)}...`;
+                            }
+                            html += `</li>`;
+                        });
+                        if (summary.dimension_progress.length > 3) {
+                            html += `<li>... 还有 ${summary.dimension_progress.length - 3} 个维度</li>`;
+                        }
+                        html += `</ul>`;
+                    }
+                    
+                    // 亮点时刻
+                    if (summary.highlights && summary.highlights.length > 0) {
+                        html += `<h3 style="color: #667eea; margin: 15px 0 10px;">✨ 亮点时刻</h3>`;
+                        html += `<ul>`;
+                        summary.highlights.forEach((highlight, i) => {
+                            html += `<li>${highlight}</li>`;
+                        });
+                        html += `</ul>`;
+                    }
+                    
+                    // 改进建议
+                    if (summary.areas_for_improvement && summary.areas_for_improvement.length > 0) {
+                        html += `<h3 style="color: #667eea; margin: 15px 0 10px;">💡 改进建议</h3>`;
+                        html += `<ul>`;
+                        summary.areas_for_improvement.forEach(area => {
+                            html += `<li>${area}</li>`;
+                        });
+                        html += `</ul>`;
+                    }
+                    
+                    // 下次建议
+                    if (summary.recommendations_for_next && summary.recommendations_for_next.length > 0) {
+                        html += `<h3 style="color: #667eea; margin: 15px 0 10px;">🔮 下次建议</h3>`;
+                        html += `<ul>`;
+                        summary.recommendations_for_next.forEach(rec => {
+                            html += `<li>${rec}</li>`;
+                        });
+                        html += `</ul>`;
+                    }
+                    
+                    html += `</div>`;
+                    html += `<details style="margin-top: 15px;"><summary style="cursor: pointer; color: #667eea; font-weight: bold;">查看完整 JSON 响应</summary>`;
+                    html += `<pre style="margin-top: 10px; max-height: 300px; overflow-y: auto;">${JSON.stringify(data, null, 2)}</pre>`;
+                    html += `</details>`;
+                    
+                    showResult('summarizeResult', true, '', html);
+                } else {
+                    showResult('summarizeResult', false, data.detail || '总结失败', data);
+                }
+            } catch (error) {
+                console.error('[错误]', error);
+                console.log('='.repeat(80));
+                showResult('summarizeResult', false, `网络错误: ${error.message}`);
+            }
+        }
+
+        async function testAllApis() {
+            const childId = getChildId();
+            const apiUrl = getApiUrl();
+            
+            let results = [];
+            
+            console.log('='.repeat(80));
+            console.log('[前端] 测试所有 API');
+            
+            // 1. 测试健康检查
+            try {
+                const r = await fetch(`${apiUrl}/health`);
+                results.push({
+                    name: 'Health Check',
+                    status: r.status,
+                    success: r.ok
+                });
+            } catch (e) {
+                results.push({
+                    name: 'Health Check',
+                    status: 'Error',
+                    success: false,
+                    error: e.message
+                });
+            }
+            
+            // 2. 测试游戏日历
+            try {
+                const r = await fetch(`${apiUrl}/api/game/calendar/${childId}`);
+                results.push({
+                    name: 'Game Calendar',
+                    status: r.status,
+                    success: r.ok
+                });
+            } catch (e) {
+                results.push({
+                    name: 'Game Calendar',
+                    status: 'Error',
+                    success: false,
+                    error: e.message
+                });
+            }
+            
+            console.log('[输出] Results:', results);
+            console.log('='.repeat(80));
+            
+            showResult('testResult', true, 'API 测试完成', results);
+        }
+
+        // 页面加载时检查状态
+        window.addEventListener('load', () => {
+            checkApiStatus();
+        });
+    </script>
+</body>
+</html>

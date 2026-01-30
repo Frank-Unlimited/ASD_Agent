@@ -23,22 +23,18 @@ class GameSummarizer:
     
     def __init__(
         self,
-        profile_service: Any,
-        # memory_service: Any,  # TODO: MemoryService 还未实现
         sqlite_service: Any,
-        # graphiti_service: Any  # TODO: Graphiti 保存记忆
+        memory_service: Any
     ):
         """
         初始化游戏总结服务
         
         Args:
-            profile_service: 档案服务
-            sqlite_service: SQLite 服务
+            sqlite_service: SQLite 服务（获取档案和会话）
+            memory_service: Memory 服务
         """
-        self.profile_service = profile_service
-        # self.memory_service = memory_service  # TODO
         self.sqlite = sqlite_service
-        # self.graphiti = graphiti_service  # TODO
+        self.memory_service = memory_service
         self.llm = get_llm_service()
     
     async def summarize_session(
@@ -85,17 +81,22 @@ class GameSummarizer:
         
         print(f"[GameSummarizer] 获取游戏方案: {game_plan.title}")
         
-        # 3. 获取孩子档案
-        profile = await self.profile_service.get_profile(session.child_id)
+        # 3. 获取孩子档案（从 SQLite）
+        profile = self.sqlite.get_child(session.child_id)
         if not profile:
             raise ValueError(f"孩子档案不存在: {session.child_id}")
         
         print(f"[GameSummarizer] 获取档案成功: {profile.name}")
         
         # 4. 获取历史上下文
-        # TODO: 从 MemoryService 获取
-        recent_assessments = None  # await self.memory_service.get_recent_assessments(session.child_id)
-        recent_games = None  # await self.memory_service.get_recent_games_summary(session.child_id)
+        recent_assessments = await self.memory_service.get_latest_assessment(
+            child_id=session.child_id,
+            assessment_type="comprehensive"
+        )
+        recent_games = await self.memory_service.get_recent_games(
+            child_id=session.child_id,
+            limit=5
+        )
         
         # 5. 构建 System Prompt
         system_prompt = build_game_summary_prompt(
@@ -149,9 +150,8 @@ class GameSummarizer:
         # 11. 保存到 SQLite
         await self._save_session(session)
         
-        # 12. 保存到 Graphiti
-        # TODO: 将总结保存到 Graphiti 记忆系统
-        # await self._save_summary_to_graphiti(session, summary)
+        # 12. 保存到 Memory（Graphiti）
+        await self._save_summary_to_memory(session, summary)
         
         # 13. 构建响应
         response = GameSummaryResponse(
@@ -168,9 +168,8 @@ class GameSummarizer:
     
     async def _get_session(self, session_id: str) -> Optional[GameSession]:
         """获取游戏会话"""
-        # TODO: 根据 SQLite 服务的实际接口调整
         try:
-            data = await self.sqlite.get_game_session(session_id)
+            data = self.sqlite.get_game_session(session_id)
             if not data:
                 return None
             return GameSession(**data)
@@ -180,84 +179,66 @@ class GameSummarizer:
     
     async def _get_game_plan(self, game_id: str) -> Optional[GamePlan]:
         """获取游戏方案"""
-        # TODO: 根据 SQLite 服务的实际接口调整
         try:
-            data = await self.sqlite.get_game_plan(game_id)
+            data = self.sqlite.get_game_plan(game_id)
             if not data:
                 return None
-            return GamePlan(**data["data"])
+            return GamePlan(**data)
         except Exception as e:
             print(f"[GameSummarizer] 获取游戏方案失败: {e}")
             return None
     
     async def _save_session(self, session: GameSession) -> None:
         """保存游戏会话"""
-        # TODO: 根据 SQLite 服务的实际接口调整
         try:
-            await self.sqlite.save_game_session({
-                "session_id": session.session_id,
-                "data": session.dict()
-            })
+            self.sqlite.update_game_session(session.session_id, session.dict())
             print(f"[GameSummarizer] 会话已更新到数据库: {session.session_id}")
         except Exception as e:
             print(f"[GameSummarizer] 保存会话失败: {e}")
     
-    # TODO: Graphiti 相关功能
-    # async def _save_summary_to_graphiti(
-    #     self,
-    #     session: GameSession,
-    #     summary: GameSessionSummary
-    # ) -> None:
-    #     """
-    #     将总结保存到 Graphiti 记忆系统
-    #     
-    #     拆分为多条记忆：
-    #     1. 整体评价
-    #     2. 各维度进展（每个维度一条）
-    #     3. 亮点时刻（每个亮点一条）
-    #     4. 改进建议
-    #     """
-    #     memories = []
-    #     
-    #     # 1. 整体评价
-    #     memories.append({
-    #         "content": f"游戏总结：{summary.overall_assessment}",
-    #         "type": "game_summary",
-    #         "timestamp": session.end_time.isoformat(),
-    #         "metadata": {
-    #             "session_id": session.session_id,
-    #             "game_id": session.game_id,
-    #             "success_level": summary.success_level
-    #         }
-    #     })
-    #     
-    #     # 2. 各维度进展
-    #     for dim_progress in summary.dimension_progress:
-    #         memories.append({
-    #             "content": f"{dim_progress.dimension_name}维度表现：{dim_progress.progress_description}",
-    #             "type": "dimension_progress",
-    #             "timestamp": session.end_time.isoformat(),
-    #             "metadata": {
-    #                 "dimension": dim_progress.dimension.value,
-    #                 "score": dim_progress.performance_score
-    #             }
-    #         })
-    #     
-    #     # 3. 亮点时刻
-    #     for highlight in summary.highlights:
-    #         memories.append({
-    #             "content": f"亮点时刻：{highlight}",
-    #             "type": "highlight",
-    #             "timestamp": session.end_time.isoformat()
-    #         })
-    #     
-    #     # 保存到 Graphiti
-    #     await self.graphiti.save_memories(
-    #         child_id=session.child_id,
-    #         memories=memories
-    #     )
-    #     
-    #     print(f"[GameSummarizer] 已保存{len(memories)}条记忆到Graphiti")
+    async def _save_summary_to_memory(
+        self,
+        session: GameSession,
+        summary: GameSessionSummary
+    ) -> None:
+        """
+        将总结保存到 Memory（Graphiti）记忆系统
+        
+        使用 Memory 服务的 summarize_game() 方法
+        """
+        try:
+            # 准备视频分析数据
+            video_analysis = {
+                "duration": f"{session.actual_duration}分钟" if session.actual_duration else "未知",
+                "key_moments": []
+            }
+            
+            # 从 summary 中提取关键时刻
+            if summary.highlights:
+                for i, highlight in enumerate(summary.highlights):
+                    video_analysis["key_moments"].append({
+                        "time": f"{i*5:02d}:00",  # 假设每5分钟一个亮点
+                        "description": highlight
+                    })
+            
+            # 准备家长反馈数据
+            parent_feedback = {
+                "notes": session.parent_notes if hasattr(session, 'parent_notes') else "",
+                "engagement_level": summary.engagement_score if hasattr(summary, 'engagement_score') else 0
+            }
+            
+            # 调用 Memory 服务的 summarize_game()
+            await self.memory_service.summarize_game(
+                game_id=session.game_id,
+                video_analysis=video_analysis,
+                parent_feedback=parent_feedback
+            )
+            
+            print(f"[GameSummarizer] 游戏总结已保存到 Memory: {session.game_id}")
+            
+        except Exception as e:
+            print(f"[GameSummarizer] 保存游戏总结到 Memory 失败: {e}")
+            # 不抛出异常，允许总结继续
 
 
 __all__ = ['GameSummarizer']

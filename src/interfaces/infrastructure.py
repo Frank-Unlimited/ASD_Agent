@@ -62,66 +62,6 @@ class ISQLiteService(BaseService):
         pass
 
 
-# ============ 模块2: Graphiti 记忆网络模块（v2.0）============
-
-class IGraphitiService(BaseService):
-    """Graphiti 记忆网络接口 - v2.0 重构版本"""
-    
-    @abstractmethod
-    async def save_observations(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """保存观察数据（新标准格式）"""
-        pass
-    
-    @abstractmethod
-    async def get_full_trend(self, child_id: str) -> Dict[str, Any]:
-        """获取完整趋势分析"""
-        pass
-    
-    @abstractmethod
-    async def get_dimension_trend(
-        self,
-        child_id: str,
-        dimension: str,
-        include_data_points: bool = True
-    ) -> Dict[str, Any]:
-        """获取单维度趋势"""
-        pass
-    
-    @abstractmethod
-    async def get_quick_summary(self, child_id: str) -> Dict[str, Any]:
-        """获取快速摘要"""
-        pass
-    
-    @abstractmethod
-    async def get_milestones(
-        self,
-        child_id: str,
-        days: Optional[int] = None,
-        dimension: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """获取里程碑"""
-        pass
-    
-    @abstractmethod
-    async def get_correlations(
-        self,
-        child_id: str,
-        min_correlation: float = 0.3
-    ) -> Dict[str, Any]:
-        """获取维度关联"""
-        pass
-    
-    @abstractmethod
-    async def refresh_correlations(self, child_id: str) -> Dict[str, Any]:
-        """刷新关联分析"""
-        pass
-    
-    @abstractmethod
-    async def clear_child_data(self, child_id: str) -> Dict[str, Any]:
-        """清空孩子的所有数据"""
-        pass
-
-
 # ============ 模块3: 知识库与 RAG 模块 ============
 
 class IKnowledgeRAGService(BaseService):

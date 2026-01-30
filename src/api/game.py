@@ -18,6 +18,8 @@ from src.models.game import (
     SessionObservationRequest,
     SessionEndRequest,
     SessionResponse,
+    GameSummaryRequest,
+    GameSummaryResponse,
 )
 from src.container import container
 
@@ -47,6 +49,13 @@ async def recommend_game(
     """
     try:
         game_recommender = container.get('game_recommender')
+        
+        # 初始化 Memory 服务（如果还没有）
+        if game_recommender.memory_service is None:
+            from services.Memory.service import get_memory_service
+            game_recommender.memory_service = await get_memory_service()
+            print("[API] Memory 服务已初始化")
+        
         result = await game_recommender.recommend_game(request)
 
         return result
@@ -210,3 +219,39 @@ async def end_game_session(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"结束游戏会话失败: {str(e)}")
+
+
+# ============ 游戏总结 ============
+
+@router.post("/summarize", response_model=GameSummaryResponse)
+async def summarize_game_session(
+    request: GameSummaryRequest
+):
+    """
+    生成游戏会话总结
+    
+    使用 LLM 分析游戏会话数据，生成详细的总结报告。
+    包括：
+    - 整体评价
+    - 目标达成情况
+    - 各维度进展
+    - 亮点和改进建议
+    - 下次游戏建议
+    """
+    try:
+        game_summarizer = container.get('game_summarizer')
+        
+        # 初始化 Memory 服务（如果还没有）
+        if game_summarizer.memory_service is None:
+            from services.Memory.service import get_memory_service
+            game_summarizer.memory_service = await get_memory_service()
+            print("[API] Memory 服务已初始化")
+        
+        result = await game_summarizer.summarize_session(request)
+        
+        return result
+    
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"游戏总结失败: {str(e)}")

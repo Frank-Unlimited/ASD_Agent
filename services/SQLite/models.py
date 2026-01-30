@@ -5,37 +5,15 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 
-
-class ChildProfile(BaseModel):
-    """孩子档案模型"""
-    child_id: str = Field(..., description="孩子ID")
-    name: str = Field(..., description="孩子姓名")
-    age: int = Field(..., description="年龄（月）")
-    gender: str = Field(..., description="性别")
-    diagnosis: Optional[str] = Field(None, description="诊断信息")
-    
-    # 6大维度评分（1-10分）
-    eye_contact: Optional[float] = Field(None, description="眼神接触")
-    two_way_communication: Optional[float] = Field(None, description="双向沟通")
-    emotional_expression: Optional[float] = Field(None, description="情绪表达")
-    problem_solving: Optional[float] = Field(None, description="问题解决")
-    creative_thinking: Optional[float] = Field(None, description="创造性思维")
-    logical_thinking: Optional[float] = Field(None, description="逻辑思维")
-    
-    # 自定义维度
-    custom_dimensions: Optional[Dict[str, float]] = Field(None, description="自定义维度")
-    
-    # 画像信息
-    strengths: Optional[List[str]] = Field(None, description="优势")
-    weaknesses: Optional[List[str]] = Field(None, description="短板")
-    interests: Optional[List[str]] = Field(None, description="兴趣")
-    observation_framework: Optional[Dict[str, Any]] = Field(None, description="观察框架")
-    focus_points: Optional[List[str]] = Field(None, description="关注点")
-    
-    # 元数据
-    created_at: Optional[datetime] = Field(None, description="创建时间")
-    updated_at: Optional[datetime] = Field(None, description="更新时间")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="其他元数据")
+# 直接使用 src/models/profile.py 的定义
+from src.models.profile import (
+    ChildProfile,
+    Gender,
+    DiagnosisLevel,
+    DevelopmentDimension,
+    InterestPoint,
+    InterestCategory
+)
 
 
 class Session(BaseModel):
