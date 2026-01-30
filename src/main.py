@@ -70,6 +70,10 @@ app.include_router(profile_router)
 from src.api.report import router as report_router
 app.include_router(report_router)
 
+# 注册聊天路由
+from src.api.chat import router as chat_router
+app.include_router(chat_router)
+
 
 @app.get("/")
 async def root():

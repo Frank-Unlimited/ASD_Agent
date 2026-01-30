@@ -156,8 +156,8 @@ async def get_observation_service():
     observation_service = container.get('observation')
     
     # 延迟初始化 Memory 服务
-    if observation_service.memory_service is None:
-        observation_service.memory_service = await get_memory_service()
+    if observation_service.memory is None:
+        observation_service.memory = await get_memory_service()
     
     return observation_service
 
