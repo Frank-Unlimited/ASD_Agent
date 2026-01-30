@@ -65,6 +65,7 @@ class DimensionTimeline(BaseModel):
 class InterestHeatmapData(BaseModel):
     """兴趣点热力图数据"""
     interest_name: str = Field(..., description="兴趣点名称")
+    category: Optional[str] = Field(None, description="兴趣类别（visual/auditory/tactile等）")
     intensity_over_time: List[Dict[str, Any]] = Field(
         ...,
         description="时间序列强度数据 [{date, intensity}]"

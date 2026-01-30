@@ -8,11 +8,22 @@ from src.models.profile import (
     Gender,
     DiagnosisLevel,
     DevelopmentDimension,
+    InterestCategory,
     InterestPoint,
     ParsedProfileData,
     ChildProfile,
     ProfileUpdateRequest,
     ProfileCreateResponse,
+)
+
+# Interest library
+from src.models.interest_library import (
+    StandardInterest,
+    STANDARD_INTERESTS,
+    get_interest_by_key,
+    get_interests_by_category,
+    search_interests,
+    get_all_categories,
 )
 
 # Observation models
@@ -90,6 +101,14 @@ __all__ = [
     "ChildProfile",
     "ProfileUpdateRequest",
     "ProfileCreateResponse",
+    # Interest library
+    "InterestCategory",
+    "StandardInterest",
+    "STANDARD_INTERESTS",
+    "get_interest_by_key",
+    "get_interests_by_category",
+    "search_interests",
+    "get_all_categories",
     # Observation
     "ObservationType",
     "ObservationDimension",

@@ -32,14 +32,31 @@ class DevelopmentDimension(BaseModel):
     last_updated: Optional[datetime] = Field(None, description="最后更新时间")
 
 
+class InterestCategory(str, Enum):
+    """兴趣类别"""
+    VISUAL = "visual"  # 视觉类
+    AUDITORY = "auditory"  # 听觉类
+    TACTILE = "tactile"  # 触觉类
+    MOTOR = "motor"  # 运动类
+    CONSTRUCTION = "construction"  # 建构类
+    ORDER = "order"  # 秩序类
+    COGNITIVE = "cognitive"  # 认知类
+    SOCIAL = "social"  # 社交类
+    OTHER = "other"  # 其他
+
+
 class InterestPoint(BaseModel):
     """兴趣点"""
     interest_id: str = Field(..., description="兴趣点ID")
     name: str = Field(..., description="兴趣点名称（如'水流'、'旋转物体'）")
+    category: Optional[InterestCategory] = Field(None, description="兴趣类别")
     intensity: float = Field(..., description="兴趣强度（0-10）", ge=0, le=10)
     discovered_date: Optional[datetime] = Field(None, description="发现日期")
     description: Optional[str] = Field(None, description="详细描述")
     tags: List[str] = Field(default_factory=list, description="标签")
+    
+    # 如果是标准兴趣点，关联到标准库
+    standard_interest_key: Optional[str] = Field(None, description="标准兴趣点键（关联到标准库）")
 
 
 class ParsedProfileData(BaseModel):
