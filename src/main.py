@@ -62,9 +62,17 @@ app.include_router(game_router)
 from src.api.assessment import router as assessment_router
 app.include_router(assessment_router)
 
-# 注册档案路由（暂时注释，因为依赖其他服务）
-# from src.api.profile import router as profile_router
-# app.include_router(profile_router)
+# 注册档案路由
+from src.api.profile import router as profile_router
+app.include_router(profile_router)
+
+# 注册报告路由
+from src.api.report import router as report_router
+app.include_router(report_router)
+
+# 注册聊天路由
+from src.api.chat import router as chat_router
+app.include_router(chat_router)
 
 
 @app.get("/")

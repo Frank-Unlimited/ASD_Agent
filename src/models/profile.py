@@ -136,3 +136,25 @@ class ProfileCreateResponse(BaseModel):
     name: str
     parsed_data: ParsedProfileData
     message: str = "档案创建成功"
+
+
+class ProfileImportResponse(BaseModel):
+    """档案导入响应"""
+    child_id: str = Field(..., description="孩子ID")
+    assessment_id: str = Field(..., description="初始评估ID")
+    profile_summary: str = Field(..., description="孩子画像总结（100-150字）")
+    extracted_text: str = Field(..., description="提取的完整文字")
+    image_path: Optional[str] = Field(None, description="图片路径")
+    message: str = Field(default="档案导入成功", description="消息")
+
+
+class ProfileExportData(BaseModel):
+    """档案导出数据"""
+    profile: ChildProfile = Field(..., description="档案信息")
+    latest_assessment: Optional[Dict[str, Any]] = Field(None, description="最新评估")
+    export_time: datetime = Field(default_factory=datetime.now, description="导出时间")
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }

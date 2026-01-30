@@ -142,6 +142,147 @@ class LLMService:
             print(f"[LLM Service] 调用失败: {e}")
             raise
     
+    async def call_with_tools(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        简化的工具调用接口（直接传入消息列表）
+        
+        Args:
+            messages: 消息列表 [{"role": "system/user/assistant", "content": "..."}]
+            tools: 工具定义列表（OpenAI 格式）
+            temperature: 温度参数
+            max_tokens: 最大 token 数
+            
+        Returns:
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "...",
+                    "tool_calls": [...]  # 如果有
+                },
+                "tool_calls": [...]  # 简化格式
+            }
+        """
+        # 构建请求参数
+        request_params = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            **kwargs
+        }
+        
+        # 添加工具定义
+        if tools:
+            # 转换为 OpenAI 格式
+            openai_tools = []
+            for tool in tools:
+                openai_tools.append({
+                    "type": "function",
+                    "function": {
+                        "name": tool["name"],
+                        "description": tool["description"],
+                        "parameters": tool["parameters"]
+                    }
+                })
+            request_params["tools"] = openai_tools
+            request_params["tool_choice"] = "auto"
+        
+        try:
+            # 调用 API
+            response = await self.client.chat.completions.create(**request_params)
+            
+            # 解析响应
+            message = response.choices[0].message
+            
+            result = {
+                "message": {
+                    "role": "assistant",
+                    "content": message.content or ""
+                },
+                "tool_calls": []
+            }
+            
+            # 处理工具调用
+            if message.tool_calls:
+                result["message"]["tool_calls"] = message.tool_calls
+                
+                # 简化格式
+                for tc in message.tool_calls:
+                    result["tool_calls"].append({
+                        "id": tc.id,
+                        "name": tc.function.name,
+                        "arguments": json.loads(tc.function.arguments)
+                    })
+            
+            return result
+            
+        except Exception as e:
+            print(f"[LLM Service] 调用失败: {e}")
+            raise
+    
+    async def call_with_tools_stream(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        **kwargs
+    ):
+        """
+        流式工具调用接口
+        
+        Args:
+            messages: 消息列表
+            tools: 工具定义列表
+            temperature: 温度参数
+            max_tokens: 最大 token 数
+            
+        Yields:
+            流式响应 chunk
+        """
+        # 构建请求参数
+        request_params = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True,  # 启用流式
+            **kwargs
+        }
+        
+        # 添加工具定义
+        if tools:
+            openai_tools = []
+            for tool in tools:
+                openai_tools.append({
+                    "type": "function",
+                    "function": {
+                        "name": tool["name"],
+                        "description": tool["description"],
+                        "parameters": tool["parameters"]
+                    }
+                })
+            request_params["tools"] = openai_tools
+            request_params["tool_choice"] = "auto"
+        
+        try:
+            # 调用流式 API
+            stream = await self.client.chat.completions.create(**request_params)
+            
+            async for chunk in stream:
+                yield chunk
+                
+        except Exception as e:
+            print(f"[LLM Service] ❌ 流式调用失败: {e}")
+            raise
+    
     async def call_with_tool_execution(
         self,
         system_prompt: str,

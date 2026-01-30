@@ -724,46 +724,60 @@ class MemoryService:
                 limit=limit
             )
             
-            # 转换为行为记录格式
+            print(f"[get_behaviors] 查询到 {len(episodes)} 条 Episodic 记录")
+            
+            # 转换为行为记录格式（直接使用 Episodic 节点）
             behaviors = []
             for episode in episodes:
-                # 从 episode 获取关联的实体节点
+                # 提取关联的实体信息（可选）
                 records, _, _ = await self.graphiti.driver.execute_query(
                     """
                     MATCH (e:Episodic {uuid: $episode_uuid})-[:MENTIONS]->(n:Entity)
-                    WHERE 'Behavior' IN labels(n)
-                    RETURN n.uuid AS behavior_id,
-                           properties(n) AS props,
-                           n.created_at AS created_at
-                    LIMIT 1
+                    RETURN labels(n) AS labels, n.name AS name
                     """,
                     episode_uuid=episode.uuid
                 )
                 
-                if records:
-                    record = records[0]
-                    props = record['props']
+                # 提取对象、兴趣、功能
+                objects_involved = []
+                related_interests = []
+                related_functions = []
+                
+                for record in records:
+                    labels = record['labels']
+                    name = record['name']
                     
-                    behaviors.append({
-                        "behavior_id": episode.uuid,
-                        "child_id": child_id,
-                        "timestamp": episode.valid_at.isoformat(),
-                        "event_type": props.get('event_type', 'other'),
-                        "description": props.get('description', episode.content[:100]),
-                        "raw_input": episode.content,
-                        "input_type": "text",
-                        "significance": props.get('significance', 'normal'),
-                        "ai_analysis": {},
-                        "context": {},
-                        "objects_involved": [],
-                        "related_interests": [],
-                        "related_functions": []
-                    })
+                    if 'Object' in labels:
+                        objects_involved.append(name)
+                    elif 'Interest' in labels:
+                        related_interests.append(name)
+                    elif 'Function' in labels:
+                        related_functions.append(name)
+                
+                # 构建行为记录
+                behaviors.append({
+                    "behavior_id": episode.uuid,
+                    "child_id": child_id,
+                    "timestamp": episode.valid_at.isoformat(),
+                    "event_type": "observation",  # 默认类型
+                    "description": episode.content[:200],  # 使用 episode 内容作为描述
+                    "raw_input": episode.content,
+                    "input_type": "text",
+                    "significance": "normal",
+                    "ai_analysis": {},
+                    "context": {},
+                    "objects_involved": objects_involved,
+                    "related_interests": related_interests,
+                    "related_functions": related_functions
+                })
             
+            print(f"[get_behaviors] 返回 {len(behaviors)} 条行为记录")
             return behaviors
             
         except Exception as e:
             print(f"[get_behaviors] 查询失败: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     # 对象
