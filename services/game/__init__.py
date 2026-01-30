@@ -1,7 +1,7 @@
 """
-游戏服务模块
+Game Service - 游戏推荐和管理服务
 """
-from services.game.game_recommender import GameRecommenderService
-from services.game.game_session import GameSessionService
+from .game_recommender import GameRecommender
+from .game_summarizer import GameSummarizer
 
-__all__ = ['GameRecommenderService', 'GameSessionService']
+__all__ = ['GameRecommender', 'GameSummarizer']

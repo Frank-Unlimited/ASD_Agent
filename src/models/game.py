@@ -267,3 +267,83 @@ class SessionResponse(BaseModel):
         json_encoders = {
             datetime: lambda v: v.isoformat()
         }
+
+
+class DimensionProgress(BaseModel):
+    """维度进展评估"""
+    dimension: TargetDimension = Field(..., description="目标维度")
+    dimension_name: str = Field(..., description="维度名称")
+    performance_score: float = Field(..., ge=0, le=10, description="本次表现评分")
+    progress_description: str = Field(..., description="进展描述")
+    highlights: List[str] = Field(default_factory=list, description="亮点表现")
+    challenges: List[str] = Field(default_factory=list, description="遇到的挑战")
+
+
+class GameSessionSummary(BaseModel):
+    """游戏会话总结（LLM 生成的结构化总结）"""
+    
+    # 整体评价
+    overall_assessment: str = Field(..., description="整体评价（200-300字）")
+    success_level: str = Field(..., description="成功程度（excellent/good/fair/poor）")
+    
+    # 目标达成情况
+    goal_achievement: Dict[str, Any] = Field(..., description="目标达成情况")
+    
+    # 各维度表现
+    dimension_progress: List[DimensionProgress] = Field(
+        ..., 
+        description="各维度进展评估"
+    )
+    
+    # 孩子表现分析
+    child_performance: Dict[str, Any] = Field(..., description="孩子表现分析")
+    
+    # 亮点时刻
+    highlights: List[str] = Field(
+        default_factory=list,
+        description="本次游戏的亮点时刻（3-5个）"
+    )
+    
+    # 需要改进的地方
+    areas_for_improvement: List[str] = Field(
+        default_factory=list,
+        description="需要改进的地方（2-3个）"
+    )
+    
+    # 家长表现反馈
+    parent_feedback: Optional[str] = Field(
+        None,
+        description="对家长表现的反馈和建议"
+    )
+    
+    # 下次建议
+    recommendations_for_next: List[str] = Field(
+        default_factory=list,
+        description="下次游戏的建议（3-5条）"
+    )
+    
+    # 趋势观察
+    trend_observation: Optional[str] = Field(
+        None,
+        description="结合历史数据的趋势观察"
+    )
+    
+    # 数据依据
+    data_sources_used: List[str] = Field(
+        default_factory=list,
+        description="使用的数据来源（用于透明度）"
+    )
+
+
+class GameSummaryRequest(BaseModel):
+    """游戏总结请求"""
+    session_id: str = Field(..., description="游戏会话ID")
+
+
+class GameSummaryResponse(BaseModel):
+    """游戏总结响应"""
+    session_id: str
+    game_id: str
+    child_id: str
+    summary: GameSessionSummary
+    message: str = "游戏总结生成成功"
