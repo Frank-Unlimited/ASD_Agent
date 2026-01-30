@@ -16,12 +16,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from src.config import settings
 from src.container import init_services
+from src.workflow import get_compiled_workflow
+from src.models.state import DynamicInterventionState
 from src.api.workflow import router as workflow_router
 from src.api.infrastructure import router as infrastructure_router
 from src.api.business import router as business_router
-from src.api.profile import router as profile_router
-from src.api.observation import router as observation_router
-from src.api.game import router as game_router
 
 # 配置日志
 logging.basicConfig(
@@ -41,8 +40,29 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
         request_id = f"{int(start_time * 1000)}"
         
-        # 只记录请求路径和方法
-        logger.info(f"[请求 {request_id}] {request.method} {request.url.path}")
+        # 读取请求体（如果有）
+        body = None
+        if request.method in ["POST", "PUT", "PATCH"]:
+            try:
+                body_bytes = await request.body()
+                if body_bytes:
+                    body = body_bytes.decode('utf-8')
+                    # 重新设置 body 以便后续处理
+                    async def receive():
+                        return {"type": "http.request", "body": body_bytes}
+                    request._receive = receive
+            except Exception as e:
+                print(f"[警告] 无法读取请求体: {e}")
+        
+        # 记录请求信息
+        print(f"\n{'='*80}")
+        print(f"[请求 {request_id}] {request.method} {request.url.path}")
+        if body:
+            try:
+                body_json = json.loads(body)
+                print(f"[请求体] {json.dumps(body_json, ensure_ascii=False, indent=2)}")
+            except:
+                print(f"[请求体] {body[:200]}...")
         
         # 处理请求
         try:
@@ -52,14 +72,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             duration = time.time() - start_time
             
             # 记录响应信息
-            logger.info(f"[响应 {request_id}] 状态码: {response.status_code} | 耗时: {duration:.3f}s")
+            print(f"[响应] 状态码: {response.status_code} | 耗时: {duration:.3f}s")
+            print(f"{'='*80}\n")
             
             return response
             
         except Exception as e:
             duration = time.time() - start_time
-            logger.error(f"[错误 {request_id}] {str(e)} | 耗时: {duration:.3f}s")
-            raise
+            print(f"[错误] {str(e)} | 耗时: {duration:.3f}s")
+    
 
 
 # 创建 FastAPI 应用
@@ -85,9 +106,6 @@ app.add_middleware(
 app.include_router(workflow_router)
 app.include_router(infrastructure_router)
 app.include_router(business_router)
-app.include_router(profile_router)
-app.include_router(observation_router)
-app.include_router(game_router)
 
 
 @app.get("/")
