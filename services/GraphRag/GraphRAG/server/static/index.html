@@ -1,0 +1,2106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>知识连成网，学习有方向</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
+    <link href="https://unpkg.com/vis-network@9.1.2/dist/dist/vis-network.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input[type="text"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input[type="text"]:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+            display: none;
+        }
+
+        .result-card.show {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .result-header h2 {
+            color: #333;
+            font-size: 1.5em;
+        }
+
+        .result-meta {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .meta-item {
+            background: #f5f5f5;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .meta-item strong {
+            color: #333;
+        }
+
+        .result-content {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            line-height: 1.8;
+            word-wrap: break-word;
+        }
+
+        .result-content h1,
+        .result-content h2,
+        .result-content h3,
+        .result-content h4,
+        .result-content h5,
+        .result-content h6 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .result-content h1 {
+            font-size: 1.8em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .result-content h2 {
+            font-size: 1.5em;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 8px;
+        }
+
+        .result-content h3 {
+            font-size: 1.3em;
+        }
+
+        .result-content p {
+            margin-bottom: 15px;
+        }
+
+        .result-content ul,
+        .result-content ol {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .result-content li {
+            margin-bottom: 8px;
+        }
+
+        .result-content code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #d63384;
+        }
+
+        .result-content pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-bottom: 15px;
+        }
+
+        .result-content pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .result-content blockquote {
+            border-left: 4px solid #667eea;
+            padding-left: 15px;
+            margin-left: 0;
+            color: #666;
+            font-style: italic;
+        }
+
+        .result-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .result-content table th,
+        .result-content table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .result-content table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        .result-content table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .result-content a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .result-content a:hover {
+            text-decoration: underline;
+        }
+
+        .result-content hr {
+            border: none;
+            border-top: 2px solid #e0e0e0;
+            margin: 20px 0;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #c33;
+            margin-top: 15px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.online {
+            background: #4caf50;
+            box-shadow: 0 0 10px #4caf50;
+        }
+
+        .status-indicator.offline {
+            background: #f44336;
+        }
+
+        .examples {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f4ff;
+            border-radius: 8px;
+        }
+
+        .examples h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .example-btn {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            border: 2px solid #667eea;
+            transition: all 0.3s;
+        }
+
+        .example-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        #neo4jViz {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+
+        .graph-controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .graph-controls input,
+        .graph-controls select {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .graph-controls button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .graph-controls button:hover {
+            transform: translateY(-2px);
+        }
+
+        .nl-example-btn {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 6px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 12px;
+            border: 1.5px solid #667eea;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .nl-example-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .main-card, .result-card {
+                padding: 20px;
+            }
+            
+            #neo4jViz {
+                height: 400px;
+            }
+            
+            #floatingNodeInfo {
+                max-width: 90% !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 知识连成网，学习有方向！</h1>
+            <p>使用人工智能前沿GraphRAG技术构建知识图谱，快来试试吧</p>
+            <div style="margin-top: 15px;">
+                <button onclick="toggleUploadPanel()" style="background: white; color: #667eea; border: 2px solid #667eea; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 10px;">
+                    📤 更新图谱
+                </button>
+                <!-- <button onclick="toggleTasksPanel()" style="background: white; color: #764ba2; border: 2px solid #764ba2; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 10px;">
+                    📋 查看索引任务
+                </button> -->
+                <button onclick="toggleGraphPanel()" style="background: white; color: #f093fb; border: 2px solid #f093fb; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 10px;">
+                    🕸️ 图谱可视化
+                </button>
+                <!-- <a href="/static/api-docs.html" target="_blank" style="display: inline-block; background: white; color: #ff9800; border: 2px solid #ff9800; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; text-decoration: none;">
+                    📚 API 文档
+                </a> -->
+            </div>
+        </div>
+
+        <!-- 图谱可视化面板 -->
+        <div class="main-card" id="graphPanel" style="display: none;">
+            <h2 style="color: #f093fb; margin-bottom: 15px;">🕸️ Neo4j 图谱可视化</h2>
+            <p style="color: #666; margin-bottom: 20px;">在这里查看整个知识网络</p>
+            
+            <div class="graph-controls">
+                <input type="text" id="neo4jHttpUrl" placeholder="Neo4j HTTP API URL" value="http://localhost/neo4j-db/neo4j" style="flex: 1; min-width: 250px;">
+                <input type="text" id="neo4jUser" placeholder="用户名" value="neo4j" style="width: 150px;">
+                <input type="password" id="neo4jPassword" placeholder="密码" value="neo4j" style="width: 150px;">
+            </div>
+            
+            <!-- <div style="margin-bottom: 15px; padding: 10px; background: #e3f2fd; border-radius: 6px; border-left: 3px solid #2196f3;">
+                <strong style="color: #1976d2;">💡 快速连接提示（仅需 80 端口）：</strong><br>
+                <span style="font-size: 13px; color: #666;">
+                    • 通过 Nginx 代理：<code style="background: #fff; padding: 2px 6px; border-radius: 3px;">http://localhost/neo4j-db/neo4j</code><br>
+                    • 远程访问：<code style="background: #fff; padding: 2px 6px; border-radius: 3px;">http://YOUR_IP/neo4j-db/neo4j</code><br>
+                    • 默认密码通常是 <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">neo4j</code>（首次登录后需修改）
+                </span>
+            </div> -->
+
+            <!-- 自然语言查询 -->
+            <div style="margin-bottom: 15px; padding: 15px; background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); border-radius: 8px; border: 2px solid #667eea;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #667eea;">💬 自然语言查询（AI 自动转换为 Cypher）：</label>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input 
+                        type="text" 
+                        id="nlQuery" 
+                        placeholder="例如：找出所有与'细胞'相关的实体"
+                        style="flex: 1; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px;"
+                    >
+                    <button onclick="executeNLQuery()" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; white-space: nowrap;">
+                        🤖 AI 查询
+                    </button>
+                </div>
+                
+                <!-- 示例查询 -->
+                <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.7); border-radius: 6px;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 6px; font-weight: 600;">💡 示例查询：</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <button onclick="setNLExample('找出所有与细胞相关的所有实体、关系和文档')" class="nl-example-btn">找出所有与细胞相关的所有实体、关系和文档</button>
+                        <button onclick="setNLExample('查找包含光合作用的文本块')" class="nl-example-btn">查找包含光合作用的文本块</button>
+                        <button onclick="setNLExample('显示所有关系节点')" class="nl-example-btn">显示所有关系节点</button>
+                        <button onclick="setNLExample('查找叶绿体的实体节点和与之有关联的所有节点和关系')" class="nl-example-btn">查找叶绿体的实体节点和与之有关联的所有节点和关系</button>
+                    </div>
+                </div>
+                
+                <div id="generatedCypher" style="display: none; margin-top: 10px; padding: 10px; background: white; border-radius: 6px; border-left: 3px solid #4caf50;">
+                    <strong style="color: #4caf50;">✅ 生成的 Cypher：</strong>
+                    <pre id="generatedCypherCode" style="margin-top: 8px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;"></pre>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Cypher 查询：</label>
+                <textarea id="cypherQuery" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-family: 'Courier New', monospace; min-height: 80px;">MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100</textarea>
+                <button onclick="executeNeo4jQuery()" style="margin-top: 10px; padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    ▶️ 执行查询
+                </button>
+            </div>
+
+            <div id="graphStatus" style="margin-bottom: 15px; padding: 10px; background: #f0f4ff; border-radius: 6px;"></div>
+
+            <div id="neo4jViz" style="width: 100%; height: 600px; border: 2px solid #e0e0e0; border-radius: 8px; background: #fafafa; position: relative;"></div>
+
+            <!-- 浮动节点信息窗口 -->
+            <div id="floatingNodeInfo" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                display: none;
+                width: 350px;
+                max-height: 500px;
+                background: white;
+                border: 2px solid #667eea;
+                border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+                padding: 0;
+                z-index: 1000;
+                font-size: 13px;
+                animation: fadeIn 0.2s ease-in-out;
+            "></div>
+                <div style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 12px 15px;
+                    border-radius: 10px 10px 0 0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <span id="floatingNodeTitle" style="font-weight: 600; font-size: 14px;"></span>
+                    <button onclick="closeFloatingInfo()" style="
+                        background: rgba(255,255,255,0.2);
+                        border: none;
+                        color: white;
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        cursor: pointer;
+                        font-size: 16px;
+                        line-height: 1;
+                        transition: background 0.2s;
+                    " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
+                </div>
+                <div id="floatingNodeContent" style="
+                    padding: 15px;
+                    max-height: 400px;
+                    overflow-y: auto;
+                    line-height: 1.6;
+                    color: #333;
+                "></div>
+            </div>
+
+            <!-- <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;"></div>
+                <h3 style="margin: 0 0 12px 0; color: #f093fb; font-size: 1.1em;">💡 使用说明</h3>
+                <div style="font-size: 13px; color: #666; line-height: 1.6;">
+                    <strong>📌 快速开始：</strong><br>
+                    1. 确保 Neo4j 正在运行<br>
+                    2. 输入您的 Neo4j 密码（默认用户名: neo4j）<br>
+                    3. 点击"🔌 连接并可视化"<br><br>
+                    
+                    <strong>🔧 连接配置：</strong><br>
+                    • <strong>URL:</strong> <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">bolt://localhost:7687</code> (本地)<br>
+                    • <strong>用户名:</strong> <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">neo4j</code> (默认)<br>
+                    • <strong>密码:</strong> 您设置的密码<br><br>
+                    
+                    <strong>🔧 常见问题：</strong><br>
+                    • <strong>认证失败？</strong> 检查用户名和密码是否正确<br>
+                    • <strong>连接失败？</strong> 确保 Neo4j 正在运行（访问 <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">http://localhost:7474</code> 测试）<br>
+                    • <strong>首次使用？</strong> 默认密码是 <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">neo4j</code>，登录后会要求修改<br><br>
+                    
+                    <strong>�️ 交互操示作：</strong><br>
+                    • <strong>点击节点</strong>：查看节点的详细属性信息<br>
+                    • <strong>点击边</strong>：查看关系的详细信息<br>
+                    • <strong>拖拽节点</strong>：调整图谱布局<br>
+                    • <strong>滚轮缩放</strong>：放大或缩小视图<br><br>
+                    
+                    <strong>📝 常用查询示例：</strong><br>
+                    • 查看所有节点和关系: <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100</code><br>
+                    • 查看特定类型节点: <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">MATCH (n:Entity) RETURN n LIMIT 50</code><br>
+                    • 查看节点关系: <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">MATCH (n)-[r:RELATED_TO]->(m) RETURN n, r, m</code><br>
+                    • 查看所有节点标签: <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">CALL db.labels()</code>
+                </div>
+            </div> -->
+        </div>
+
+        <!-- 索引任务状态面板 -->
+        <div class="main-card" id="tasksPanel" style="display: none;">
+            <h2 style="color: #764ba2; margin-bottom: 15px;">📋 索引任务状态</h2>
+            <p style="color: #666; margin-bottom: 20px;">查看所有索引更新任务的状态和详情</p>
+            
+            <div style="margin-bottom: 15px;">
+                <button onclick="refreshTasks()" class="btn" style="background: linear-gradient(135deg, #764ba2 0%, #667eea 100%); padding: 10px 20px; font-size: 16px;">
+                    🔄 刷新任务列表
+                </button>
+            </div>
+
+            <div id="tasksContainer" style="margin-top: 20px;">
+                <div class="loading">加载任务列表中...</div>
+            </div>
+        </div>
+
+        <!-- 文件上传面板 -->
+        <div class="main-card" id="uploadPanel" style="display: none;">
+            <h2 style="color: #667eea; margin-bottom: 15px;">📤 上传文件更新索引</h2>
+            <p style="color: #666; margin-bottom: 20px;">
+                支持 .txt 和 .pdf 文件。上传后将自动更新知识图谱索引（仅增量更新，不会重建）。<br>
+                <strong>配置说明：</strong>索引参数由配置文件控制，TXT 使用 settings.yaml，PDF 使用 settings_pdf.yaml
+            </p>
+            
+            <div class="form-group">
+                <label for="fileInput">选择文件</label>
+                <input type="file" id="fileInput" accept=".txt,.pdf" style="padding: 10px; border: 2px dashed #667eea; border-radius: 8px; width: 100%; cursor: pointer;">
+                <div style="margin-top: 8px; font-size: 13px; color: #666;">
+                    • TXT 文件：使用默认配置 (settings.yaml)<br>
+                    • PDF 文件：使用 PDF 配置 (settings_pdf.yaml)<br>
+                    • 如需修改参数（chunk size、overlap 等），请直接编辑对应的配置文件
+                </div>
+            </div>
+
+            <button onclick="uploadFile()" class="btn" id="uploadBtn" style="margin-top: 20px;">
+                🚀 上传并更新索引
+            </button>
+
+            <div id="uploadStatus" style="margin-top: 20px; display: none;"></div>
+        </div>
+
+        <div class="main-card">
+            <div style="margin-bottom: 20px;">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">检查服务状态...</span>
+            </div>
+
+            <form id="queryForm">
+                <div class="form-group">
+                    <label for="query">查询问题 *</label>
+                    <textarea 
+                        id="query" 
+                        name="query" 
+                        placeholder="请输入您的问题..."
+                        required
+                    ></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="queryType">查询类型</label>
+                        <select id="queryType" name="query_type" onchange="updateQueryTypeInfo()">
+                            <option value="local">Local Search (局部搜索)</option>
+                            <option value="global">Global Search (全局搜索)</option>
+                            <option value="drift">Drift Search (混合搜索)</option>
+                            <option value="basic">Basic Search (基础搜索)</option>
+                        </select>
+                        <div id="queryTypeInfo" style="margin-top: 8px; padding: 8px; background: #f0f4ff; border-radius: 4px; font-size: 13px; color: #555; display: none;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="responseType">响应类型</label>
+                        <select id="responseType" name="response_type">
+                            <option value="text">Text (文本)</option>
+                            <option value="json">JSON</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="communityLevel">社区层级</label>
+                        <select id="communityLevel" name="community_level">
+                            <option value="1">Level 1</option>
+                            <option value="2">Level 2</option>
+                            <option value="3">Level 3</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="dynamicSelectionGroup" style="display: none;">
+                    <div class="checkbox-group">
+                        <input 
+                            type="checkbox" 
+                            id="dynamicSelection" 
+                            name="dynamic_community_selection"
+                        >
+                        <label for="dynamicSelection" style="margin: 0;">启用动态社区选择</label>
+                    </div>
+                    <div style="margin-top: 8px; padding: 10px; background: #e8f5e9; border-left: 3px solid #4caf50; border-radius: 4px; font-size: 13px; color: #2e7d32;">
+                        <strong>💡 动态社区选择说明：</strong><br>
+                        • 根据查询内容智能选择最相关的社区报告<br>
+                        • 提高查询效率，减少不必要的数据处理<br>
+                        • 适合大规模知识图谱的精准查询<br>
+                        • 可能会增加查询时间，但结果更精准
+                    </div>
+                </div>
+
+                <button type="submit" class="btn" id="submitBtn">
+                    🚀 执行查询
+                </button>
+            </form>
+
+            <div class="examples">
+                <h3>💡 示例问题</h3>
+                <span class="example-btn" onclick="setExample('生物必修一都有哪些知识点?')">生物必修一都有哪些知识点?</span>
+                <span class="example-btn" onclick="setExample('举出主动运输，被动运输，自由扩散在不同场景中的实际例子')">举出主动运输，被动运输，自由扩散在不同场景中的实际例子</span>
+                <span class="example-btn" onclick="setExample('滤纸条看不见色素带的原因是什么')">滤纸条看不见色素带的原因是什么</span>
+                <span class="example-btn" onclick="setExample('有丝分裂和人类遗传病有什么关系')">有丝分裂和人类遗传病有什么关系</span>
+            </div>
+
+
+        </div>
+
+        <div class="result-card" id="resultCard">
+            <div class="result-header">
+                <h2>📊 查询结果</h2>
+                <button class="example-btn" onclick="clearResults()">清除结果</button>
+            </div>
+
+            <div class="result-meta" id="resultMeta"></div>
+
+            <div class="result-content" id="resultContent"></div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        // 解析 URL 参数并缓存
+        function parseAndCacheURLParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const ip = urlParams.get('ip');
+            const accessKey = urlParams.get('access_key');
+            const neo4jPwd = urlParams.get('neo4jpwd');
+            
+            // 缓存到 localStorage
+            if (ip) {
+                localStorage.setItem('server_ip', ip);
+                console.log('已缓存服务器 IP:', ip);
+            }
+            if (accessKey) {
+                localStorage.setItem('access_key', accessKey);
+                console.log('已缓存访问密钥');
+            }
+            if (neo4jPwd) {
+                localStorage.setItem('neo4j_password', neo4jPwd);
+                console.log('已缓存 Neo4j 密码');
+            }
+            
+            // 自动填充表单
+            autoFillForms();
+        }
+
+        // 自动填充表单
+        function autoFillForms() {
+            const ip = localStorage.getItem('server_ip');
+            const neo4jPwd = localStorage.getItem('neo4j_password');
+            
+            // 自动填充 Neo4j HTTP API URL
+            if (ip) {
+                const neo4jUrlInput = document.getElementById('neo4jHttpUrl');
+                if (neo4jUrlInput) {
+                    neo4jUrlInput.value = `${ip}/neo4j-db/neo4j`;
+                }
+            }
+            
+            // 自动填充 Neo4j 密码
+            if (neo4jPwd) {
+                const neo4jPwdInput = document.getElementById('neo4jPassword');
+                if (neo4jPwdInput) {
+                    neo4jPwdInput.value = neo4jPwd;
+                }
+            }
+        }
+
+        // 获取缓存的 access_key
+        function getAccessKey() {
+            return localStorage.getItem('access_key') || '';
+        }
+
+        // 检查服务状态
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/api/health`);
+                const data = await response.json();
+                
+                if (data.status === 'ok') {
+                    document.getElementById('statusIndicator').className = 'status-indicator online';
+                    document.getElementById('statusText').textContent = '服务在线 ✓';
+                } else {
+                    throw new Error('Service not healthy');
+                }
+            } catch (error) {
+                document.getElementById('statusIndicator').className = 'status-indicator offline';
+                document.getElementById('statusText').textContent = '服务离线 ✗';
+            }
+        }
+
+        // 设置示例问题
+        function setExample(text) {
+            document.getElementById('query').value = text;
+        }
+
+        // 更新查询类型信息
+        function updateQueryTypeInfo() {
+            const queryType = document.getElementById('queryType').value;
+            const infoDiv = document.getElementById('queryTypeInfo');
+            const dynamicGroup = document.getElementById('dynamicSelectionGroup');
+            
+            const descriptions = {
+                'local': '💡 <strong>局部搜索</strong>：基于实体嵌入的相似度匹配，快速定位相关实体和关系。适合："某个实体的详细信息"、"两个概念之间的关系"等具体问题。',
+                'global': '💡 <strong>全局搜索</strong>：通过社区层次结构分析整体数据集。适合："主要主题有哪些"、"整体趋势是什么"等宏观问题。',
+                'drift': '💡 <strong>混合搜索</strong>：结合局部和全局方法，通过多轮迭代深入探索。适合："复杂的多步推理问题"、"需要综合多方面信息的查询"。',
+                'basic': '💡 <strong>基础搜索</strong>：简单的文本向量相似度搜索，不使用知识图谱结构。适合："查找包含特定关键词的文本"、"快速文本检索"。'
+            };
+            
+            infoDiv.innerHTML = descriptions[queryType];
+            infoDiv.style.display = 'block';
+            
+            // 只在 Global Search 时显示动态社区选择
+            if (queryType === 'global') {
+                dynamicGroup.style.display = 'block';
+            } else {
+                dynamicGroup.style.display = 'none';
+                document.getElementById('dynamicSelection').checked = false;
+            }
+        }
+
+        // 清除结果
+        function clearResults() {
+            document.getElementById('resultCard').classList.remove('show');
+        }
+
+        // 显示加载状态
+        function showLoading() {
+            const resultCard = document.getElementById('resultCard');
+            const resultContent = document.getElementById('resultContent');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            resultCard.classList.add('show');
+            resultContent.innerHTML = '<div class="loading">正在查询中，请稍候</div>';
+            errorMessage.style.display = 'none';
+            document.getElementById('resultMeta').innerHTML = '';
+        }
+
+        // 显示结果
+        function showResult(data) {
+            const resultContent = document.getElementById('resultContent');
+            const resultMeta = document.getElementById('resultMeta');
+            const errorMessage = document.getElementById('errorMessage');
+
+            errorMessage.style.display = 'none';
+            
+            // 🔍 DEBUG: 打印完整的查询结果
+            console.log('=== GraphRAG 查询结果 DEBUG ===');
+            console.log('完整数据对象:', data);
+            console.log('查询问题:', data.query);
+            console.log('查询类型:', data.query_type);
+            console.log('响应内容:', data.response);
+            console.log('上下文数据:', data.context);
+            console.log('================================');
+
+            // 显示元数据
+            resultMeta.innerHTML = `
+                <div class="meta-item"><strong>查询:</strong> ${data.query}</div>
+                <div class="meta-item"><strong>类型:</strong> ${data.query_type}</div>
+                <div class="meta-item"><strong>时间:</strong> ${new Date().toLocaleString('zh-CN')}</div>
+                <button onclick="visualizeQueryResults()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 13px; margin-left: 10px;">
+                    🕸️ 在图谱中查看查询结果中的实体、关系和文本块
+                </button>
+            `;
+            
+            // 保存查询结果到全局变量，供可视化使用
+            window.lastQueryResult = data;
+
+            // 渲染 Markdown 内容
+            try {
+                // 配置 marked 选项
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true,
+                    headerIds: true,
+                    mangle: false
+                });
+                
+                // 将 Markdown 转换为 HTML
+                const htmlContent = marked.parse(data.response);
+                resultContent.innerHTML = htmlContent;
+            } catch (error) {
+                console.error('Markdown parsing error:', error);
+                // 如果解析失败，显示纯文本
+                resultContent.textContent = data.response;
+            }
+        }
+
+        // 显示错误
+        function showError(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            const resultContent = document.getElementById('resultContent');
+            
+            resultContent.innerHTML = '';
+            // 使用 innerHTML 以支持换行和格式化
+            errorMessage.innerHTML = `❌ 错误: ${message.replace(/\n/g, '<br>')}`;
+            errorMessage.style.display = 'block';
+        }
+
+        // 处理表单提交
+        document.getElementById('queryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ 查询中...';
+
+            showLoading();
+
+            try {
+                const formData = new FormData(e.target);
+                const params = new URLSearchParams();
+                
+                params.append('query', formData.get('query'));
+                params.append('query_type', formData.get('query_type'));
+                params.append('response_type', formData.get('response_type'));
+                params.append('community_level', formData.get('community_level'));
+                params.append('dynamic_community_selection', 
+                    document.getElementById('dynamicSelection').checked);
+                
+                // 添加 access_key
+                const accessKey = getAccessKey();
+                if (accessKey) {
+                    params.append('access_key', accessKey);
+                }
+
+                const response = await fetch(`${API_BASE}/api/query?${params.toString()}`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || '查询失败');
+                }
+
+                const data = await response.json();
+                
+                // 🔍 DEBUG: 打印原始响应数据
+                console.log('=== API 原始响应 ===');
+                console.log('响应数据:', data);
+                console.log('==================');
+                
+                showResult(data);
+
+            } catch (error) {
+                console.error('Query error:', error);
+                
+                // 特殊处理 Failed to fetch 错误
+                let errorMessage = error.message;
+                if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
+                    errorMessage = '⚠️ 网络连接失败\n\n' +
+                                 '建议：请不要使用手机自带浏览器访问\n' +
+                                 '推荐使用：夸克浏览器、Chrome、Safari 等第三方浏览器\n\n' +
+                                 '原因：部分手机自带浏览器对网络请求有限制';
+                }
+                
+                showError(errorMessage);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 执行查询';
+            }
+        });
+
+        // 切换上传面板
+        function toggleUploadPanel() {
+            const uploadPanel = document.getElementById('uploadPanel');
+            const tasksPanel = document.getElementById('tasksPanel');
+            const graphPanel = document.getElementById('graphPanel');
+            
+            if (uploadPanel.style.display === 'none') {
+                uploadPanel.style.display = 'block';
+                tasksPanel.style.display = 'none';
+                graphPanel.style.display = 'none';
+                uploadPanel.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                uploadPanel.style.display = 'none';
+            }
+        }
+
+        // 切换任务面板
+        function toggleTasksPanel() {
+            const uploadPanel = document.getElementById('uploadPanel');
+            const tasksPanel = document.getElementById('tasksPanel');
+            const graphPanel = document.getElementById('graphPanel');
+            
+            if (tasksPanel.style.display === 'none') {
+                tasksPanel.style.display = 'block';
+                uploadPanel.style.display = 'none';
+                graphPanel.style.display = 'none';
+                tasksPanel.scrollIntoView({ behavior: 'smooth' });
+                refreshTasks();
+            } else {
+                tasksPanel.style.display = 'none';
+            }
+        }
+
+        // 切换图谱面板
+        function toggleGraphPanel() {
+            const uploadPanel = document.getElementById('uploadPanel');
+            const tasksPanel = document.getElementById('tasksPanel');
+            const graphPanel = document.getElementById('graphPanel');
+            
+            if (graphPanel.style.display === 'none') {
+                graphPanel.style.display = 'block';
+                uploadPanel.style.display = 'none';
+                tasksPanel.style.display = 'none';
+                graphPanel.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                graphPanel.style.display = 'none';
+            }
+        }
+
+        function showGraphPanel() {
+            const uploadPanel = document.getElementById('uploadPanel');
+            const tasksPanel = document.getElementById('tasksPanel');
+            const graphPanel = document.getElementById('graphPanel');
+            
+            if (graphPanel.style.display === 'none') {
+                graphPanel.style.display = 'block';
+                uploadPanel.style.display = 'none';
+                tasksPanel.style.display = 'none';
+                graphPanel.scrollIntoView({ behavior: 'smooth' });
+            } 
+        }
+
+        // Neo4j HTTP API 可视化相关
+        let network = null;
+        let nodes = null;
+        let edges = null;
+
+        async function executeNeo4jQuery() {
+            const httpUrl = document.getElementById('neo4jHttpUrl').value;
+            const user = document.getElementById('neo4jUser').value;
+            const password = document.getElementById('neo4jPassword').value;
+            const query = document.getElementById('cypherQuery').value;
+            const statusDiv = document.getElementById('graphStatus');
+            
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div style="color: #2196f3; font-weight: 600;">⏳ 正在查询...</div>';
+            
+            try {
+                // 构建认证头
+                const auth = btoa(`${user}:${password}`);
+                
+                // 调用 Neo4j HTTP API
+                const response = await fetch(`${httpUrl}/tx/commit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${auth}`,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        statements: [{
+                            statement: query,
+                            resultDataContents: ['row', 'graph']
+                        }]
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const data = await response.json();
+                
+                // 检查是否有错误
+                if (data.errors && data.errors.length > 0) {
+                    throw new Error(data.errors[0].message);
+                }
+                
+                // 解析结果
+                const results = data.results[0];
+                if (!results || !results.data || results.data.length === 0) {
+                    statusDiv.innerHTML = '<div style="color: #ff9800; font-weight: 600;">⚠️ 查询成功，但没有返回数据</div>';
+                    return;
+                }
+                
+                // 提取图数据
+                const graphData = extractGraphData(results.data);
+                
+                // 渲染图谱
+                renderGraph(graphData);
+                
+                statusDiv.innerHTML = `<div style="color: #4caf50; font-weight: 600;">✅ 查询成功！找到 ${graphData.nodes.length} 个节点，${graphData.edges.length} 条边</div>`;
+                
+            } catch (error) {
+                console.error('Neo4j HTTP API error:', error);
+                let errorMsg = error.message || String(error);
+                
+                // 处理常见错误
+                if (errorMsg.includes('401') || errorMsg.includes('authentication')) {
+                    errorMsg = '认证失败：用户名或密码错误';
+                } else if (errorMsg.includes('404')) {
+                    errorMsg = '数据库不存在或 URL 错误';
+                } else if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+                    errorMsg = '⚠️ 网络连接失败<br><br>' +
+                             '<strong>建议：</strong>请不要使用手机自带浏览器访问<br>' +
+                             '<strong>推荐使用：</strong>夸克浏览器、Chrome、Safari 等第三方浏览器<br><br>' +
+                             '<strong>原因：</strong>部分手机自带浏览器对网络请求有限制';
+                }
+                
+                statusDiv.innerHTML = `
+                    <div style="color: #f44336; font-weight: 600; padding: 15px; background: #ffebee; border-radius: 6px; border-left: 4px solid #f44336;">
+                        <strong>❌ 查询失败</strong><br>
+                        <span style="font-size: 13px; font-weight: normal; margin-top: 8px; display: block;">${errorMsg}</span>
+                    </div>
+                `;
+            }
+        }
+
+        // 从 Neo4j 响应中提取图数据
+        function extractGraphData(data) {
+            const nodesMap = new Map();
+            const edgesMap = new Map();
+            
+            data.forEach(record => {
+                if (record.graph) {
+                    // 处理节点
+                    record.graph.nodes.forEach(node => {
+                        if (!nodesMap.has(node.id)) {
+                            const labels = node.labels || [];
+                            const props = node.properties || {};
+                            
+                            nodesMap.set(node.id, {
+                                id: node.id,
+                                label: props.title || props.name || props.id || `Node ${node.id}`,
+                                title: formatNodeTooltip(node),
+                                group: labels[0] || 'default',
+                                properties: props,
+                                labels: labels
+                            });
+                        }
+                    });
+                    
+                    // 处理边（使用 Map 去重）
+                    record.graph.relationships.forEach(rel => {
+                        if (!edgesMap.has(rel.id)) {
+                            edgesMap.set(rel.id, {
+                                id: rel.id,
+                                from: rel.startNode,
+                                to: rel.endNode,
+                                label: rel.type,
+                                title: formatEdgeTooltip(rel),
+                                arrows: 'to',
+                                properties: rel.properties || {},
+                                type: rel.type
+                            });
+                        }
+                    });
+                }
+            });
+            
+            return {
+                nodes: Array.from(nodesMap.values()),
+                edges: Array.from(edgesMap.values())
+            };
+        }
+
+        // 格式化节点提示信息
+        function formatNodeTooltip(node) {
+            const props = node.properties || {};
+            let tooltip = `<strong>Labels:</strong> ${(node.labels || []).join(', ')}<br>`;
+            tooltip += `<strong>ID:</strong> ${node.id}<br>`;
+            
+            Object.keys(props).forEach(key => {
+                const value = props[key];
+                const displayValue = typeof value === 'string' && value.length > 50 
+                    ? value.substring(0, 50) + '...' 
+                    : value;
+                tooltip += `<strong>${key}:</strong> ${displayValue}<br>`;
+            });
+            
+            return tooltip;
+        }
+
+        // 格式化边提示信息
+        function formatEdgeTooltip(rel) {
+            const props = rel.properties || {};
+            let tooltip = `<strong>Type:</strong> ${rel.type}<br>`;
+            tooltip += `<strong>ID:</strong> ${rel.id}<br>`;
+            
+            Object.keys(props).forEach(key => {
+                tooltip += `<strong>${key}:</strong> ${props[key]}<br>`;
+            });
+            
+            return tooltip;
+        }
+
+        // 渲染图谱
+        function renderGraph(graphData) {
+            const container = document.getElementById('neo4jViz');
+            
+            // 创建 vis.js 数据集
+            nodes = new vis.DataSet(graphData.nodes);
+            edges = new vis.DataSet(graphData.edges);
+            
+            // 配置选项
+            const options = {
+                nodes: {
+                    shape: 'dot',
+                    size: 20,
+                    font: {
+                        size: 14,
+                        face: 'Tahoma'
+                    },
+                    borderWidth: 2,
+                    shadow: true
+                },
+                edges: {
+                    width: 2,
+                    shadow: true,
+                    smooth: {
+                        type: 'continuous'
+                    },
+                    font: {
+                        size: 12,
+                        align: 'middle'
+                    }
+                },
+                physics: {
+                    enabled: true,
+                    stabilization: {
+                        iterations: 200
+                    },
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        springConstant: 0.001,
+                        springLength: 200
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                    navigationButtons: true,
+                    keyboard: true
+                }
+            };
+            
+            // 创建网络
+            network = new vis.Network(container, { nodes, edges }, options);
+            
+            // 添加点击事件
+            network.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    const nodeData = nodes.get(nodeId);
+                    displayFloatingNodeInfo(nodeData);
+                } else if (params.edges.length > 0) {
+                    const edgeId = params.edges[0];
+                    const edgeData = edges.get(edgeId);
+                    displayFloatingEdgeInfo(edgeData);
+                } else {
+                    // 点击空白处关闭浮动窗口
+                    closeFloatingInfo();
+                }
+            });
+        }
+
+        // 关闭浮动信息窗口
+        function closeFloatingInfo() {
+            const floatingInfo = document.getElementById('floatingNodeInfo');
+            floatingInfo.style.display = 'none';
+        }
+
+        // 显示浮动节点信息
+        function displayFloatingNodeInfo(nodeData) {
+            const floatingInfo = document.getElementById('floatingNodeInfo');
+            const floatingTitle = document.getElementById('floatingNodeTitle');
+            const floatingContent = document.getElementById('floatingNodeContent');
+            
+            console.log('节点数据:', nodeData); // 调试用
+            
+            // 获取节点标签
+            const labels = nodeData.labels || [];
+            const labelText = Array.isArray(labels) ? labels.join(', ') : (labels || 'Node');
+            const properties = nodeData.properties || {};
+            
+            // 设置标题
+            floatingTitle.textContent = `${labelText}`;
+            
+            let html = '';
+            
+            // 根据节点类型显示不同内容
+            if (labels.includes('__Relationship__')) {
+                // Relationship 节点：显示 description
+                const description = properties.description || '无描述信息';
+                html = `
+                    <div style="padding: 12px; background: #f0f4ff; border-radius: 6px; border-left: 3px solid #667eea; margin-bottom: 10px;">
+                        <div style="font-weight: 600; color: #667eea; margin-bottom: 8px;">🔗 关系描述</div>
+                        <div style="line-height: 1.6; color: #333;">${escapeHtml(description)}</div>
+                    </div>
+                `;
+                
+                // 显示其他关键属性
+                if (properties.source_id || properties.target_id) {
+                    html += `
+                        <div style="padding: 10px; background: #f9f9f9; border-radius: 6px; font-size: 12px;">
+                            ${properties.source_id ? `<div style="margin-bottom: 4px;"><strong>源实体:</strong> ${escapeHtml(properties.source_id)}</div>` : ''}
+                            ${properties.target_id ? `<div><strong>目标实体:</strong> ${escapeHtml(properties.target_id)}</div>` : ''}
+                        </div>
+                    `;
+                }
+                
+            } else if (labels.includes('__Chunk__')) {
+                // Chunk 节点：显示 text
+                const text = properties.text || '无文本内容';
+                const displayText = text.length > 500 ? text.substring(0, 500) + '...' : text;
+                html = `
+                    <div style="padding: 12px; background: #fff3e0; border-radius: 6px; border-left: 3px solid #ff9800; margin-bottom: 10px;">
+                        <div style="font-weight: 600; color: #ff9800; margin-bottom: 8px;">📄 文本内容</div>
+                        <div style="line-height: 1.6; color: #333; white-space: pre-wrap; word-break: break-word;">${escapeHtml(displayText)}</div>
+                        ${text.length > 500 ? '<div style="margin-top: 8px; color: #999; font-size: 11px;">(内容已截断)</div>' : ''}
+                    </div>
+                `;
+                
+                // 显示其他关键属性
+                if (properties.n_tokens) {
+                    html += `
+                        <div style="padding: 10px; background: #f9f9f9; border-radius: 6px; font-size: 12px;">
+                            <div><strong>Token 数量:</strong> ${properties.n_tokens}</div>
+                        </div>
+                    `;
+                }
+                
+            } else if (labels.includes('__Entity__')) {
+                // Entity 节点：显示 description
+                const description = properties.description || '无描述信息';
+                const name = properties.name || properties.title || '未命名实体';
+                html = `
+                    <div style="padding: 12px; background: #e8f5e9; border-radius: 6px; border-left: 3px solid #4caf50; margin-bottom: 10px;">
+                        <div style="font-weight: 600; color: #4caf50; margin-bottom: 8px;">🏷️ ${escapeHtml(name)}</div>
+                        <div style="line-height: 1.6; color: #333;">${escapeHtml(description)}</div>
+                    </div>
+                `;
+                
+                // 显示其他关键属性
+                const additionalInfo = [];
+                if (properties.type) additionalInfo.push(`<div><strong>类型:</strong> ${escapeHtml(properties.type)}</div>`);
+                if (properties.rank !== undefined) additionalInfo.push(`<div><strong>排名:</strong> ${properties.rank}</div>`);
+                if (properties.degree !== undefined) additionalInfo.push(`<div><strong>度数:</strong> ${properties.degree}</div>`);
+                
+                if (additionalInfo.length > 0) {
+                    html += `
+                        <div style="padding: 10px; background: #f9f9f9; border-radius: 6px; font-size: 12px;">
+                            ${additionalInfo.join('')}
+                        </div>
+                    `;
+                }
+                
+            } else {
+                // 其他类型节点：显示所有属性
+                html = `
+                    <div style="padding: 12px; background: #f5f5f5; border-radius: 6px;">
+                        <div style="font-weight: 600; color: #666; margin-bottom: 8px;">📋 节点信息</div>
+                `;
+                
+                const excludeKeys = ['id', 'identity', 'elementId', 'labels', 'label', 'group', 'x', 'y', 'vx', 'vy', 'fx', 'fy', 'raw'];
+                const propertyKeys = Object.keys(properties).filter(key => !excludeKeys.includes(key) && !key.startsWith('_'));
+                
+                if (propertyKeys.length > 0) {
+                    for (const key of propertyKeys) {
+                        const value = properties[key];
+                        let displayValue = value;
+                        
+                        if (typeof value === 'string' && value.length > 200) {
+                            displayValue = value.substring(0, 200) + '...';
+                        } else if (typeof value === 'object' && value !== null) {
+                            displayValue = JSON.stringify(value);
+                        } else {
+                            displayValue = String(value);
+                        }
+                        
+                        html += `
+                            <div style="margin-bottom: 8px;">
+                                <strong style="color: #667eea;">${key}:</strong>
+                                <div style="margin-top: 2px; color: #333; word-break: break-word;">${escapeHtml(displayValue)}</div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    html += '<div style="color: #999;">无属性信息</div>';
+                }
+                
+                html += '</div>';
+            }
+            
+            floatingContent.innerHTML = html;
+            floatingInfo.style.display = 'block';
+        }
+
+        // 显示浮动边信息
+        function displayFloatingEdgeInfo(edgeData) {
+            const floatingInfo = document.getElementById('floatingNodeInfo');
+            const floatingTitle = document.getElementById('floatingNodeTitle');
+            const floatingContent = document.getElementById('floatingNodeContent');
+            
+            console.log('边数据:', edgeData); // 调试用
+            
+            const relType = edgeData.type || edgeData.label || '关系';
+            const properties = edgeData.properties || {};
+            
+            floatingTitle.textContent = `🔗 ${relType}`;
+            
+            let html = '';
+            
+            // 显示描述（如果有）
+            if (properties.description) {
+                html += `
+                    <div style="padding: 12px; background: #f0f4ff; border-radius: 6px; border-left: 3px solid #764ba2; margin-bottom: 10px;">
+                        <div style="font-weight: 600; color: #764ba2; margin-bottom: 8px;">描述</div>
+                        <div style="line-height: 1.6; color: #333;">${escapeHtml(properties.description)}</div>
+                    </div>
+                `;
+            }
+            
+            // 显示连接信息
+            html += `
+                <div style="padding: 10px; background: #f9f9f9; border-radius: 6px; font-size: 12px; margin-bottom: 10px;">
+                    <div style="margin-bottom: 4px;"><strong>起始节点:</strong> ${edgeData.from}</div>
+                    <div><strong>结束节点:</strong> ${edgeData.to}</div>
+                </div>
+            `;
+            
+            // 显示其他属性
+            const excludeKeys = ['id', 'identity', 'elementId', 'type', 'label', 'from', 'to', 'description', 'arrows', 'title'];
+            const propertyKeys = Object.keys(properties).filter(key => !excludeKeys.includes(key) && !key.startsWith('_'));
+            
+            if (propertyKeys.length > 0) {
+                html += '<div style="padding: 10px; background: #f5f5f5; border-radius: 6px; font-size: 12px;">';
+                for (const key of propertyKeys) {
+                    const value = properties[key];
+                    html += `<div style="margin-bottom: 4px;"><strong>${key}:</strong> ${escapeHtml(String(value))}</div>`;
+                }
+                html += '</div>';
+            }
+            
+            floatingContent.innerHTML = html;
+            floatingInfo.style.display = 'block';
+        }
+
+        // HTML 转义函数
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 设置自然语言查询示例
+        function setNLExample(text) {
+            document.getElementById('nlQuery').value = text;
+        }
+
+        // 自然语言查询转 Cypher
+        async function executeNLQuery() {
+            const nlQuery = document.getElementById('nlQuery').value.trim();
+            const neo4jUrl = document.getElementById('neo4jHttpUrl').value;
+            const neo4jUser = document.getElementById('neo4jUser').value;
+            const neo4jPassword = document.getElementById('neo4jPassword').value;
+            const statusDiv = document.getElementById('graphStatus');
+            const generatedCypherDiv = document.getElementById('generatedCypher');
+            const generatedCypherCode = document.getElementById('generatedCypherCode');
+            
+            if (!nlQuery) {
+                alert('请输入自然语言问题');
+                return;
+            }
+            
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div style="color: #2196f3; font-weight: 600;">🤖 AI 正在生成 Cypher 查询...</div>';
+            generatedCypherDiv.style.display = 'none';
+            
+            try {
+                // 调用后端 API
+                const response = await fetch(`${API_BASE}/api/nl-to-cypher`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: nlQuery,
+                        neo4j_url: neo4jUrl,
+                        neo4j_user: neo4jUser,
+                        neo4j_password: neo4jPassword,
+                        access_key: getAccessKey()
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'AI 查询失败');
+                }
+                
+                const data = await response.json();
+                
+                // 显示生成的 Cypher
+                generatedCypherCode.textContent = data.cypher;
+                generatedCypherDiv.style.display = 'block';
+                
+                // 自动填充到 Cypher 输入框
+                document.getElementById('cypherQuery').value = data.cypher;
+                
+                // 提取图数据并渲染
+                if (data.results && data.results.results && data.results.results[0]) {
+                    const results = data.results.results[0];
+                    
+                    if (!results.data || results.data.length === 0) {
+                        statusDiv.innerHTML = '<div style="color: #ff9800; font-weight: 600;">⚠️ 查询成功，但没有返回数据</div>';
+                        return;
+                    }
+                    
+                    // 提取图数据
+                    const graphData = extractGraphData(results.data);
+                    
+                    // 渲染图谱
+                    renderGraph(graphData);
+                    
+                    statusDiv.innerHTML = `<div style="color: #4caf50; font-weight: 600;">✅ AI 查询成功！找到 ${graphData.nodes.length} 个节点，${graphData.edges.length} 条边</div>`;
+                } else {
+                    statusDiv.innerHTML = '<div style="color: #4caf50; font-weight: 600;">✅ Cypher 生成成功！点击"▶️ 执行查询"查看结果</div>';
+                }
+                
+            } catch (error) {
+                console.error('NL to Cypher error:', error);
+                let errorMsg = error.message || String(error);
+                
+                // 处理常见错误
+                if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError') || errorMsg.includes('fetch')) {
+                    errorMsg = '⚠️ 网络连接失败<br><br>' +
+                             '<strong>建议：</strong>请不要使用手机自带浏览器访问<br>' +
+                             '<strong>推荐使用：</strong>夸克浏览器、Chrome、Safari 等第三方浏览器<br><br>' +
+                             '<strong>原因：</strong>部分手机自带浏览器对网络请求有限制';
+                } else if (errorMsg.includes('403') || errorMsg.includes('访问被拒绝')) {
+                    errorMsg = '访问被拒绝：需要有效的访问密钥';
+                } else if (errorMsg.includes('401') || errorMsg.includes('authentication')) {
+                    errorMsg = 'Neo4j 认证失败：用户名或密码错误';
+                } else if (errorMsg.includes('LLM')) {
+                    errorMsg = 'AI 服务调用失败，请稍后重试';
+                }
+                
+                statusDiv.innerHTML = `
+                    <div style="color: #f44336; font-weight: 600; padding: 15px; background: #ffebee; border-radius: 6px; border-left: 4px solid #f44336;">
+                        <strong>❌ AI 查询失败</strong><br>
+                        <span style="font-size: 13px; font-weight: normal; margin-top: 8px; display: block;">${errorMsg}</span>
+                    </div>
+                `;
+                generatedCypherDiv.style.display = 'none';
+            }
+        }
+
+        // 旧的 executeQuery 函数已被 executeNeo4jQuery 替代
+        function executeQuery() {
+            // 为了向后兼容，调用新函数
+            executeNeo4jQuery();
+        }
+
+        // 兼容性函数
+        function connectNeo4j() {
+            // 为了向后兼容，调用新函数
+            executeNeo4jQuery();
+        }
+
+        // 刷新任务列表
+        async function refreshTasks() {
+            const container = document.getElementById('tasksContainer');
+            container.innerHTML = '<div class="loading">加载任务列表中...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/index/tasks`);
+                if (!response.ok) {
+                    throw new Error('获取任务列表失败');
+                }
+
+                const data = await response.json();
+                const tasks = data.tasks || [];
+
+                if (tasks.length === 0) {
+                    container.innerHTML = `
+                        <div style="padding: 30px; text-align: center; color: #999;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">📭</div>
+                            <div>暂无索引任务</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // 按创建时间倒序排列
+                tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                let html = '<div style="display: grid; gap: 15px;">';
+                
+                for (const task of tasks) {
+                    const statusColors = {
+                        'pending': '#ff9800',
+                        'running': '#2196f3',
+                        'completed': '#4caf50',
+                        'failed': '#f44336'
+                    };
+                    
+                    const statusLabels = {
+                        'pending': '⏳ 等待中',
+                        'running': '🔄 运行中',
+                        'completed': '✅ 完成',
+                        'failed': '❌ 失败'
+                    };
+
+                    const statusColor = statusColors[task.status] || '#999';
+                    const statusLabel = statusLabels[task.status] || task.status;
+
+                    html += `
+                        <div style="padding: 20px; background: white; border-radius: 8px; border-left: 4px solid ${statusColor}; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                                <div>
+                                    <div style="font-size: 18px; font-weight: 600; color: #333; margin-bottom: 5px;">
+                                        ${task.file_name}
+                                    </div>
+                                    <div style="font-size: 13px; color: #999;">
+                                        任务ID: ${task.task_id}
+                                    </div>
+                                </div>
+                                <div style="padding: 6px 12px; background: ${statusColor}; color: white; border-radius: 20px; font-size: 14px; font-weight: 600;">
+                                    ${statusLabel}
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 15px;">
+                                <div style="padding: 10px; background: #f5f5f5; border-radius: 6px;">
+                                    <div style="font-size: 12px; color: #999; margin-bottom: 3px;">文件类型</div>
+                                    <div style="font-weight: 600; color: #333;">${task.file_type.toUpperCase()}</div>
+                                </div>
+                                <div style="padding: 10px; background: #f5f5f5; border-radius: 6px;">
+                                    <div style="font-size: 12px; color: #999; margin-bottom: 3px;">Chunk Size</div>
+                                    <div style="font-weight: 600; color: #333;">${task.chunk_size || 500}</div>
+                                </div>
+                                <div style="padding: 10px; background: #f5f5f5; border-radius: 6px;">
+                                    <div style="font-size: 12px; color: #999; margin-bottom: 3px;">Chunk Overlap</div>
+                                    <div style="font-weight: 600; color: #333;">${task.chunk_overlap || 100}</div>
+                                </div>
+                                <div style="padding: 10px; background: #f5f5f5; border-radius: 6px;">
+                                    <div style="font-size: 12px; color: #999; margin-bottom: 3px;">Max Gleanings</div>
+                                    <div style="font-weight: 600; color: #333;">${task.max_gleanings || 1}</div>
+                                </div>
+                            </div>
+
+                            <div style="padding: 10px; background: #f9f9f9; border-radius: 6px; margin-bottom: 10px;">
+                                <div style="font-size: 12px; color: #999; margin-bottom: 3px;">消息</div>
+                                <div style="font-size: 14px; color: #333;">${task.message}</div>
+                            </div>
+
+                            <div style="font-size: 12px; color: #999; margin-bottom: 10px;">
+                                创建时间: ${new Date(task.created_at).toLocaleString('zh-CN')}
+                            </div>
+
+                            ${task.status === 'running' ? `
+                                <button onclick="viewTaskLogs('${task.task_id}')" style="padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 10px;">
+                                    📊 查看实时进度
+                                </button>
+                                <div id="logs_${task.task_id}" style="display: none; margin-top: 10px;"></div>
+                            ` : ''}
+
+                            ${task.output ? `
+                                <details style="margin-top: 10px;">
+                                    <summary style="cursor: pointer; color: #667eea; font-size: 13px;">查看详细输出</summary>
+                                    <pre style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 6px; font-size: 12px; overflow-x: auto; max-height: 300px;">${task.output}</pre>
+                                </details>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+
+                html += '</div>';
+                container.innerHTML = html;
+
+            } catch (error) {
+                console.error('Refresh tasks error:', error);
+                container.innerHTML = `
+                    <div style="padding: 20px; background: #ffebee; border-left: 4px solid #f44336; border-radius: 4px;">
+                        <strong>❌ 加载失败</strong><br>
+                        <span style="font-size: 13px; color: #666;">${error.message}</span>
+                    </div>
+                `;
+            }
+        }
+
+        // 查看任务实时日志
+        let logPollingInterval = null;
+        
+        async function viewTaskLogs(taskId) {
+            const logsDiv = document.getElementById(`logs_${taskId}`);
+            
+            if (logsDiv.style.display === 'block') {
+                // 隐藏日志并停止轮询
+                logsDiv.style.display = 'none';
+                if (logPollingInterval) {
+                    clearInterval(logPollingInterval);
+                    logPollingInterval = null;
+                }
+                return;
+            }
+            
+            // 显示日志
+            logsDiv.style.display = 'block';
+            logsDiv.innerHTML = '<div class="loading">加载日志中...</div>';
+            
+            // 立即加载一次
+            await fetchTaskLogs(taskId);
+            
+            // 每3秒刷新一次
+            if (logPollingInterval) {
+                clearInterval(logPollingInterval);
+            }
+            logPollingInterval = setInterval(() => fetchTaskLogs(taskId), 3000);
+        }
+        
+        async function fetchTaskLogs(taskId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/index/logs/${taskId}?lines=30`);
+                if (!response.ok) {
+                    throw new Error('获取日志失败');
+                }
+                
+                const data = await response.json();
+                const logsDiv = document.getElementById(`logs_${taskId}`);
+                
+                if (!logsDiv || logsDiv.style.display === 'none') {
+                    // 日志面板已关闭，停止轮询
+                    if (logPollingInterval) {
+                        clearInterval(logPollingInterval);
+                        logPollingInterval = null;
+                    }
+                    return;
+                }
+                
+                // 构建进度条
+                const progress = data.progress || 0;
+                const progressColor = progress === 100 ? '#4caf50' : '#2196f3';
+                
+                let html = `
+                    <div style="padding: 15px; background: #f0f4ff; border-radius: 6px; border-left: 4px solid ${progressColor};">
+                        <div style="margin-bottom: 10px;">
+                            <strong style="color: ${progressColor};">🔄 当前工作流:</strong> 
+                            <span style="margin-left: 8px; color: #333;">${data.current_workflow}</span>
+                        </div>
+                        
+                        <div style="margin-bottom: 10px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span style="font-size: 12px; color: #666;">进度</span>
+                                <span style="font-size: 12px; font-weight: 600; color: ${progressColor};">${progress}%</span>
+                            </div>
+                            <div style="width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${progress}%; height: 100%; background: ${progressColor}; transition: width 0.3s;"></div>
+                            </div>
+                        </div>
+                        
+                        ${data.log_file ? `
+                            <div style="font-size: 11px; color: #999;">
+                                日志文件: ${data.log_file}
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <details open style="margin-top: 10px;">
+                        <summary style="cursor: pointer; color: #667eea; font-size: 13px; font-weight: 600;">📋 最近日志 (${data.logs.length} 行)</summary>
+                        <pre style="margin-top: 10px; padding: 10px; background: #2d2d2d; color: #f8f8f2; border-radius: 6px; font-size: 11px; overflow-x: auto; max-height: 400px; line-height: 1.4;">${data.logs.join('\n')}</pre>
+                    </details>
+                `;
+                
+                logsDiv.innerHTML = html;
+                
+                // 如果完成了，停止轮询
+                if (progress === 100) {
+                    if (logPollingInterval) {
+                        clearInterval(logPollingInterval);
+                        logPollingInterval = null;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Fetch logs error:', error);
+                const logsDiv = document.getElementById(`logs_${taskId}`);
+                if (logsDiv) {
+                    logsDiv.innerHTML = `
+                        <div style="padding: 10px; background: #ffebee; border-left: 4px solid #f44336; border-radius: 4px;">
+                            <strong>❌ 加载日志失败</strong><br>
+                            <span style="font-size: 12px; color: #666;">${error.message}</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // 上传文件
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const statusDiv = document.getElementById('uploadStatus');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('请先选择文件');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const fileExt = file.name.split('.').pop().toLowerCase();
+
+            if (fileExt !== 'txt' && fileExt !== 'pdf') {
+                alert('只支持 .txt 和 .pdf 文件');
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '⏳ 上传中...';
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="loading">正在上传文件</div>';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // 添加 access_key
+                const accessKey = getAccessKey();
+                if (accessKey) {
+                    formData.append('access_key', accessKey);
+                }
+
+                const response = await fetch(`${API_BASE}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || '上传失败');
+                }
+
+                const result = await response.json();
+                
+                statusDiv.innerHTML = `
+                    <div style="padding: 15px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px;">
+                        <strong>✅ ${result.message}</strong><br>
+                        <span style="font-size: 13px; color: #666;">
+                            文件: ${result.file_name} (${result.file_type})<br>
+                            任务ID: ${result.task_id}
+                        </span>
+                    </div>
+                    <div id="taskStatus_${result.task_id}" style="margin-top: 10px;"></div>
+                `;
+
+                // 开始轮询任务状态
+                pollTaskStatus(result.task_id);
+
+                // 清空文件选择
+                fileInput.value = '';
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                statusDiv.innerHTML = `
+                    <div style="padding: 15px; background: #ffebee; border-left: 4px solid #f44336; border-radius: 4px;">
+                        <strong>❌ 上传失败</strong><br>
+                        <span style="font-size: 13px; color: #666;">${error.message}</span>
+                    </div>
+                `;
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '🚀 上传并更新索引';
+            }
+        }
+
+        // 轮询任务状态
+        async function pollTaskStatus(taskId) {
+            const statusDiv = document.getElementById(`taskStatus_${taskId}`);
+            
+            const poll = async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/api/index/status/${taskId}`);
+                    if (!response.ok) return;
+
+                    const status = await response.json();
+                    
+                    let statusHtml = '';
+                    if (status.status === 'pending') {
+                        statusHtml = '<div class="loading">等待处理</div>';
+                    } else if (status.status === 'running') {
+                        statusHtml = '<div class="loading">正在更新索引，这可能需要几分钟</div>';
+                    } else if (status.status === 'completed') {
+                        statusHtml = `
+                            <div style="padding: 15px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px;">
+                                <strong>✅ ${status.message}</strong><br>
+                                <span style="font-size: 13px; color: #666;">索引已更新，可以开始查询新内容了！</span>
+                            </div>
+                        `;
+                        return; // 停止轮询
+                    } else if (status.status === 'failed') {
+                        statusHtml = `
+                            <div style="padding: 15px; background: #ffebee; border-left: 4px solid #f44336; border-radius: 4px;">
+                                <strong>❌ ${status.message}</strong>
+                            </div>
+                        `;
+                        return; // 停止轮询
+                    }
+
+                    statusDiv.innerHTML = statusHtml;
+
+                    // 如果还在运行，继续轮询
+                    if (status.status === 'pending' || status.status === 'running') {
+                        setTimeout(poll, 3000); // 每3秒查询一次
+                    }
+
+                } catch (error) {
+                    console.error('Poll error:', error);
+                }
+            };
+
+            poll();
+        }
+
+        // 可视化查询结果中的实体和关系
+        async function visualizeQueryResults() {
+            if (!window.lastQueryResult) {
+                alert('没有可用的查询结果');
+                return;
+            }
+            
+            const data = window.lastQueryResult;
+            
+            // 解析上下文数据，提取实体 ID 和关系 ID
+            let entityIds = [];
+            let relationshipIds = [];
+            
+            try {
+                // 提取实体 ID：Entities (1699) 或 Entities (1699, 1727, 1723)
+                const entityMatches = data.response.match(/Entities\s*\(([^)]+)\)/gi);
+                if (entityMatches) {
+                    entityMatches.forEach(match => {
+                        const ids = match.match(/\d+/g);
+                        if (ids) {
+                            entityIds.push(...ids.map(id => parseInt(id)));
+                        }
+                    });
+                }
+                
+                // 提取关系 ID：Relationships (2634) 或 Relationships (2634, 2635)
+                const relationshipMatches = data.response.match(/Relationships\s*\(([^)]+)\)/gi);
+                if (relationshipMatches) {
+                    relationshipMatches.forEach(match => {
+                        const ids = match.match(/\d+/g);
+                        if (ids) {
+                            relationshipIds.push(...ids.map(id => parseInt(id)));
+                        }
+                    });
+                }
+                
+                // 去重
+                entityIds = [...new Set(entityIds)];
+                relationshipIds = [...new Set(relationshipIds)];
+                
+                if (entityIds.length === 0 && relationshipIds.length === 0) {
+                    alert('查询结果中没有找到实体或关系信息');
+                    return;
+                }
+                
+                console.log('提取到的实体 ID:', entityIds);
+                console.log('提取到的关系 ID:', relationshipIds);
+                
+                // 切换到图谱面板
+                showGraphPanel();
+                
+                // 滚动到图谱面板
+                document.getElementById('graphPanel').scrollIntoView({ behavior: 'smooth' });
+                
+                // 构建 Cypher 查询 - 包含实体、关系节点和相关文本块
+                let cypherQuery = '';
+                
+                if (entityIds.length > 0 && relationshipIds.length > 0) {
+                    // 同时查询实体、关系节点和相关文本块
+                    cypherQuery = `
+                        MATCH (e:__Entity__)
+                        WHERE e.human_readable_id IN [${entityIds.join(', ')}]
+                        OPTIONAL MATCH (e)-[edge:RELATED_TO]-(m:__Entity__)
+                        OPTIONAL MATCH (chunk:__Chunk__)-[:MENTIONS]->(e)
+                        WITH e, edge, m, collect(DISTINCT chunk) as chunks
+                        OPTIONAL MATCH (rel:__Relationship__)
+                        WHERE rel.human_readable_id IN [${relationshipIds.join(', ')}]
+                        OPTIONAL MATCH (relChunk:__Chunk__)-[:HAS_RELATIONSHIP]->(rel)
+                        RETURN e, edge, m, rel, chunks, collect(DISTINCT relChunk) as relChunks
+                        LIMIT 200
+                    `.trim();
+                } else if (entityIds.length > 0) {
+                    // 查询实体、相关实体和文本块
+                    cypherQuery = `
+                        MATCH (e:__Entity__)
+                        WHERE e.human_readable_id IN [${entityIds.join(', ')}]
+                        OPTIONAL MATCH (e)-[r:RELATED_TO]-(m:__Entity__)
+                        OPTIONAL MATCH (chunk:__Chunk__)-[:MENTIONS]->(e)
+                        RETURN e, r, m, collect(DISTINCT chunk) as chunks
+                        LIMIT 200
+                    `.trim();
+                } else if (relationshipIds.length > 0) {
+                    // 查询关系节点和相关文本块
+                    cypherQuery = `
+                        MATCH (rel:__Relationship__)
+                        WHERE rel.human_readable_id IN [${relationshipIds.join(', ')}]
+                        OPTIONAL MATCH (chunk:__Chunk__)-[:HAS_RELATIONSHIP]->(rel)
+                        RETURN rel, collect(DISTINCT chunk) as chunks
+                        LIMIT 200
+                    `.trim();
+                }
+                
+                // 设置到查询框
+                document.getElementById('cypherQuery').value = cypherQuery;
+                
+                // 显示诊断信息
+                const graphStatus = document.getElementById('graphStatus');
+                let statusMsg = '';
+                if (entityIds.length > 0) {
+                    statusMsg += `实体 ID: ${entityIds.join(', ')}`;
+                }
+                if (relationshipIds.length > 0) {
+                    if (statusMsg) statusMsg += '<br>';
+                    statusMsg += `关系 ID: ${relationshipIds.join(', ')}`;
+                }
+                
+                graphStatus.innerHTML = `
+                    <div style="padding: 10px; background: #e3f2fd; border-left: 3px solid #2196f3; border-radius: 4px;">
+                        <strong>🔍 正在查询：</strong><br>
+                        ${statusMsg}
+                    </div>
+                `;
+                
+                // 自动执行查询
+                setTimeout(() => {
+                    executeNeo4jQuery();
+                }, 500);
+                
+            } catch (error) {
+                console.error('解析查询结果失败:', error);
+                alert('解析查询结果失败，请查看控制台');
+            }
+        }
+
+        // 页面加载时解析 URL 参数
+        parseAndCacheURLParams();
+        
+        // 页面加载时检查服务状态
+        checkHealth();
+        
+        // 初始化查询类型信息
+        updateQueryTypeInfo();
+        
+        // 每30秒检查一次服务状态
+        setInterval(checkHealth, 30000);
+    </script>
+</body>
+</html>
