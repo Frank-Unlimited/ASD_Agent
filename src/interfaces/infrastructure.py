@@ -55,41 +55,10 @@ class ISQLiteService(BaseService):
     async def get_session_history(self, child_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """获取会话历史"""
         pass
-
-
-# ============ 模块2: Graphiti 记忆网络模块 ============
-
-class IGraphitiService(BaseService):
-    """Graphiti 记忆网络接口"""
     
     @abstractmethod
-    async def save_memories(self, child_id: str, memories: List[Dict[str, Any]]) -> None:
-        """批量保存记忆（优化：一次性写入）"""
-        pass
-    
-    @abstractmethod
-    async def get_recent_memories(self, child_id: str, days: int = 7) -> List[Dict[str, Any]]:
-        """获取最近记忆"""
-        pass
-    
-    @abstractmethod
-    async def analyze_trends(self, child_id: str, dimension: str) -> Dict[str, Any]:
-        """分析趋势"""
-        pass
-    
-    @abstractmethod
-    async def detect_milestones(self, child_id: str) -> List[Dict[str, Any]]:
-        """检测里程碑"""
-        pass
-    
-    @abstractmethod
-    async def detect_plateau(self, child_id: str, dimension: str) -> Dict[str, Any]:
-        """检测平台期"""
-        pass
-    
-    @abstractmethod
-    async def build_context(self, child_id: str) -> Dict[str, Any]:
-        """构建当前上下文（趋势、关注点等）"""
+    async def delete_child(self, child_id: str) -> None:
+        """删除孩子档案"""
         pass
 
 

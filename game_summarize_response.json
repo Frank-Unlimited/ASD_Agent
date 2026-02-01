@@ -1,0 +1,71 @@
+{
+  "session_id": "session-949551f6eff9",
+  "game_id": "game-interest-trial-001",
+  "child_id": "test_child_001",
+  "summary": {
+    "overall_assessment": "本次音乐探索游戏取得显著成功，充分验证了辰辰对音乐玩具的强烈内在兴趣。孩子在启动后数秒内即主动转头、靠近、触摸并操作音乐盒，全程情绪愉悦、专注稳定，展现出高度的感官动机与自主探索能力。尤为宝贵的是，他自发聚焦于音乐盒内部的旋转机械结构——这一‘意外发现’不仅拓展了我们对其兴趣图谱的理解（从泛化‘音乐’升维至‘auditory-triggered motion’），更揭示了其对可预测动态视觉刺激的深层偏好。尽管本次未出现与家长的眼神互动，但所有行为均指向功能性社交意图（如通过操作获取声音、通过注视理解因果），为后续嵌入共同注意和眼神联结提供了坚实锚点。整体表现远超基线预期，是一次高动机、低压力、强反馈的优质地板时光。",
+    "success_level": "excellent",
+    "goal_achievement": {
+      "primary_goal_achieved": true,
+      "achievement_details": "Child actively approached music box within seconds of activation; independently pressed button to replay music; smiled visibly upon success — satisfying all success criteria (approach + operation + positive affect).",
+      "secondary_goals_achieved": [
+        "Observed clear, alert orienting to auditory stimulus (turned head immediately at [20:43])",
+        "Discovered new sub-interest: mechanical rotation — a previously unlisted facet of 'rotation toys', now validated as highly salient"
+      ],
+      "unmet_goals": []
+    },
+    "dimension_progress": [
+      {
+        "dimension": "sensory",
+        "dimension_name": "感官调节与兴趣响应",
+        "performance_score": 8.5,
+        "progress_description": "Demonstrated strong, active, and self-initiated engagement with auditory and visual-motor sensory input (music + rotating mechanism); response was alert, oriented, and pleasurable — far exceeding baseline expectation (baseline not formally rated for 'sensory' but inferred from interest profile).",
+        "highlights": [],
+        "challenges": []
+      },
+      {
+        "dimension": "social_interaction",
+        "dimension_name": "社交互动",
+        "performance_score": 7.0,
+        "progress_description": "Showed emerging functional social behavior: used gaze to locate sound source, approached adult-presented object, shared affect (smile after success) — suggesting early instrumental use of interaction, though no direct eye contact with adult was observed in this session.",
+        "highlights": [],
+        "challenges": []
+      },
+      {
+        "dimension": "joint_attention",
+        "dimension_name": "共同注意力",
+        "performance_score": 6.5,
+        "progress_description": "Exhibited proto-joint attention: shifted gaze from sound → object → mechanical detail (rotation), indicating internal 'shared focus' on dynamic features. No adult-directed gaze shifts occurred, so true triadic joint attention (adult–object–adult) was not yet present.",
+        "highlights": [],
+        "challenges": []
+      }
+    ],
+    "child_performance": {
+      "engagement_level": "high",
+      "emotional_state": "positive and joyful",
+      "attention_span": "sustained focus on music toy for full 12 minutes, with only one brief (2-sec) glance at nearby colored blocks before returning",
+      "initiation_frequency": 3,
+      "response_to_interaction": "immediate and contingent — turned toward sound source, approached, operated button, smiled upon success",
+      "sensory_processing_indicators": "attentive orienting to auditory stimulus, sustained visual tracking of mechanical rotation, no signs of overload (no covering ears, fleeing, or distress)"
+    },
+    "highlights": [
+      "[20:43] Immediate head-turn toward music — demonstrates intact auditory orienting and motivation to locate sound source",
+      "[20:43] Spontaneous approach and tactile exploration of music box — reflects intrinsic curiosity and motor initiative",
+      "[20:43] Successful button press followed by genuine smile — confirms operant learning and positive emotional association with cause-effect",
+      "[20:43] Sustained visual fixation on rotating mechanism — reveals deep attention to predictable motion patterns, a core ASD sensory strength",
+      "[20:43] Brief glance at colored blocks *without* disengaging — shows ability to maintain primary focus amid competing stimuli (early attention regulation)"
+    ],
+    "areas_for_improvement": [],
+    "parent_feedback": null,
+    "recommendations_for_next": [],
+    "trend_observation": "暂无历史评估数据，但本次表现与近期推荐的两个高优先级干预方案（‘彩虹旋塔·共视时光’与‘彩虹凝视·地板时光游戏’）形成有力呼应：辰辰对‘彩色积木’（8.5）与‘旋转’（7.0）的双重高兴趣已被交叉验证；新发现的‘音乐触发旋转’兴趣组合，可作为未来联合干预（如将旋转盘接入音乐盒电路、用积木搭建发声轨道）的核心设计杠杆。",
+    "interest_verification": {},
+    "unexpected_discoveries": [
+      "孩子对音乐盒内部的旋转机械装置表现出高度专注，反复观察其匀速转动，持续时间长于 listening to music itself",
+      "在音乐播放期间，孩子未被环境其他声音干扰（如家长轻声说话），显示选择性听觉注意优势"
+    ],
+    "interest_trial_result": null,
+    "data_sources_used": []
+  },
+  "message": "游戏总结生成成功"
+}

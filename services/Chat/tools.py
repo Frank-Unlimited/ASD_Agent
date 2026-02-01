@@ -1,0 +1,1 @@
+# Test\nclass ChatTools: pass\nTOOL_DEFINITIONS = []

@@ -1,23 +1,39 @@
 """
 FastAPI 应用入口
 """
-from fastapi import FastAPI
+import sys
+from pathlib import Path
+
+# 添加项目根目录到 Python 路径
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+import time
+import json
+import logging
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from src.config import settings
 from src.container import init_services
-from src.langgraph import get_compiled_workflow
-from src.models.state import DynamicInterventionState
-from src.api.workflow import router as workflow_router
-from src.api.infrastructure import router as infrastructure_router
-from src.api.business import router as business_router
+# from src.api.infrastructure import router as infrastructure_router
+# from src.api.business import router as business_router
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # 初始化服务容器
 init_services()
 
+
 # 创建 FastAPI 应用
 app = FastAPI(
     title="ASD地板时光干预辅助系统",
-    description="基于LangGraph的多Agent协同干预系统",
+    description="基于Memory驱动的行为记录系统",
     version="1.0.0",
 )
 
@@ -31,9 +47,32 @@ app.add_middleware(
 )
 
 # 注册路由
-app.include_router(workflow_router)
-app.include_router(infrastructure_router)
-app.include_router(business_router)
+# app.include_router(infrastructure_router)  # 暂不需要
+# app.include_router(business_router)  # 暂不需要
+
+# 注册行为观察路由
+from src.api.observation import router as observation_router
+app.include_router(observation_router)
+
+# 注册游戏路由
+from src.api.game import router as game_router
+app.include_router(game_router)
+
+# 注册评估路由
+from src.api.assessment import router as assessment_router
+app.include_router(assessment_router)
+
+# 注册档案路由
+from src.api.profile import router as profile_router
+app.include_router(profile_router)
+
+# 注册报告路由
+from src.api.report import router as report_router
+app.include_router(report_router)
+
+# 注册聊天路由
+from src.api.chat import router as chat_router
+app.include_router(chat_router)
 
 
 @app.get("/")
@@ -58,69 +97,13 @@ async def test_workflow():
     """
     测试工作流（全 Mock）
     用于验证架构设计
+    
+    TODO: 待实现完整的 LangGraph 工作流
     """
-    # 创建初始 State
-    initial_state: DynamicInterventionState = {
-        "childTimeline": {
-            "profile": {
-                "childId": "child-001",
-                "name": "辰辰",
-                "age": 2.5,
-                "birthDate": "2023-07-01",
-                "diagnosis": "ASD轻度",
-                "interests": ["旋转物体", "水流"],
-                "customDimensions": {}
-            },
-            "metrics": {},
-            "microObservations": []
-        },
-        "currentContext": {
-            "recentTrends": {},
-            "attentionPoints": [],
-            "activeGoals": [],
-            "lastUpdated": None
-        },
-        "currentSession": {},
-        "currentWeeklyPlan": None,
-        "sessionHistory": None,
-        "conversationHistory": None,
-        "workflow": {
-            "currentNode": "start",
-            "nextNode": None,
-            "isHITLPaused": False,
-            "checkpointId": None,
-            "needsAdjustment": None
-        },
-        "tempData": {
-            "reportPath": "/mock/report.pdf",
-            "gameId": "game-001"
-        }
+    return {
+        "status": "not_implemented",
+        "message": "工作流功能待实现"
     }
-    
-    # 获取编译后的工作流
-    workflow = get_compiled_workflow()
-    
-    # 执行工作流（简化版，不包含 HITL 暂停）
-    try:
-        # 注意：这里简化了 HITL 暂停的处理
-        # 实际应用中需要使用 Checkpoint 机制
-        result = await workflow.ainvoke(initial_state)
-        
-        return {
-            "status": "success",
-            "message": "工作流执行完成（Mock 数据）",
-            "result": {
-                "childId": result['childTimeline']['profile']['childId'],
-                "currentNode": result['workflow']['currentNode'],
-                "sessionId": result.get('currentSession', {}).get('sessionId'),
-                "weeklyPlanId": result.get('currentWeeklyPlan', {}).get('planId')
-            }
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"工作流执行失败: {str(e)}"
-        }
 
 
 if __name__ == "__main__":

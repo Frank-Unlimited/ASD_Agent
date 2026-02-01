@@ -64,6 +64,20 @@ def save_child(profile: Dict[str, Any]) -> None:
     service.save_child(profile)
 
 
+def delete_child(child_id: str) -> None:
+    """
+    删除孩子档案
+    
+    Args:
+        child_id: 孩子ID
+        
+    Example:
+        delete_child("child-001")
+    """
+    service = _get_service()
+    service.delete_child(child_id)
+
+
 # ============ 会话管理 ============
 
 def create_session(child_id: str, game_id: str) -> str:
