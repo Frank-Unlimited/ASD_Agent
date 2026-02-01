@@ -11,6 +11,9 @@ BEHAVIOR_EXTRACTION_INSTRUCTIONS = """
 ## 目标
 从家长的自然语言观察记录中提取结构化的行为信息。
 
+**重要原则**：观察记录只提取基础实体（Behavior、Object、Person），
+不提取 Interest 和 Function。这些高级关联由评估层建立。
+
 ## 提取实体类型
 
 ### 1. Behavior（行为）- 必须提取
@@ -38,75 +41,7 @@ BEHAVIOR_EXTRACTION_INSTRUCTIONS = """
 - **category**: 对象类别（玩具、工具、书籍等）
 - **interaction_type**: 互动方式（使用、观察、拒绝等）
 
-### 3. Interest（兴趣维度）- 根据行为推断
-根据行为内容推断体现的兴趣维度：
-- **visual**: 视觉类（看、观察、颜色、图案）
-- **auditory**: 听觉类（听、音乐、声音）
-- **tactile**: 触觉类（摸、触感、质地）
-- **motor**: 运动类（跑、跳、爬、平衡）
-- **construction**: 建构类（搭建、拼装、组合）
-- **order**: 秩序类（排序、分类、整理）
-- **cognitive**: 认知类（数字、字母、因果关系）
-- **social**: 社交类（互动、分享、合作）
-
-每个兴趣维度需要：
-- **intensity**: 强度（0-10分）
-- **duration_seconds**: 持续时长（如果能推断）
-- **is_primary**: 是否为主要兴趣
-
-### 4. Function（功能维度）- 根据行为推断
-根据行为内容推断反映的功能维度（33个功能维度中选择相关的）：
-
-**感觉能力（sensory）**:
-- visual_tracking: 视觉追踪
-- auditory_response: 听觉反应
-- tactile_sensitivity: 触觉敏感度
-- sensory_integration: 感觉统合
-- pain_awareness: 痛觉意识
-
-**社交互动（social）**:
-- eye_contact: 眼神接触
-- social_smile: 社交性微笑
-- social_interest: 社交兴趣
-- social_initiation: 社交主动性
-- joint_attention: 共同注意
-- imitation: 模仿能力
-
-**语言沟通（language）**:
-- language_comprehension: 语言理解
-- language_expression: 语言表达
-- non_verbal_communication: 非语言沟通
-- conversation_skills: 对话技能
-- pragmatic_language: 语用能力
-- echolalia: 回声语言
-
-**运动躯体（motor）**:
-- gross_motor: 大运动
-- fine_motor: 精细动作
-- body_coordination: 身体协调
-- motor_planning: 运动计划
-- balance: 平衡能力
-- hand_eye_coordination: 手眼协调
-
-**情绪适应（emotional）**:
-- emotional_expression: 情绪表达
-- emotional_regulation: 情绪调节
-- frustration_tolerance: 挫折容忍
-- anxiety_level: 焦虑水平
-- mood_stability: 情绪稳定性
-
-**自理能力（self_care）**:
-- eating_skills: 进食技能
-- toileting_skills: 如厕技能
-- dressing_skills: 穿衣技能
-- hygiene_skills: 卫生技能
-- sleep_patterns: 睡眠模式
-
-每个功能维度需要：
-- **score**: 评分（0-10分）
-- **strength**: 表现强度（0-1）
-
-### 5. Person（人物）- 如果提到其他人则提取
+### 3. Person（人物）- 如果提到其他人则提取
 - **person_name**: 人物名称（如：妈妈、爸爸、李老师）
 - **role**: 角色（facilitator引导者/participant参与者/observer观察者）
 - **interaction_quality**: 互动质量（positive/negative/neutral）
@@ -119,13 +54,7 @@ BEHAVIOR_EXTRACTION_INSTRUCTIONS = """
 ### 2. 行为 -> 涉及对象 -> 对象
 - 属性：interaction_type（互动类型）
 
-### 3. 行为 -> 体现兴趣 -> 兴趣维度
-- 属性：intensity（强度）, duration_seconds（持续时长）
-
-### 4. 行为 -> 体现功能 -> 功能维度
-- 属性：score（评分）, strength（强度）
-
-### 5. 行为 -> 涉及人物 -> 人物
+### 3. 行为 -> 涉及人物 -> 人物
 - 属性：role（角色）, interaction_quality（互动质量）
 
 ## 提取原则
@@ -135,6 +64,7 @@ BEHAVIOR_EXTRACTION_INSTRUCTIONS = """
 3. **保持客观**: 基于观察事实，不添加主观判断
 4. **关注细节**: 注意时间、地点、人物、对象等细节
 5. **识别首次**: 特别注意"第一次"、"首次"等关键词
+6. **不提取高级关联**: 不要提取 Interest 和 Function，这些由评估层建立
 
 ## 示例
 
@@ -151,37 +81,13 @@ BEHAVIOR_EXTRACTION_INSTRUCTIONS = """
   - object_name: "积木"
   - category: "玩具"
   - interaction_type: "使用"
-  
-- Interest:
-  - interest_name: "social"
-  - intensity: 9.0
-  - is_primary: true
-  
-  - interest_name: "construction"
-  - intensity: 6.0
-  - is_primary: false
-  
-- Function:
-  - function_name: "eye_contact"
-  - score: 8.0
-  - strength: 0.9
-  
-  - function_name: "social_initiation"
-  - score: 9.0
-  - strength: 0.95
-  
-  - function_name: "social_smile"
-  - score: 8.0
-  - strength: 0.85
 
 - 关系:
   - 孩子 -> 展现 -> 行为
   - 行为 -> 涉及对象 -> 积木
-  - 行为 -> 体现兴趣 -> social
-  - 行为 -> 体现兴趣 -> construction
-  - 行为 -> 体现功能 -> eye_contact
-  - 行为 -> 体现功能 -> social_initiation
-  - 行为 -> 体现功能 -> social_smile
+
+**注意**: 不提取 Interest（如 social、construction）和 Function（如 eye_contact、social_initiation），
+这些关联将由评估服务在分析历史数据时建立。
 """
 
 

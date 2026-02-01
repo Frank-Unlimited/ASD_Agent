@@ -204,41 +204,98 @@ class GameSummarizer:
         """
         将总结保存到 Memory（Graphiti）记忆系统
         
-        使用 Memory 服务的 summarize_game() 方法
+        新架构：
+        1. Game Summarizer 生成总结文本（已完成）
+        2. 调用 Memory 的 store_game_summary() 存储
         """
         try:
-            # 准备视频分析数据
-            video_analysis = {
-                "duration": f"{session.actual_duration}分钟" if session.actual_duration else "未知",
-                "key_moments": []
+            # 构建总结文本（自然语言）
+            summary_text = self._build_summary_text(session, summary)
+            
+            # 准备元数据
+            metadata = {
+                "session_duration": f"{session.actual_duration}分钟" if session.actual_duration else "未知",
+                "engagement_score": summary.engagement_score if hasattr(summary, 'engagement_score') else 0,
+                "success_level": summary.success_level,
+                "parent_notes": session.parent_notes if hasattr(session, 'parent_notes') else ""
             }
             
-            # 从 summary 中提取关键时刻
-            if summary.highlights:
-                for i, highlight in enumerate(summary.highlights):
-                    video_analysis["key_moments"].append({
-                        "time": f"{i*5:02d}:00",  # 假设每5分钟一个亮点
-                        "description": highlight
-                    })
-            
-            # 准备家长反馈数据
-            parent_feedback = {
-                "notes": session.parent_notes if hasattr(session, 'parent_notes') else "",
-                "engagement_level": summary.engagement_score if hasattr(summary, 'engagement_score') else 0
-            }
-            
-            # 调用 Memory 服务的 summarize_game()
-            await self.memory_service.summarize_game(
+            # 调用 Memory 服务的新接口 store_game_summary()
+            result = await self.memory_service.store_game_summary(
+                child_id=session.child_id,
                 game_id=session.game_id,
-                video_analysis=video_analysis,
-                parent_feedback=parent_feedback
+                summary_text=summary_text,
+                metadata=metadata
             )
             
-            print(f"[GameSummarizer] 游戏总结已保存到 Memory: {session.game_id}")
+            print(f"[GameSummarizer] 游戏总结已保存到 Memory: episode_id={result['episode_id']}")
             
         except Exception as e:
             print(f"[GameSummarizer] 保存游戏总结到 Memory 失败: {e}")
+            import traceback
+            traceback.print_exc()
             # 不抛出异常，允许总结继续
+    
+    def _build_summary_text(
+        self,
+        session: GameSession,
+        summary: GameSessionSummary
+    ) -> str:
+        """
+        构建游戏总结的自然语言文本
+        
+        Args:
+            session: 游戏会话
+            summary: 总结数据
+            
+        Returns:
+            自然语言总结文本
+        """
+        text_parts = []
+        
+        # 基本信息
+        text_parts.append(f"# 游戏会话总结")
+        text_parts.append(f"\n游戏ID: {session.game_id}")
+        text_parts.append(f"会话ID: {session.session_id}")
+        text_parts.append(f"时长: {session.actual_duration}分钟" if session.actual_duration else "时长: 未知")
+        
+        # 整体评估
+        text_parts.append(f"\n## 整体评估")
+        text_parts.append(summary.overall_assessment)
+        
+        # 成功程度
+        text_parts.append(f"\n## 成功程度")
+        text_parts.append(f"评级: {summary.success_level}")
+        
+        # 参与度
+        if hasattr(summary, 'engagement_score'):
+            text_parts.append(f"\n## 参与度")
+            text_parts.append(f"评分: {summary.engagement_score}/10")
+        
+        # 亮点时刻
+        if summary.highlights:
+            text_parts.append(f"\n## 亮点时刻")
+            for i, highlight in enumerate(summary.highlights, 1):
+                text_parts.append(f"{i}. {highlight}")
+        
+        # 挑战与困难
+        if summary.challenges:
+            text_parts.append(f"\n## 挑战与困难")
+            for i, challenge in enumerate(summary.challenges, 1):
+                text_parts.append(f"{i}. {challenge}")
+        
+        # 改进建议
+        if summary.improvement_suggestions:
+            text_parts.append(f"\n## 改进建议")
+            for i, suggestion in enumerate(summary.improvement_suggestions, 1):
+                text_parts.append(f"{i}. {suggestion}")
+        
+        # 家长反馈
+        if hasattr(session, 'parent_notes') and session.parent_notes:
+            text_parts.append(f"\n## 家长反馈")
+            text_parts.append(session.parent_notes)
+        
+        return "\n".join(text_parts)
 
 
 __all__ = ['GameSummarizer']
