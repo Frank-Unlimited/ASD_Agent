@@ -139,18 +139,76 @@ const PageAIChat = ({ navigateTo, onStartGame, profile }: { navigateTo: (p: Page
     setInput('');
     setLoading(true);
 
+    const modelMsgId = (Date.now() + 1).toString();
+    let accumulatedText = '';
+
+    // Add empty model message placeholder
+    setMessages(prev => [...prev, { id: modelMsgId, role: 'model', text: '', timestamp: new Date() }]);
+
     try {
       const childId = localStorage.getItem('active_child_id') || "test_child_001";
-      const replyText = await api.sendMessage(userMsg.text, childId, messages);
 
-      const modelMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'model', text: replyText, timestamp: new Date() };
-      setMessages(prev => [...prev, modelMsg]);
+      await api.sendMessageStream(
+        userMsg.text,
+        childId,
+        messages,
+        // onContent - streaming text
+        (text: string) => {
+          accumulatedText += text;
+          setMessages(prev => prev.map(msg =>
+            msg.id === modelMsgId ? { ...msg, text: accumulatedText } : msg
+          ));
+        },
+        // onToolCall
+        (toolName: string, displayName: string) => {
+          console.log(`Tool called: ${displayName}`);
+        },
+        // onToolResult
+        (result: any) => {
+          // Handle tool results - append markers for games/navigation
+          if (result.tool_name === 'recommend_game' && result.result?.success && result.result?.game) {
+            const game = result.result.game;
+            const markerData = {
+              id: game.game_id,
+              title: game.name,
+              reason: game.design_rationale || game.description
+            };
+            accumulatedText += `\n\n:::GAME_RECOMMENDATION:${JSON.stringify(markerData)}:::`;
+            setMessages(prev => prev.map(msg =>
+              msg.id === modelMsgId ? { ...msg, text: accumulatedText } : msg
+            ));
+          }
+
+          if (result.tool_name === 'generate_assessment' && result.result?.success) {
+            const markerData = {
+              page: 'PROFILE',
+              title: '查看最新评估报告',
+              reason: '新的评估报告已生成，点击查看详细分析。'
+            };
+            accumulatedText += `\n\n:::NAVIGATION_CARD:${JSON.stringify(markerData)}:::`;
+            setMessages(prev => prev.map(msg =>
+              msg.id === modelMsgId ? { ...msg, text: accumulatedText } : msg
+            ));
+          }
+        },
+        // onDone
+        () => {
+          setLoading(false);
+        },
+        // onError
+        (error: string) => {
+          console.error('Stream error:', error);
+          setMessages(prev => prev.map(msg =>
+            msg.id === modelMsgId ? { ...msg, text: accumulatedText || "连接服务器失败，请检查网络或后端状态。" } : msg
+          ));
+          setLoading(false);
+        }
+      );
     } catch (e) {
       console.error(e);
-      setTimeout(() => {
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "连接服务器失败，请检查网络或后端状态。", timestamp: new Date() }]);
-      }, 1000);
-    } finally {
+      setMessages(prev => prev.map(msg =>
+        msg.id === modelMsgId ? { ...msg, text: "连接服务器失败，请检查网络或后端状态。" } : msg
+      ));
       setLoading(false);
     }
   };
@@ -950,22 +1008,30 @@ export default function App() {
     const loadData = async () => {
       try {
         // Try to get real profiles list
-        const profiles = await api.listProfiles();
+        let profiles: any[] = [];
+        try {
+          profiles = await api.listProfiles();
+        } catch (e) {
+          console.warn("Failed to fetch profiles, redirecting to welcome page");
+          localStorage.removeItem('active_child_id');
+          setCurrentPage(Page.WELCOME);
+          return;
+        }
 
         // Get active ID from storage
         const storedId = localStorage.getItem('active_child_id');
 
-        // Validate if storedId is in the real list
-        const profileExists = profiles.some((p: any) => p.child_id === storedId);
-
-        let activeProfileId = profileExists ? storedId : (profiles.length > 0 ? (profiles[0] as any).child_id : null);
-
-        if (!activeProfileId) {
-          // If we still have an ID in localStorage that doesn't exist, clear it
+        // If no profiles exist, go to welcome page
+        if (!profiles || profiles.length === 0) {
           if (storedId) localStorage.removeItem('active_child_id');
           setCurrentPage(Page.WELCOME);
           return;
         }
+
+        // Validate if storedId is in the real list
+        const profileExists = profiles.some((p: any) => p.child_id === storedId);
+
+        let activeProfileId = profileExists ? storedId : (profiles[0] as any).child_id;
 
         // Update storage if we picked a new default from profiles[0]
         if (activeProfileId !== storedId) {
@@ -992,6 +1058,9 @@ export default function App() {
         setStats(s);
       } catch (err) {
         console.error("Failed to load initial data", err);
+        // On any error, redirect to welcome page
+        localStorage.removeItem('active_child_id');
+        setCurrentPage(Page.WELCOME);
       }
     };
     loadData();

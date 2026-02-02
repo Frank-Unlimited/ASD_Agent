@@ -75,7 +75,7 @@ def init_services():
     # 业务服务：行为观察服务（依赖 Memory 服务）
     # Memory 服务延迟初始化，在第一次请求时创建
     try:
-        from services.Observation import ObservationService
+        from services.observation import ObservationService
         
         # 创建一个占位服务，实际的 memory_service 会在第一次使用时初始化
         observation_service = ObservationService(
