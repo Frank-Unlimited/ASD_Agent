@@ -785,13 +785,20 @@ class MemoryService:
         
         if extracted_age and extracted_age != age:
             print(f"[MemoryService] 从档案中提取到年龄: {extracted_age}")
-            # 更新Person节点的basic_info
             child.basic_info["age"] = extracted_age
-            await self.storage.update_person(
-                person_id=child_id,
-                updates={"basic_info": child.basic_info}
-            )
-        
+
+        # 8.2 将 overall_assessment 更新到 basic_info.diagnosis
+        overall_assessment = initial_assessment.get("overall_assessment", "")
+        if overall_assessment:
+            print(f"[MemoryService] 从档案中提取到评估: {overall_assessment[:50]}...")
+            child.basic_info["diagnosis"] = overall_assessment
+
+        # 8.3 更新 Person 节点
+        await self.storage.update_person(
+            person_id=child_id,
+            updates={"basic_info": child.basic_info}
+        )
+
         # 9. 创建初始评估节点
         assessment_id = f"assess_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
         print(f"[MemoryService] 创建初始评估节点 (assessment_id: {assessment_id})...")
