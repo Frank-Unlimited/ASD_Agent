@@ -35,7 +35,7 @@ async def import_profile_from_image(
     try:
         # 1. 上传文件
         file_service = FileUploadService()
-        upload_result = await file_service.upload_file(file, category="documents")
+        upload_result = await file_service.upload_file(file, category="document")
         image_path = upload_result['file_path']
         
         print(f"[档案导入] 图片已上传: {image_path}")
