@@ -256,6 +256,8 @@ export const ApiService = {
   },
 
   async importProfileFromImage(file: File): Promise<any> {
+    console.log('[前端] 📤 开始上传图片:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`);
+    
     const formData = new FormData();
     formData.append('file', file);
 
@@ -266,10 +268,28 @@ export const ApiService = {
 
     if (!res.ok) {
       const err = await res.text();
+      console.error('[前端] ❌ 上传失败:', err);
       throw new Error(err || 'Import failed');
     }
 
-    return await res.json();
+    const result = await res.json();
+    
+    console.log('[前端] ✅ 档案导入成功');
+    console.log('[前端] 📋 返回结果:', {
+      child_id: result.child_id,
+      assessment_id: result.assessment_id,
+      image_path: result.image_path,
+      profile_summary_length: result.profile_summary?.length || 0,
+      extracted_text_length: result.extracted_text?.length || 0
+    });
+    console.log('[前端] 📄 完整解析结果:');
+    console.log('='.repeat(80));
+    console.log('提取的文字:', result.extracted_text);
+    console.log('-'.repeat(80));
+    console.log('画像总结:', result.profile_summary);
+    console.log('='.repeat(80));
+    
+    return result;
   },
 
   async getGames(): Promise<Game[]> {

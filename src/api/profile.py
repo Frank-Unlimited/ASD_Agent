@@ -69,7 +69,11 @@ async def import_profile_from_image(
         
         result_text = parse_image(image_base64, prompt)
         
-        print(f"[档案导入] 文字提取完成")
+        print(f"[档案导入] ✅ 文字提取完成")
+        print(f"[档案导入] 📄 Gemini 解析结果（完整）:")
+        print("=" * 80)
+        print(result_text)
+        print("=" * 80)
         
         # 3. 分离提取的文字和画像总结
         extracted_text = ""
@@ -84,8 +88,8 @@ async def import_profile_from_image(
             extracted_text = result_text
             profile_summary = "档案已导入，正在生成详细评估..."
         
-        print(f"提取文字: {extracted_text[:200]}...")
-        print(f"画像总结: {profile_summary[:100]}...")
+        print(f"[档案导入] 📝 提取的文字（前200字）: {extracted_text[:200]}...")
+        print(f"[档案导入] 🎯 画像总结（前100字）: {profile_summary[:100]}...")
         
         # 4. 构建医学报告数据，交给 Memory 服务解析
         report_data = {
