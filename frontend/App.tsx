@@ -29,6 +29,8 @@ import {
   Paperclip,
   ArrowUpRight
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Radar,
   RadarChart,
@@ -249,7 +251,35 @@ const PageAIChat = ({ navigateTo, onStartGame, profile }: { navigateTo: (p: Page
           return (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm leading-relaxed ${msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
-                {cleanText}
+                {msg.role === 'user' ? (
+                  cleanText
+                ) : (
+                  <div className="prose prose-sm max-w-none">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="list-disc ml-4 mb-2" {...props} />,
+                        ol: ({ node, ...props }) => <ol className="list-decimal ml-4 mb-2" {...props} />,
+                        li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                        table: ({ node, ...props }) => (
+                          <div className="overflow-x-auto my-2">
+                            <table className="min-w-full border-collapse border border-gray-200" {...props} />
+                          </div>
+                        ),
+                        th: ({ node, ...props }) => <th className="border border-gray-200 px-2 py-1 bg-gray-50 text-left font-bold" {...props} />,
+                        td: ({ node, ...props }) => <td className="border border-gray-200 px-2 py-1" {...props} />,
+                        code: ({ node, inline, ...props }: any) => (
+                          inline
+                            ? <code className="bg-gray-100 rounded px-1 py-0.5" {...props} />
+                            : <code className="block bg-gray-100 rounded p-2 my-2 overflow-x-auto" {...props} />
+                        )
+                      }}
+                    >
+                      {cleanText}
+                    </ReactMarkdown>
+                  </div>
+                )}
               </div>
 
               {/* Render Cards */}

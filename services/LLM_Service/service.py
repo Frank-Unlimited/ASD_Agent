@@ -138,9 +138,18 @@ class LLMService:
             
             # 处理结构化输出
             if output_schema and message.content:
+                content = message.content.strip()
+                # 尝试剥离 Markdown 代码块
+                if content.startswith("```json"):
+                    content = content.split("```json", 1)[1].split("```", 1)[0].strip()
+                elif content.startswith("```"):
+                    content = content.split("```", 1)[1].split("```", 1)[0].strip()
+                
                 try:
-                    result["structured_output"] = json.loads(message.content)
-                except json.JSONDecodeError:
+                    result["structured_output"] = json.loads(content)
+                except json.JSONDecodeError as je:
+                    print(f"[LLM Service] JSON 解析失败: {je}")
+                    print(f"原始内容: {message.content[:500]}...")
                     result["structured_output"] = None
             
             return result

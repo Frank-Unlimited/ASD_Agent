@@ -107,7 +107,7 @@ async def import_profile_from_image(
         from src.models.profile import ChildProfile, Gender, DiagnosisLevel
         
         # 从 Graphiti 获取解析后的信息
-        child_data = await memory_service.get_child(memory_result["child_id"])
+        child_data = await memory_service.get_child(memory_result["child_id"]) or {}
         
         profile = ChildProfile(
             child_id=memory_result["child_id"],

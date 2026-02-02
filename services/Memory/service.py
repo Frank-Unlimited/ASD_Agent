@@ -700,7 +700,9 @@ class MemoryService:
             created_at=datetime.now(timezone.utc).isoformat()
         )
         
+        print(f"[MemoryService] 正在为 {name} 创建 Person 节点 (child_id: {child_id})...")
         await self.storage.create_person(child)
+        print(f"[MemoryService] Person 节点创建成功")
         
         # 3. 构建 Output Schema
         output_schema = pydantic_to_json_schema(
@@ -732,6 +734,7 @@ class MemoryService:
 """
         
         # 5. 调用 LLM
+        print(f"[MemoryService] 开始调用 LLM 解析档案...")
         result = await self.llm_service.call(
             system_prompt="你是一个专业的 ASD 儿童档案分析师。",
             user_message=prompt,
@@ -742,12 +745,15 @@ class MemoryService:
         
         # 6. 获取结构化输出
         if not result.get("structured_output"):
+            print(f"[MemoryService] LLM 未返回结构化输出，内容: {result.get('content', '')[:200]}...")
             raise ValueError("LLM 未返回结构化输出")
         
         initial_assessment = result["structured_output"]
+        print(f"[MemoryService] LLM 解析成功: {json.dumps(initial_assessment, ensure_ascii=False)[:200]}...")
         
         # 7. 创建初始评估节点
         assessment_id = f"assess_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        print(f"[MemoryService] 创建初始评估节点 (assessment_id: {assessment_id})...")
         
         assessment = ChildAssessment(
             assessment_id=assessment_id,
@@ -760,8 +766,10 @@ class MemoryService:
         )
         
         await self.storage.create_assessment(assessment)
+        print(f"[MemoryService] 初始评估节点创建成功")
         
         # 8. 创建关系：孩子 -> 评估
+        print(f"[MemoryService] 创建接受评估关系...")
         await self.storage.create_relationship(
             from_id=child_id,
             from_label="Person",
@@ -769,6 +777,7 @@ class MemoryService:
             to_label="ChildAssessment",
             rel_type="接受评估"
         )
+        print(f"[MemoryService] 关系创建成功")
         
         # 9. 返回结果
         return {
@@ -783,10 +792,41 @@ class MemoryService:
     
     async def get_child(self, child_id: str) -> Optional[Dict[str, Any]]:
         """
-        获取孩子档案 - 使用 Graphiti 原生查询
+        获取孩子档案 - 同时兼容原有 Person 节点和 Graphiti Entity 节点
         """
         try:
-            # 直接使用 Graphiti driver 查询
+            import json
+            # 1. 首先尝试查询原有的 Person 节点
+            records, _, _ = await self.graphiti.driver.execute_query(
+                """
+                MATCH (p:Person {person_id: $child_id})
+                RETURN p.person_id AS person_id,
+                       p.name AS name,
+                       properties(p) AS props,
+                       p.created_at AS created_at
+                """,
+                child_id=child_id
+            )
+            
+            if records:
+                r = records[0]
+                props = r["props"]
+                basic_info_str = props.get("basic_info", "{}")
+                try:
+                    basic_info = json.loads(basic_info_str) if isinstance(basic_info_str, str) else basic_info_str
+                except json.JSONDecodeError:
+                    basic_info = {} # Fallback if basic_info is not valid JSON string
+                
+                return {
+                    "person_id": r["person_id"],
+                    "name": r["name"],
+                    "person_type": props.get('person_type', 'child'),
+                    "role": props.get('role', 'patient'),
+                    "basic_info": basic_info,
+                    "created_at": str(r["created_at"])
+                }
+
+            # 2. 如果找不到，尝试查询 Graphiti 的 Entity 节点
             records, _, _ = await self.graphiti.driver.execute_query(
                 """
                 MATCH (p:Entity {uuid: $child_id})
@@ -800,15 +840,14 @@ class MemoryService:
             )
             
             if records:
-                record = records[0]
-                props = record['props']
+                r = records[0]
+                props = r['props']
                 
                 # 反序列化 basic_info
-                import json
                 basic_info_str = props.get('basic_info', '{}')
                 try:
                     basic_info = json.loads(basic_info_str) if isinstance(basic_info_str, str) else basic_info_str
-                except:
+                except json.JSONDecodeError:
                     basic_info = {}
                 
                 return {

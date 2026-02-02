@@ -166,26 +166,35 @@ export const ApiService = {
       content: msg.text || msg.content
     }));
 
+    const url = `${API_BASE_URL}/api/chat/message`;
+    const payload = {
+      message,
+      child_id: childId,
+      conversation_history: mappedHistory,
+    };
+
+    console.log(`%c[API Request] POST ${url}`, 'color: #3b82f6; font-weight: bold', payload);
+    const startTime = Date.now();
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/chat/message`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message,
-          child_id: childId,
-          conversation_history: mappedHistory,
-        }),
+        body: JSON.stringify(payload),
       });
+
+      const duration = Date.now() - startTime;
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error("Backend Error:", response.status, errText);
+        console.error(`%c[API Error] ${response.status} (${duration}ms)`, 'color: #ef4444; font-weight: bold', errText);
         throw new Error(`API Error: ${response.status}`);
       }
 
       const data: ChatResponse = await response.json();
+      console.log(`%c[API Response] 200 OK (${duration}ms)`, 'color: #10b981; font-weight: bold', data);
 
       let finalResponse = data.response;
 
@@ -215,7 +224,7 @@ export const ApiService = {
 
       return finalResponse;
     } catch (e) {
-      console.error("API Call Failed", e);
+      console.error("%c[API Call Failed]", 'color: #ef4444; font-weight: bold', e);
       throw e;
     }
   },
@@ -252,17 +261,26 @@ export const ApiService = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const res = await fetch(`${API_BASE_URL}/api/profile/import/image`, {
+    const url = `${API_BASE_URL}/api/profile/import/image`;
+    console.log(`%c[API Request] POST ${url} (File: ${file.name})`, 'color: #3b82f6; font-weight: bold');
+    const startTime = Date.now();
+
+    const res = await fetch(url, {
       method: 'POST',
       body: formData,
     });
 
+    const duration = Date.now() - startTime;
+
     if (!res.ok) {
       const err = await res.text();
+      console.error(`%c[API Error] ${res.status} (${duration}ms)`, 'color: #ef4444; font-weight: bold', err);
       throw new Error(err || 'Import failed');
     }
 
-    return await res.json();
+    const data = await res.json();
+    console.log(`%c[API Response] 200 OK (${duration}ms)`, 'color: #10b981; font-weight: bold', data);
+    return data;
   },
 
   async getGames(): Promise<Game[]> {
