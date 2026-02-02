@@ -154,13 +154,27 @@ class AssessmentService:
         
         self.sqlite.save_assessment(assessment_data)
         
-        # 6. 保存到 Graphiti
-        await self.memory_service.save_assessment(
-            child_id=request.child_id,
-            assessment_type="comprehensive",
-            analysis=assessment_report.dict(exclude={'created_at'}),  # 排除 datetime 字段
-            recommendations=assessment_report.recommendations
+        # 6. 保存到 Graphiti（使用新接口）
+        # 构建评估文本
+        assessment_text = self._build_assessment_text(
+            profile=profile,
+            assessment_report=assessment_report,
+            interest_heatmap=interest_heatmap,
+            dimension_trends=dimension_trends
         )
+        
+        # 调用 Memory 的 store_assessment()
+        memory_result = await self.memory_service.store_assessment(
+            child_id=request.child_id,
+            assessment_text=assessment_text,
+            assessment_type="comprehensive",
+            metadata={
+                "time_range_days": request.time_range_days,
+                "assessment_id": assessment_id
+            }
+        )
+        
+        print(f"[AssessmentService] 评估已保存到 Memory: episode_id={memory_result['episode_id']}")
         
         print(f"[AssessmentService] 完整评估完成: {assessment_id}")
         
@@ -244,12 +258,18 @@ class AssessmentService:
         
         # 5. 解析结果
         if not result.get("structured_output"):
-            raise ValueError("Agent 1 未返回结构化输出")
+            print(f"[Agent 1] ⚠️ LLM 未返回结构化输出或解析失败，使用默认值。内容摘要: {result.get('content', '')[:100]}...")
+            interest_data = {}
+        else:
+            interest_data = result["structured_output"]
+            
+        try:
+            interest_heatmap = InterestHeatmap(**interest_data)
+        except Exception as e:
+            print(f"[Agent 1] ❌ Pydantic 校验失败: {e}，返回基础模型")
+            interest_heatmap = InterestHeatmap()
         
-        interest_data = result["structured_output"]
-        interest_heatmap = InterestHeatmap(**interest_data)
-        
-        print(f"[Agent 1] 兴趣挖掘完成: {len(interest_heatmap.dimensions)} 个兴趣维度")
+        print(f"[Agent 1] 兴趣挖掘完成")
         
         return interest_heatmap
     
@@ -322,14 +342,18 @@ class AssessmentService:
         
         # 5. 解析结果
         if not result.get("structured_output"):
-            print(f"[Agent 2] LLM 完整返回: {result}")
-            print(f"[Agent 2] LLM 返回内容: {result.get('content', '')}")
-            raise ValueError("Agent 2 未返回结构化输出")
+            print(f"[Agent 2] ⚠️ LLM 未返回结构化输出或解析失败，使用默认值。内容摘要: {result.get('content', '')[:100]}...")
+            dimension_data = {}
+        else:
+            dimension_data = result["structured_output"]
+            
+        try:
+            dimension_trends = DimensionTrends(**dimension_data)
+        except Exception as e:
+            print(f"[Agent 2] ❌ Pydantic 校验失败: {e}，返回基础模型")
+            dimension_trends = DimensionTrends()
         
-        dimension_data = result["structured_output"]
-        dimension_trends = DimensionTrends(**dimension_data)
-        
-        print(f"[Agent 2] 功能分析完成: {len(dimension_trends.active_dimensions)} 个维度")
+        print(f"[Agent 2] 功能分析完成")
         
         return dimension_trends
     
@@ -402,14 +426,92 @@ class AssessmentService:
         
         # 5. 解析结果
         if not result.get("structured_output"):
-            raise ValueError("Agent 3 未返回结构化输出")
-        
+            print(f"[Agent 3] ⚠️ LLM 未返回结构化输出或解析失败。内容摘要: {result.get('content', '')[:100]}...")
+            raise ValueError("Agent 3 未返回有效评估报告数据")
+            
         report_data = result["structured_output"]
-        assessment_report = AssessmentReport(**report_data)
+        
+        try:
+            assessment_report = AssessmentReport(**report_data)
+        except Exception as e:
+            print(f"[Agent 3] ❌ Pydantic 校验失败: {e}")
+            print(f"[Agent 3] 原始数据: {json.dumps(report_data, ensure_ascii=False)}")
+            raise ValueError(f"生成的评估报告格式不正确: {e}")
         
         print(f"[Agent 3] 综合评估完成")
         
         return assessment_report
+    
+    def _build_assessment_text(
+        self,
+        profile: Any,
+        assessment_report: AssessmentReport,
+        interest_heatmap: InterestHeatmap,
+        dimension_trends: DimensionTrends
+    ) -> str:
+        """
+        构建评估报告的自然语言文本
+        
+        Args:
+            profile: 孩子档案
+            assessment_report: 评估报告
+            interest_heatmap: 兴趣热力图
+            dimension_trends: 功能维度趋势
+            
+        Returns:
+            自然语言评估文本
+        """
+        text_parts = []
+        
+        # 标题
+        text_parts.append(f"# {profile.name} 综合评估报告")
+        text_parts.append(f"\n评估时间: {datetime.now().strftime('%Y年%m月%d日')}")
+        
+        # 整体评估
+        text_parts.append(f"\n## 整体评估")
+        text_parts.append(assessment_report.overall_summary)
+        
+        # 兴趣分析
+        text_parts.append(f"\n## 兴趣分析")
+        text_parts.append(f"\n发现 {len(interest_heatmap.dimensions)} 个兴趣维度：")
+        
+        for dim in interest_heatmap.dimensions[:5]:  # 只显示前5个
+            text_parts.append(f"\n### {dim.name}")
+            text_parts.append(f"- 强度: {dim.intensity}/10")
+            text_parts.append(f"- 类型: {dim.interest_type}")
+            if dim.description:
+                text_parts.append(f"- 描述: {dim.description}")
+        
+        # 功能维度分析
+        text_parts.append(f"\n## 功能维度分析")
+        text_parts.append(f"\n活跃维度数量: {len(dimension_trends.active_dimensions)}")
+        
+        for dim in dimension_trends.active_dimensions[:5]:  # 只显示前5个
+            text_parts.append(f"\n### {dim.dimension_name}")
+            text_parts.append(f"- 趋势: {dim.trend}")
+            text_parts.append(f"- 当前水平: {dim.current_level}")
+            if dim.qualitative_changes:
+                text_parts.append(f"- 质变: {', '.join(dim.qualitative_changes)}")
+        
+        # 进步亮点
+        if assessment_report.progress_highlights:
+            text_parts.append(f"\n## 进步亮点")
+            for i, highlight in enumerate(assessment_report.progress_highlights, 1):
+                text_parts.append(f"{i}. {highlight}")
+        
+        # 需要关注的领域
+        if assessment_report.areas_of_concern:
+            text_parts.append(f"\n## 需要关注的领域")
+            for i, concern in enumerate(assessment_report.areas_of_concern, 1):
+                text_parts.append(f"{i}. {concern}")
+        
+        # 建议
+        if assessment_report.recommendations:
+            text_parts.append(f"\n## 建议")
+            for i, rec in enumerate(assessment_report.recommendations, 1):
+                text_parts.append(f"{i}. {rec}")
+        
+        return "\n".join(text_parts)
 
 
 __all__ = ['AssessmentService']

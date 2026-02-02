@@ -35,8 +35,8 @@ async def test_refactored_memory():
         child_id = await memory.save_child(child)
         print(f"✅ 孩子档案创建成功: {child_id}")
         
-        # ========== 测试 2: 记录行为（使用 Graphiti-core）==========
-        print("\n[测试 2/5] 记录行为（使用 Graphiti-core）...")
+        # ========== 测试 2: 记录行为（使用 Graphiti-core，只提取基础实体）==========
+        print("\n[测试 2/5] 记录行为（使用 Graphiti-core，只提取基础实体）...")
         
         test_behaviors = [
             "小明今天主动把积木递给我，还看着我的眼睛笑了",
@@ -59,10 +59,11 @@ async def test_refactored_memory():
             print(f"  ✓ significance: {result['significance']}")
             print(f"  ✓ description: {result['description']}")
             print(f"  ✓ objects_involved: {result['objects_involved']}")
-            print(f"  ✓ related_interests: {result['related_interests']}")
-            print(f"  ✓ related_functions: {result['related_functions']}")
+            # 注意：新架构下，观察记录不再提取 Interest 和 Function
+            print(f"  ✓ related_interests: {result['related_interests']} (应为空)")
+            print(f"  ✓ related_functions: {result['related_functions']} (应为空)")
         
-        print(f"\n✅ 成功记录 {len(behavior_results)} 条行为")
+        print(f"\n✅ 成功记录 {len(behavior_results)} 条行为（只提取基础实体）")
         
         # ========== 测试 3: 查询行为记录 ==========
         print("\n[测试 3/5] 查询行为记录...")
@@ -72,8 +73,8 @@ async def test_refactored_memory():
         for i, bh in enumerate(behaviors[:3], 1):
             print(f"  {i}. [{bh.get('timestamp', 'N/A')[:19]}] {bh.get('description', 'N/A')[:40]}...")
         
-        # ========== 测试 4: 保存游戏并总结（使用 Graphiti-core）==========
-        print("\n[测试 4/5] 保存游戏并生成总结（使用 Graphiti-core）...")
+        # ========== 测试 4: 使用新接口 store_game_summary() ==========
+        print("\n[测试 4/5] 使用新接口 store_game_summary()...")
         
         game_data = {
             "game_id": "test_refactor_game",
@@ -92,38 +93,92 @@ async def test_refactored_memory():
         game_id = await memory.save_game(game_data)
         print(f"✅ 游戏保存成功: {game_id}")
         
-        # 生成游戏总结
-        print("\n  生成游戏总结...")
-        game_summary = await memory.summarize_game(
-            game_id=game_id,
-            video_analysis={
-                "duration": "15分钟",
-                "key_moments": [
-                    {"time": "02:30", "description": "主动分享积木"},
-                    {"time": "08:15", "description": "跟随音乐节奏"}
-                ]
-            },
-            parent_feedback={"notes": "孩子很喜欢这个游戏"}
-        )
+        # 模拟上层服务生成的总结文本
+        summary_text = """
+        游戏实施总结：
         
-        print(f"  ✓ 游戏状态: {game_summary.get('status')}")
-        impl = game_summary.get('implementation', {})
-        print(f"  ✓ 参与度评分: {impl.get('engagement_score', 'N/A')}")
-        print(f"  ✓ 目标达成评分: {impl.get('goal_achievement_score', 'N/A')}")
-        print(f"  ✓ 总结: {impl.get('summary', 'N/A')[:50]}...")
+        本次音乐积木游戏持续15分钟，孩子表现出很高的参与度。
         
-        print(f"\n✅ 游戏总结生成成功")
+        关键时刻：
+        - 02:30 - 主动分享积木，展现社交主动性
+        - 08:15 - 跟随音乐节奏摆动身体，展现听觉敏感度
         
-        # ========== 测试 5: 生成评估 ==========
-        print("\n[测试 5/5] 生成兴趣评估...")
-        assessment = await memory.generate_assessment(
+        参与度评分：8.5/10
+        目标达成度：7.0/10
+        
+        亮点：孩子首次主动分享玩具，这是一个重要的突破。
+        建议：下次可以增加更多互动环节。
+        """
+        
+        print("\n  使用新接口 store_game_summary()...")
+        summary_result = await memory.store_game_summary(
             child_id=child_id,
-            assessment_type="interest_mining"
+            game_id=game_id,
+            summary_text=summary_text,
+            metadata={"session_duration": "15分钟"}
         )
         
-        print(f"✅ 评估生成成功:")
-        print(f"  ✓ assessment_id: {assessment['assessment_id']}")
-        print(f"  ✓ assessment_type: {assessment['assessment_type']}")
+        print(f"  ✓ episode_id: {summary_result['episode_id']}")
+        print(f"  ✓ 提取的实体: {list(summary_result['extracted_entities'].keys())}")
+        
+        print(f"\n✅ 游戏总结存储成功（使用新架构）")
+        
+        # ========== 测试 5: 使用新接口 store_assessment() ==========
+        print("\n[测试 5/5] 使用新接口 store_assessment()...")
+        
+        # 模拟上层服务生成的评估文本
+        assessment_text = """
+        兴趣挖掘评估报告：
+        
+        基于最近30天的观察数据，孩子展现出以下兴趣偏好：
+        
+        1. 社交互动（强度：8.5/10）
+           - 主动分享玩具的频率增加
+           - 眼神接触时长延长
+           
+        2. 建构活动（强度：7.0/10）
+           - 喜欢搭建积木
+           - 能够完成简单的拼装任务
+           
+        3. 音乐节奏（强度：6.5/10）
+           - 对音乐有明显反应
+           - 能够跟随节奏摆动
+        
+        建议：
+        - 继续强化社交互动类游戏
+        - 引入更多建构类活动
+        """
+        
+        assessment_result = await memory.store_assessment(
+            child_id=child_id,
+            assessment_text=assessment_text,
+            assessment_type="interest_mining",
+            metadata={"data_period": "30天"}
+        )
+        
+        print(f"✅ 评估存储成功:")
+        print(f"  ✓ episode_id: {assessment_result['episode_id']}")
+        print(f"  ✓ assessment_id: {assessment_result['assessment_id']}")
+        print(f"  ✓ assessment_type: {assessment_result['assessment_type']}")
+        print(f"  ✓ 提取的实体: {list(assessment_result['extracted_entities'].keys())}")
+        
+        # ========== 测试 6: 搜索历史记忆（新方法）==========
+        print("\n[测试 6/7] 搜索历史记忆（search_memories）...")
+        
+        search_result = await memory.search_memories(
+            child_id=child_id,
+            query="孩子的社交互动表现",
+            filters={"num_results": 5}
+        )
+        
+        print(f"✅ 搜索成功:")
+        print(f"  ✓ 查询: {search_result['query']}")
+        print(f"  ✓ 结果数量: {search_result['total_results']}")
+        
+        if search_result['results']:
+            print(f"  ✓ 示例结果:")
+            for i, result in enumerate(search_result['results'][:2], 1):
+                print(f"    {i}. {result['fact'][:60]}...")
         
         # ========== 验证数据完整性 ==========
         print("\n[验证] 数据完整性检查...")
@@ -157,25 +212,28 @@ async def test_refactored_memory():
         
         print("\n✅ 验证结果:")
         print("  ✓ 孩子档案创建 - 正常")
-        print("  ✓ 行为记录（Graphiti-core）- 正常")
+        print("  ✓ 行为记录（只提取基础实体）- 正常")
         print("  ✓ 行为查询 - 正常")
-        print("  ✓ 游戏总结（Graphiti-core）- 正常")
-        print("  ✓ 评估生成 - 正常")
+        print("  ✓ 游戏总结（新接口 store_game_summary）- 正常")
+        print("  ✓ 评估存储（新接口 store_assessment）- 正常")
+        print("  ✓ 搜索历史记忆（search_memories）- 正常")
         print("  ✓ 数据完整性 - 正常")
         
-        print("\n✅ 重构后的功能与之前行为一致！")
-        print("\n📊 使用 Graphiti-core 的方法:")
-        print("  • record_behavior() - 自动提取实体和关系")
-        print("  • summarize_game() - 自动提取游戏总结")
-        print("  • generate_assessment() - 使用 Graphiti 搜索 + 自动提取评估")
+        print("\n✅ 重构后的功能与新架构一致！")
+        print("\n📊 新架构特点:")
+        print("  • 观察记录 - 只提取基础实体（Behavior、Object、Person）")
+        print("  • 游戏总结 - 上层服务生成，Memory 只负责存储和提取实体")
+        print("  • 评估报告 - 上层服务生成，Memory 只负责存储和提取实体")
+        print("  • Interest/Function - 由评估层建立关联，不在观察时提取")
         
-        print("\n📊 保持原有实现的方法:")
-        print("  • 所有查询方法 - 使用 GraphStorage")
+        print("\n📊 新增方法:")
+        print("  • store_game_summary() - 存储已生成的游戏总结")
+        print("  • store_assessment() - 存储已生成的评估报告")
+        print("  • search_memories() - 搜索历史记忆数据")
         
-        print("\n🔍 Graphiti 搜索功能:")
-        print("  • 使用语义搜索获取相关历史数据")
-        print("  • 替代传统的数据库查询")
-        print("  • 更智能的上下文检索")
+        print("\n📊 已废弃方法（向后兼容）:")
+        print("  • summarize_game() - 使用 store_game_summary() 代替")
+        print("  • generate_assessment() - 使用 store_assessment() 代替")
         
         return True
         

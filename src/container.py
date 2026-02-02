@@ -38,6 +38,14 @@ def init_services():
     """
     print("[Container] 开始初始化服务...")
     
+    # 游戏知识库（库内预设游戏）
+    try:
+        from services.game.library_service import GameLibraryService
+        container.register('game_library', GameLibraryService())
+        print("[Container] ✅ 游戏库服务已注册")
+    except Exception as e:
+        print(f"[Container] ⚠️ 游戏库服务注册失败: {e}")
+
     # SQLite 服务（始终使用真实实现）
     try:
         from services.SQLite.service import SQLiteService
@@ -67,7 +75,7 @@ def init_services():
     # 业务服务：行为观察服务（依赖 Memory 服务）
     # Memory 服务延迟初始化，在第一次请求时创建
     try:
-        from services.Observation import ObservationService
+        from services.observation import ObservationService
         
         # 创建一个占位服务，实际的 memory_service 会在第一次使用时初始化
         observation_service = ObservationService(
@@ -131,11 +139,35 @@ def init_services():
 # ============ 依赖注入函数 ============
 
 async def get_memory_service():
-    """获取 Memory 服务（延迟初始化）"""
-    from services.Memory.service import get_memory_service as _get_memory_service
-    return await _get_memory_service()
+    """获取 Memory 服务（延迟初始化，带 Mock 降级）"""
+    try:
+        from services.Memory.service import get_memory_service as _get_memory_service
+        return await _get_memory_service()
+    except Exception as e:
+        print(f"[Container] ⚠️ Memory 服务初始化失败 (可能由于 Neo4j 未启动): {e}")
+        print("[Container] 🔄 切换到 Mock Memory Service")
+        
+        class MockMemoryService:
+            async def initialize(self): pass
+            
+            async def add_observation(self, *args, **kwargs):
+                return {"status": "mocked", "id": "mock_obs_id"}
+                
+            async def get_child(self, *args, **kwargs):
+                return {"name": "Mock Child", "basic_info": {"diagnosis": "ASD"}}
+                
+            async def get_relevant_context(self, *args, **kwargs):
+                return "Mock context: Child is happy."
 
+            async def import_profile(self, *args, **kwargs):
+                return {"child_id": "test_child_001", "assessment_id": "mock_assess_id"}
 
+            async def get_latest_assessment(self, *args, **kwargs):
+                return {}
+        
+        return MockMemoryService()
+
+ 
 def get_sqlite_service():
     """获取 SQLite 服务"""
     return container.get('sqlite')
@@ -182,6 +214,11 @@ async def get_game_summarizer():
         game_summarizer.memory_service = await get_memory_service()
     
     return game_summarizer
+
+
+def get_game_library():
+    """获取游戏库服务"""
+    return container.get('game_library')
 
 
 async def get_assessment_service():

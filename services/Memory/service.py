@@ -208,12 +208,10 @@ class MemoryService:
         if not self.config.enable_llm:
             raise ValueError("LLM 功能未启用，无法解析行为记录")
         
-        # 1. 定义实体类型
+        # 1. 定义实体类型（只提取基础实体）
         entity_types = {
             'Behavior': BehaviorEntityModel,
             'Object': ObjectEntityModel,
-            'Interest': InterestEntityModel,
-            'Function': FunctionEntityModel,
             'Person': PersonEntityModel,
         }
         
@@ -221,8 +219,6 @@ class MemoryService:
         edge_types = {
             '展现': ExhibitEdgeModel,
             '涉及对象': InvolveObjectEdgeModel,
-            '体现兴趣': ShowInterestEdgeModel,
-            '体现功能': ShowFunctionEdgeModel,
             '涉及人物': InvolvePersonEdgeModel,
         }
         
@@ -230,8 +226,6 @@ class MemoryService:
         edge_type_map = {
             ('Person', 'Behavior'): ['展现'],
             ('Behavior', 'Object'): ['涉及对象'],
-            ('Behavior', 'Interest'): ['体现兴趣'],
-            ('Behavior', 'Function'): ['体现功能'],
             ('Behavior', 'Person'): ['涉及人物'],
         }
         
@@ -276,6 +270,8 @@ class MemoryService:
         parent_feedback: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
+        [DEPRECATED] 使用 store_game_summary() 代替
+        
         地板游戏总结 - 使用 Graphiti-core 自动提取游戏总结
         
         调用方：游戏总结模块
@@ -288,6 +284,13 @@ class MemoryService:
         Returns:
             GameNode（字典格式）
         """
+        import warnings
+        warnings.warn(
+            "summarize_game() is deprecated. Use store_game_summary() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         if not self.config.enable_llm:
             raise ValueError("LLM 功能未启用，无法生成游戏总结")
         
@@ -337,12 +340,110 @@ class MemoryService:
         updated_game = await self.storage.get_game(game_id)
         return updated_game
     
+    async def store_game_summary(
+        self,
+        child_id: str,
+        game_id: str,
+        summary_text: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        存储游戏总结 - 从上层服务接收已生成的总结文本
+        
+        Memory Service 只负责：
+        1. 接收总结文本
+        2. 提取实体（GameSummary, KeyBehavior, Interest, Function）
+        3. 存储到图数据库
+        
+        Args:
+            child_id: 孩子ID
+            game_id: 游戏ID
+            summary_text: 已生成的游戏总结文本（自然语言）
+            metadata: 可选元数据（如：参与度评分、目标达成度等）
+        
+        Returns:
+            {
+                "episode_id": "...",
+                "game_id": "...",
+                "child_id": "...",
+                "extracted_entities": {...}
+            }
+        """
+        if not self.config.enable_llm:
+            raise ValueError("LLM 功能未启用，无法提取实体")
+        
+        # 1. 定义实体类型（包含 Interest 和 Function，由评估层建立关联）
+        entity_types = {
+            'GameSummary': GameSummaryEntityModel,
+            'KeyBehavior': KeyBehaviorEntityModel,
+            'Interest': InterestEntityModel,
+            'Function': FunctionEntityModel,
+        }
+        
+        # 2. 定义边类型（评估层会建立 Behavior -> Interest/Function 的关系）
+        edge_types = {
+            '体现兴趣': ShowInterestEdgeModel,
+            '体现功能': ShowFunctionEdgeModel,
+        }
+        
+        edge_type_map = {
+            ('KeyBehavior', 'Interest'): ['体现兴趣'],
+            ('KeyBehavior', 'Function'): ['体现功能'],
+        }
+        
+        # 3. 使用 Graphiti-core 自动提取
+        result = await self.graphiti.add_episode(
+            name=f"游戏总结_{game_id}",
+            episode_body=summary_text,
+            source_description="游戏实施总结",
+            reference_time=datetime.now(timezone.utc),
+            source=EpisodeType.text,
+            group_id=child_id,
+            entity_types=entity_types,
+            edge_types=edge_types,
+            edge_type_map=edge_type_map,
+            custom_extraction_instructions=GAME_SUMMARY_EXTRACTION_INSTRUCTIONS,
+        )
+        
+        # 4. 提取总结数据
+        summary_data = extract_summary_data(result)
+        
+        # 5. 如果提供了元数据，合并
+        if metadata:
+            summary_data.update(metadata)
+        
+        # 6. 更新游戏节点（如果需要）
+        try:
+            game = await self.storage.get_game(game_id)
+            if game:
+                updates = {
+                    "status": "completed",
+                    "implementation": {
+                        **game.get("implementation", {}),
+                        **summary_data
+                    }
+                }
+                await self.storage.update_game(game_id, updates)
+        except Exception as e:
+            print(f"[store_game_summary] 更新游戏节点失败: {e}")
+        
+        # 7. 返回结果
+        return {
+            "episode_id": result.episode.uuid,
+            "game_id": game_id,
+            "child_id": child_id,
+            "extracted_entities": summary_data,
+            "timestamp": result.episode.valid_at.isoformat()
+        }
+    
     async def generate_assessment(
         self,
         child_id: str,
         assessment_type: str
     ) -> Dict[str, Any]:
         """
+        [DEPRECATED] 使用 store_assessment() 代替
+        
         孩子评估总结 - 使用 Graphiti-core 搜索和提取
         
         调用方：评估模块
@@ -354,6 +455,13 @@ class MemoryService:
         Returns:
             AssessmentNode（字典格式）
         """
+        import warnings
+        warnings.warn(
+            "generate_assessment() is deprecated. Use store_assessment() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         if not self.config.enable_llm:
             raise ValueError("LLM 功能未启用，无法生成评估")
         
@@ -464,19 +572,95 @@ class MemoryService:
             "recommendations": assessment_data.get("recommendations", [])
         }
     
+    async def store_assessment(
+        self,
+        child_id: str,
+        assessment_text: str,
+        assessment_type: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        存储评估报告 - 从上层服务接收已生成的评估文本
+        
+        Memory Service 只负责：
+        1. 接收评估文本
+        2. 提取实体（Assessment, Interest, Function）
+        3. 建立 Behavior -> Interest/Function 的关系
+        4. 存储到图数据库
+        
+        Args:
+            child_id: 孩子ID
+            assessment_text: 已生成的评估报告文本（自然语言）
+            assessment_type: 评估类型（interest_mining/function_trend/comprehensive）
+            metadata: 可选元数据
+        
+        Returns:
+            {
+                "episode_id": "...",
+                "assessment_id": "...",
+                "child_id": "...",
+                "extracted_entities": {...}
+            }
+        """
+        if not self.config.enable_llm:
+            raise ValueError("LLM 功能未启用，无法提取实体")
+        
+        # 1. 定义实体类型
+        entity_types = {
+            'Assessment': AssessmentEntityModel,
+            'Interest': InterestEntityModel,
+            'Function': FunctionEntityModel,
+        }
+        
+        # 2. 定义边类型（评估会建立 Behavior -> Interest/Function 的关系）
+        edge_types = {
+            '体现兴趣': ShowInterestEdgeModel,
+            '体现功能': ShowFunctionEdgeModel,
+        }
+        
+        edge_type_map = {
+            ('Behavior', 'Interest'): ['体现兴趣'],
+            ('Behavior', 'Function'): ['体现功能'],
+        }
+        
+        # 3. 使用 Graphiti-core 自动提取
+        result = await self.graphiti.add_episode(
+            name=f"评估_{assessment_type}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+            episode_body=assessment_text,
+            source_description=f"{assessment_type} 评估",
+            reference_time=datetime.now(timezone.utc),
+            source=EpisodeType.text,
+            group_id=child_id,
+            entity_types=entity_types,
+            edge_types=edge_types,
+            edge_type_map=edge_type_map,
+            custom_extraction_instructions=ASSESSMENT_EXTRACTION_INSTRUCTIONS,
+        )
+        
+        # 4. 提取评估数据
+        assessment_data = extract_assessment_data(result)
+        
+        # 5. 如果提供了元数据，合并
+        if metadata:
+            assessment_data.update(metadata)
+        
+        # 6. 返回结果（只使用 Graphiti 管理的节点）
+        return {
+            "episode_id": result.episode.uuid,
+            "assessment_id": result.episode.uuid,  # 使用 episode uuid 作为 assessment_id
+            "child_id": child_id,
+            "assessment_type": assessment_type,
+            "extracted_entities": assessment_data,
+            "timestamp": result.episode.valid_at.isoformat()
+        }
+    
     async def import_profile(
         self,
         profile_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        导入档案 - LLM 解析档案数据 → 创建档案节点 + 初始评估
-        
-        调用方：导入模块
-        
-        Args:
-            profile_data: 档案数据（文字，包含基本信息、医学报告、量表等）
-        
-        Returns:
+        从结构化数据导入档案，并生成初始评估
+        返回结构：
             {
                 "child_id": "...",
                 "assessment_id": "...",
@@ -493,9 +677,10 @@ class MemoryService:
         medical_reports = profile_data.get("medical_reports", "")
         assessment_scales = profile_data.get("assessment_scales", "")
         
-        # 2. 创建孩子档案节点
+        # 2. 生成 child_id
         child_id = f"child_{uuid.uuid4().hex[:12]}"
         
+        # 2.1 创建 Person 节点 (保持传统兼容性)
         child = Person(
             person_id=child_id,
             person_type="child",
@@ -510,38 +695,65 @@ class MemoryService:
             created_at=datetime.now(timezone.utc).isoformat()
         )
         
+        print(f"[MemoryService] 正在为 {name} 创建 Person 节点 (child_id: {child_id})...")
         await self.storage.create_person(child)
+        print(f"[MemoryService] Person 节点创建成功")
+
+        # 3. 构建档案文本（用于 Graphiti 存储，方便 RAG 提取）
+        profile_text = f"""
+# 孩子档案导入
+
+## 基本信息
+- 姓名：{name}
+- 年龄：{age}
+- 诊断：{diagnosis}
+- 档案ID：{child_id}
+
+## 医学报告
+{medical_reports}
+
+## 评估量表
+{assessment_scales}
+
+这是一份新导入的儿童档案，包含了孩子的基本信息、医学报告和评估量表数据。
+"""
         
-        # 3. 构建 Output Schema
+        # 4. 使用 Graphiti-core 存储档案（自动提取实体和关系）
+        print(f"[MemoryService] 正在将档案存储到 Graphiti...")
+        graphiti_result = await self.graphiti.add_episode(
+            name=f"档案导入_{name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+            episode_body=profile_text,
+            source_description=f"档案导入 - {name}",
+            reference_time=datetime.now(timezone.utc),
+            group_id=child_id
+        )
+        print(f"[Memory] 档案已存储到 Graphiti: episode_id={graphiti_result.episode.uuid}")
+
+        # 5. 构建 Output Schema
         output_schema = pydantic_to_json_schema(
             model=ProfileImportOutput,
             schema_name="ProfileImportOutput",
             description="档案导入分析结果"
         )
         
-        # 4. 构建 LLM Prompt（解析档案，生成初始评估）
+        # 6. 构建 LLM Prompt（解析档案，生成初始评估）
         prompt = f"""请分析以下儿童档案，生成初始评估报告。
 
-【基本信息】
-姓名：{name}
-年龄：{age}
-诊断：{diagnosis}
-
-【医学报告】
-{medical_reports}
-
-【评估量表】
-{assessment_scales}
-
-【任务】
-1. 分析孩子的当前状况
+## 目标
+1. 提取孩子的基本发展现况（FEDC 分级参考）
 2. 识别优势领域和挑战领域
 3. 提取关键的兴趣偏好（如果有）
 4. 提取关键的功能维度表现（如果有）
 5. 生成初步的干预建议
+
+## 档案内容
+{profile_text}
+
+请根据以上信息，输出符合 Schema 要求的 JSON 结果。
 """
         
-        # 5. 调用 LLM
+        # 7. 调用 LLM
+        print(f"[MemoryService] 开始调用 LLM 解析档案...")
         result = await self.llm_service.call(
             system_prompt="你是一个专业的 ASD 儿童档案分析师。",
             user_message=prompt,
@@ -550,28 +762,38 @@ class MemoryService:
             max_tokens=2500
         )
         
-        # 6. 获取结构化输出
+        # 8. 获取结构化输出
         if not result.get("structured_output"):
+            print(f"[MemoryService] LLM 未返回结构化输出，内容: {result.get('content', '')[:200]}...")
             raise ValueError("LLM 未返回结构化输出")
         
         initial_assessment = result["structured_output"]
+        print(f"[MemoryService] LLM 解析成功: {json.dumps(initial_assessment, ensure_ascii=False)[:200]}...")
         
-        # 7. 创建初始评估节点
+        # 9. 创建初始评估节点
         assessment_id = f"assess_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        print(f"[MemoryService] 创建初始评估节点 (assessment_id: {assessment_id})...")
         
         assessment = ChildAssessment(
             assessment_id=assessment_id,
             child_id=child_id,
-            assessor_id="system_llm",
-            timestamp=datetime.now(timezone.utc).isoformat(),
-            assessment_type="comprehensive",
-            analysis=initial_assessment,
-            recommendations=initial_assessment.get("recommendations", [])
+            assessment_type="initial",
+            summary=initial_assessment.get("summary", ""),
+            strengths=initial_assessment.get("strengths", []),
+            challenges=initial_assessment.get("challenges", []),
+            fedc_level=initial_assessment.get("fedc_level"),
+            dimension_scores=initial_assessment.get("dimension_scores", {}),
+            interests=initial_assessment.get("interests", []),
+            recommendations=initial_assessment.get("recommendations", []),
+            created_at=datetime.now(timezone.utc).isoformat(),
+            metadata={"source": "profile_import"}
         )
         
         await self.storage.create_assessment(assessment)
+        print(f"[MemoryService] 初始评估节点创建成功")
         
-        # 8. 创建关系：孩子 -> 评估
+        # 10. 创建关系：孩子 -> 评估
+        print(f"[MemoryService] 创建接受评估关系...")
         await self.storage.create_relationship(
             from_id=child_id,
             from_label="Person",
@@ -579,8 +801,9 @@ class MemoryService:
             to_label="ChildAssessment",
             rel_type="接受评估"
         )
+        print(f"[MemoryService] 关系创建成功")
         
-        # 9. 返回结果
+        # 11. 返回结果
         return {
             "child_id": child_id,
             "assessment_id": assessment_id,
@@ -593,10 +816,41 @@ class MemoryService:
     
     async def get_child(self, child_id: str) -> Optional[Dict[str, Any]]:
         """
-        获取孩子档案 - 使用 Graphiti 原生查询
+        获取孩子档案 - 同时兼容原有 Person 节点和 Graphiti Entity 节点
         """
         try:
-            # 直接使用 Graphiti driver 查询
+            import json
+            # 1. 首先尝试查询原有的 Person 节点
+            records, _, _ = await self.graphiti.driver.execute_query(
+                """
+                MATCH (p:Person {person_id: $child_id})
+                RETURN p.person_id AS person_id,
+                       p.name AS name,
+                       properties(p) AS props,
+                       p.created_at AS created_at
+                """,
+                child_id=child_id
+            )
+            
+            if records:
+                r = records[0]
+                props = r["props"]
+                basic_info_str = props.get("basic_info", "{}")
+                try:
+                    basic_info = json.loads(basic_info_str) if isinstance(basic_info_str, str) else basic_info_str
+                except json.JSONDecodeError:
+                    basic_info = {} # Fallback if basic_info is not valid JSON string
+                
+                return {
+                    "person_id": r["person_id"],
+                    "name": r["name"],
+                    "person_type": props.get('person_type', 'child'),
+                    "role": props.get('role', 'patient'),
+                    "basic_info": basic_info,
+                    "created_at": str(r["created_at"])
+                }
+
+            # 2. 如果找不到，尝试查询 Graphiti 的 Entity 节点
             records, _, _ = await self.graphiti.driver.execute_query(
                 """
                 MATCH (p:Entity {uuid: $child_id})
@@ -610,15 +864,14 @@ class MemoryService:
             )
             
             if records:
-                record = records[0]
-                props = record['props']
+                r = records[0]
+                props = r['props']
                 
                 # 反序列化 basic_info
-                import json
                 basic_info_str = props.get('basic_info', '{}')
                 try:
                     basic_info = json.loads(basic_info_str) if isinstance(basic_info_str, str) else basic_info_str
-                except:
+                except json.JSONDecodeError:
                     basic_info = {}
                 
                 return {
@@ -1104,7 +1357,10 @@ class MemoryService:
         recommendations: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        保存评估结果 - 使用 Graphiti 原生存储
+        保存评估结果 - 只使用 Graphiti Episode
+        
+        注意：此方法用于直接保存结构化的评估数据。
+        如果有自然语言评估文本，应使用 store_assessment()。
         
         Args:
             child_id: 孩子ID
@@ -1113,39 +1369,30 @@ class MemoryService:
             recommendations: 建议（可选）
             
         Returns:
-            assessment_id
+            assessment_id (episode_uuid)
         """
         try:
-            from graphiti_core.nodes import EntityNode
+            # 构建评估文本
             import json
+            assessment_text = f"""
+评估类型：{assessment_type}
+
+分析结果：
+{json.dumps(analysis, ensure_ascii=False, indent=2)}
+
+建议：
+{json.dumps(recommendations or {}, ensure_ascii=False, indent=2)}
+"""
             
-            assessment_id = f"assess_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
-            
-            # 创建评估实体节点
-            assessment_node = EntityNode(
-                uuid=assessment_id,
-                name=f"{assessment_type} 评估",
-                group_id=child_id,
-                labels=['ChildAssessment', 'Assessment'],
-                attributes={
-                    'assessment_id': assessment_id,
-                    'child_id': child_id,
-                    'assessor_id': 'system_llm',
-                    'timestamp': datetime.now(timezone.utc).isoformat(),
-                    'assessment_type': assessment_type,
-                    'analysis': json.dumps(analysis),  # 序列化
-                    'recommendations': json.dumps(recommendations or {})  # 序列化
-                },
-                created_at=datetime.now(timezone.utc)
+            # 使用 store_assessment 存储
+            result = await self.store_assessment(
+                child_id=child_id,
+                assessment_text=assessment_text,
+                assessment_type=assessment_type,
+                metadata={"analysis": analysis, "recommendations": recommendations}
             )
             
-            # 生成 embedding
-            await assessment_node.generate_name_embedding(self.graphiti.embedder)
-            
-            # 保存到图数据库
-            await assessment_node.save(self.graphiti.driver)
-            
-            return assessment_id
+            return result["assessment_id"]
             
         except Exception as e:
             print(f"[save_assessment] 保存失败: {e}")
@@ -1157,7 +1404,7 @@ class MemoryService:
         assessment_type: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """
-        获取最新评估 - 使用 Graphiti 原生查询
+        获取最新评估 - 只查询 Graphiti Entity 节点
         
         Args:
             child_id: 孩子ID
@@ -1167,63 +1414,88 @@ class MemoryService:
             最新评估数据（AssessmentNode 字典格式）
         """
         try:
-            # 构建查询条件
-            type_filter = ""
-            params = {"child_id": child_id}
+            # 查询 Episodic 节点（评估存储为 Episode）
+            from graphiti_core.nodes import EpisodicNode
             
-            if assessment_type:
-                type_filter = "AND props.assessment_type = $assessment_type"
-                params["assessment_type"] = assessment_type
+            # 获取所有评估类型的 episodes
+            episodes = await EpisodicNode.get_by_group_ids(
+                self.graphiti.driver,
+                group_ids=[child_id],
+                limit=100  # 获取足够多的记录用于筛选
+            )
             
+            # 筛选评估类型的 episodes
+            assessment_episodes = []
+            for episode in episodes:
+                # 检查 episode 名称是否包含"评估"
+                if "评估" in episode.name:
+                    # 如果指定了评估类型，进一步筛选
+                    if assessment_type:
+                        if assessment_type in episode.name:
+                            assessment_episodes.append(episode)
+                    else:
+                        assessment_episodes.append(episode)
+            
+            if not assessment_episodes:
+                return None
+            
+            # 按时间排序，获取最新的
+            latest_episode = max(assessment_episodes, key=lambda e: e.valid_at)
+            
+            # 查询关联的实体，提取评估数据
             records, _, _ = await self.graphiti.driver.execute_query(
-                f"""
-                MATCH (a:Entity {{group_id: $child_id}})
-                WHERE 'ChildAssessment' IN labels(a)
-                WITH a, properties(a) AS props
-                WHERE true {type_filter}
-                RETURN a.uuid AS assessment_id,
-                       a.name AS name,
-                       props,
-                       a.created_at AS created_at
-                ORDER BY a.created_at DESC
+                """
+                MATCH (e:Episodic {uuid: $episode_uuid})-[:MENTIONS]->(entity:Entity)
+                WHERE 'Assessment' IN labels(entity)
+                RETURN entity.uuid AS entity_uuid,
+                       entity.name AS name,
+                       properties(entity) AS props
                 LIMIT 1
                 """,
-                **params
+                episode_uuid=latest_episode.uuid
             )
             
             if records:
                 record = records[0]
                 props = record['props']
                 
-                import json
-                # 反序列化嵌套对象
-                analysis = props.get('analysis', '{}')
-                recommendations = props.get('recommendations', '{}')
-                
-                try:
-                    analysis = json.loads(analysis) if isinstance(analysis, str) else analysis
-                except:
-                    analysis = {}
-                
-                try:
-                    recommendations = json.loads(recommendations) if isinstance(recommendations, str) else recommendations
-                except:
-                    recommendations = {}
+                # 从 episode 内容中提取评估类型
+                episode_assessment_type = assessment_type
+                if not episode_assessment_type:
+                    if "interest_mining" in latest_episode.name:
+                        episode_assessment_type = "interest_mining"
+                    elif "trend_analysis" in latest_episode.name or "function_trend" in latest_episode.name:
+                        episode_assessment_type = "trend_analysis"
+                    elif "comprehensive" in latest_episode.name:
+                        episode_assessment_type = "comprehensive"
+                    else:
+                        episode_assessment_type = "unknown"
                 
                 return {
-                    "assessment_id": record['assessment_id'],
-                    "child_id": props.get('child_id', ''),
-                    "assessor_id": props.get('assessor_id', ''),
-                    "timestamp": props.get('timestamp', ''),
-                    "assessment_type": props.get('assessment_type', ''),
-                    "analysis": analysis,
-                    "recommendations": recommendations
+                    "assessment_id": latest_episode.uuid,
+                    "child_id": child_id,
+                    "assessor_id": "system_llm",
+                    "timestamp": latest_episode.valid_at.isoformat(),
+                    "assessment_type": episode_assessment_type,
+                    "analysis": props,  # 实体属性作为分析结果
+                    "recommendations": props.get("recommendations", [])
                 }
             
-            return None
+            # 如果没有找到 Assessment 实体，返回 episode 基本信息
+            return {
+                "assessment_id": latest_episode.uuid,
+                "child_id": child_id,
+                "assessor_id": "system_llm",
+                "timestamp": latest_episode.valid_at.isoformat(),
+                "assessment_type": assessment_type or "unknown",
+                "analysis": {"content": latest_episode.content},
+                "recommendations": []
+            }
             
         except Exception as e:
             print(f"[get_latest_assessment] 查询失败: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     async def get_assessment_history(
@@ -1233,7 +1505,7 @@ class MemoryService:
         limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
-        获取评估历史 - 使用 Graphiti 原生查询
+        获取评估历史 - 只查询 Graphiti Episodic 节点
         
         Args:
             child_id: 孩子ID
@@ -1244,63 +1516,60 @@ class MemoryService:
             评估历史列表
         """
         try:
-            # 构建查询条件
-            type_filter = ""
-            params = {"child_id": child_id, "limit": limit}
+            from graphiti_core.nodes import EpisodicNode
             
-            if assessment_type:
-                type_filter = "AND props.assessment_type = $assessment_type"
-                params["assessment_type"] = assessment_type
-            
-            records, _, _ = await self.graphiti.driver.execute_query(
-                f"""
-                MATCH (a:Entity {{group_id: $child_id}})
-                WHERE 'ChildAssessment' IN labels(a)
-                WITH a, properties(a) AS props
-                WHERE true {type_filter}
-                RETURN a.uuid AS assessment_id,
-                       a.name AS name,
-                       props,
-                       a.created_at AS created_at
-                ORDER BY a.created_at DESC
-                LIMIT $limit
-                """,
-                **params
+            # 获取所有 episodes
+            episodes = await EpisodicNode.get_by_group_ids(
+                self.graphiti.driver,
+                group_ids=[child_id],
+                limit=limit * 3  # 获取更多记录用于筛选
             )
             
+            # 筛选评估类型的 episodes
+            assessment_episodes = []
+            for episode in episodes:
+                if "评估" in episode.name:
+                    if assessment_type:
+                        if assessment_type in episode.name:
+                            assessment_episodes.append(episode)
+                    else:
+                        assessment_episodes.append(episode)
+            
+            # 按时间排序
+            assessment_episodes.sort(key=lambda e: e.valid_at, reverse=True)
+            assessment_episodes = assessment_episodes[:limit]
+            
+            # 构建返回结果
             assessments = []
-            for record in records:
-                props = record['props']
-                
-                import json
-                # 反序列化嵌套对象
-                analysis = props.get('analysis', '{}')
-                recommendations = props.get('recommendations', '{}')
-                
-                try:
-                    analysis = json.loads(analysis) if isinstance(analysis, str) else analysis
-                except:
-                    analysis = {}
-                
-                try:
-                    recommendations = json.loads(recommendations) if isinstance(recommendations, str) else recommendations
-                except:
-                    recommendations = {}
+            for episode in assessment_episodes:
+                # 从 episode 名称推断评估类型
+                episode_assessment_type = assessment_type
+                if not episode_assessment_type:
+                    if "interest_mining" in episode.name:
+                        episode_assessment_type = "interest_mining"
+                    elif "trend_analysis" in episode.name or "function_trend" in episode.name:
+                        episode_assessment_type = "trend_analysis"
+                    elif "comprehensive" in episode.name:
+                        episode_assessment_type = "comprehensive"
+                    else:
+                        episode_assessment_type = "unknown"
                 
                 assessments.append({
-                    "assessment_id": record['assessment_id'],
-                    "child_id": props.get('child_id', ''),
-                    "assessor_id": props.get('assessor_id', ''),
-                    "timestamp": props.get('timestamp', ''),
-                    "assessment_type": props.get('assessment_type', ''),
-                    "analysis": analysis,
-                    "recommendations": recommendations
+                    "assessment_id": episode.uuid,
+                    "child_id": child_id,
+                    "assessor_id": "system_llm",
+                    "timestamp": episode.valid_at.isoformat(),
+                    "assessment_type": episode_assessment_type,
+                    "analysis": {"content": episode.content[:200]},  # 摘要
+                    "recommendations": []
                 })
             
             return assessments
             
         except Exception as e:
             print(f"[get_assessment_history] 查询失败: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     # ========== Graphiti 高级功能 ==========
@@ -1616,6 +1885,264 @@ class MemoryService:
                 "results": [],
                 "total_results": 0,
                 "error": str(e)
+            }
+    
+    async def search_memories(
+        self,
+        child_id: str,
+        query: str,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        搜索历史记忆数据 - 供上层服务使用
+        
+        使用 Graphiti 的语义搜索能力，检索与查询相关的历史数据。
+        上层服务（如 Game Summarizer、Assessment Service）可以使用此方法
+        获取历史数据，然后生成总结或评估。
+        
+        Args:
+            child_id: 孩子ID
+            query: 搜索查询（自然语言）
+            filters: 可选过滤条件
+                - num_results: 返回结果数量（默认20）
+                - days: 时间范围（天数）
+                - entity_types: 实体类型过滤（如：['Behavior', 'Object']）
+        
+        Returns:
+            {
+                "query": "...",
+                "results": [
+                    {
+                        "fact": "...",
+                        "source": "...",
+                        "timestamp": "...",
+                        "relevance_score": 0.95
+                    },
+                    ...
+                ],
+                "total_results": 20
+            }
+        """
+        if not self.config.enable_llm:
+            raise ValueError("LLM 功能未启用，无法搜索记忆")
+        
+        try:
+            filters = filters or {}
+            num_results = filters.get("num_results", 20)
+            
+            # 使用 Graphiti 搜索
+            edges = await self.graphiti.search(
+                query=query,
+                group_ids=[child_id],
+                num_results=num_results
+            )
+            
+            # 转换结果
+            results = []
+            for edge in edges:
+                results.append({
+                    "fact": edge.fact,
+                    "source_node": edge.source_node_uuid,
+                    "target_node": edge.target_node_uuid,
+                    "timestamp": edge.created_at.isoformat() if hasattr(edge, 'created_at') else None,
+                    "relevance_score": 0.9  # 简化：实际应该从搜索结果中获取
+                })
+            
+            return {
+                "query": query,
+                "results": results,
+                "total_results": len(results)
+            }
+            
+        except Exception as e:
+            print(f"[search_memories] 搜索失败: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            return {
+                "query": query,
+                "results": [],
+                "total_results": 0,
+                "error": str(e)
+            }
+    
+    async def get_object_interest_associations(
+        self,
+        child_id: str,
+        object_name: Optional[str] = None,
+        min_frequency: int = 2,
+        days: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        查询对象-兴趣关联（通过行为记录聚合）
+        
+        通过分析历史行为记录，统计对象与兴趣维度的关联频率和强度。
+        不修改图结构，符合开闭原则。
+        
+        Args:
+            child_id: 孩子ID
+            object_name: 对象名称（可选，如果指定则只返回该对象的关联）
+            min_frequency: 最小出现频率（默认2次，过滤低频关联）
+            days: 时间范围（天数，可选，如果指定则只统计最近N天）
+            
+        Returns:
+            {
+                "child_id": "...",
+                "time_range": "最近30天" or "全部历史",
+                "associations": {
+                    "积木": {
+                        "total_behaviors": 15,  # 涉及该对象的行为总数
+                        "interests": {
+                            "construction": {
+                                "frequency": 10,  # 出现次数
+                                "avg_intensity": 8.5,  # 平均强度
+                                "percentage": 0.67  # 占比
+                            },
+                            "visual": {
+                                "frequency": 5,
+                                "avg_intensity": 6.0,
+                                "percentage": 0.33
+                            }
+                        },
+                        "primary_interest": "construction"  # 主要关联的兴趣
+                    },
+                    "球": {
+                        "total_behaviors": 8,
+                        "interests": {
+                            "motor": {
+                                "frequency": 8,
+                                "avg_intensity": 9.0,
+                                "percentage": 1.0
+                            }
+                        },
+                        "primary_interest": "motor"
+                    }
+                },
+                "summary": "分析了23个对象，发现15个有明确的兴趣关联"
+            }
+        """
+        try:
+            # 1. 构建时间过滤条件
+            time_filter = ""
+            time_range_desc = "全部历史"
+            
+            if days:
+                from datetime import timedelta
+                cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+                time_filter = f"AND e.valid_at >= datetime('{cutoff_date.isoformat()}')"
+                time_range_desc = f"最近{days}天"
+            
+            # 2. 构建对象过滤条件
+            object_filter = ""
+            if object_name:
+                object_filter = "AND obj.name = $object_name"
+            
+            # 3. 执行 Cypher 查询（通过 Behavior 关联 Object 和 Interest）
+            query = f"""
+            MATCH (e:Episodic {{group_id: $child_id}})-[:MENTIONS]->(b:Entity)
+            WHERE 'Behavior' IN labels(b) {time_filter}
+            
+            // 找到行为涉及的对象
+            MATCH (b)-[r_obj:RELATES_TO]->(obj:Entity)
+            WHERE 'Object' IN labels(obj)
+            {object_filter}
+            
+            // 找到行为体现的兴趣
+            MATCH (b)-[r_int:RELATES_TO]->(int:Entity)
+            WHERE 'Interest' IN labels(int)
+            
+            // 提取兴趣强度（从边属性中）
+            WITH obj.name AS object_name,
+                 int.name AS interest_name,
+                 COALESCE(r_int.intensity, 5.0) AS intensity,
+                 COUNT(DISTINCT b) AS frequency
+            
+            WHERE frequency >= $min_frequency
+            
+            RETURN object_name,
+                   interest_name,
+                   frequency,
+                   AVG(intensity) AS avg_intensity
+            ORDER BY object_name, frequency DESC
+            """
+            
+            params = {
+                "child_id": child_id,
+                "min_frequency": min_frequency
+            }
+            
+            if object_name:
+                params["object_name"] = object_name
+            
+            records, _, _ = await self.graphiti.driver.execute_query(query, **params)
+            
+            # 4. 聚合结果
+            associations = {}
+            
+            for record in records:
+                obj_name = record["object_name"]
+                int_name = record["interest_name"]
+                freq = record["frequency"]
+                avg_int = record["avg_intensity"]
+                
+                if obj_name not in associations:
+                    associations[obj_name] = {
+                        "total_behaviors": 0,
+                        "interests": {},
+                        "primary_interest": None
+                    }
+                
+                associations[obj_name]["total_behaviors"] += freq
+                associations[obj_name]["interests"][int_name] = {
+                    "frequency": freq,
+                    "avg_intensity": round(avg_int, 2),
+                    "percentage": 0.0  # 稍后计算
+                }
+            
+            # 5. 计算百分比和主要兴趣
+            for obj_name, obj_data in associations.items():
+                total = obj_data["total_behaviors"]
+                
+                # 计算百分比
+                for int_name, int_data in obj_data["interests"].items():
+                    int_data["percentage"] = round(int_data["frequency"] / total, 2)
+                
+                # 确定主要兴趣（频率最高的）
+                if obj_data["interests"]:
+                    primary = max(
+                        obj_data["interests"].items(),
+                        key=lambda x: x[1]["frequency"]
+                    )
+                    obj_data["primary_interest"] = primary[0]
+            
+            # 6. 生成总结
+            total_objects = len(associations)
+            objects_with_associations = sum(
+                1 for obj in associations.values()
+                if obj["interests"]
+            )
+            
+            summary = f"分析了{total_objects}个对象，发现{objects_with_associations}个有明确的兴趣关联"
+            
+            return {
+                "child_id": child_id,
+                "time_range": time_range_desc,
+                "associations": associations,
+                "summary": summary,
+                "total_objects": total_objects
+            }
+            
+        except Exception as e:
+            print(f"[get_object_interest_associations] 查询失败: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            return {
+                "child_id": child_id,
+                "time_range": time_range_desc if 'time_range_desc' in locals() else "未知",
+                "associations": {},
+                "summary": f"查询失败: {str(e)}",
+                "total_objects": 0
             }
     
     async def close(self):

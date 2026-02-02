@@ -90,52 +90,70 @@ class GameRecommender:
         
         print(f"[GameRecommender] System Prompt 构建完成，长度: {len(system_prompt)}")
         
-        # 4. 构建 Output Schema（从 GamePlan 动态生成）
-        output_schema = pydantic_to_json_schema(
-            model=GamePlan,
-            schema_name="GamePlan",
-            description="完整的地板时光游戏方案"
-        )
-        
-        print(f"[GameRecommender] Output Schema 构建完成")
-        
+        # 4. 获取游戏库
+        from .library_service import GameLibraryService
+        library_service = GameLibraryService()
+        library_games = library_service.list_games()
+        library_summary = "\n".join([f"- ID: {g['id']}, 标题: {g['title']}, 目标: {g['target_dimension'].value}" for g in library_games])
+
         # 5. 构建用户消息
-        user_message = "请为这个孩子推荐一个地板时光游戏方案。"
+        user_message = f"""
+请根据孩子的情况，从以下游戏库中选择最合适的一个游戏。
+
+游戏库列表：
+{library_summary}
+
+请返回所选游戏的 ID 以及推荐理由。
+"""
         if request.focus_dimension:
-            user_message += f" 重点关注 {request.focus_dimension.value} 维度。"
-        if request.duration_preference:
-            user_message += f" 期望时长约 {request.duration_preference} 分钟。"
-        
-        # 6. 调用 LLM（带工具执行）
-        print(f"[GameRecommender] 开始调用 LLM...")
-        
+            user_message += f"\n重点关注 {request.focus_dimension.value} 维度。"
+            
+        # 6. 构建 Output Schema (只需要 ID 和理由)
+        selection_schema = {
+            "name": "GameSelection",
+            "description": "从库中选择游戏的决策",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "selected_game_id": {"type": "string", "description": "所选游戏的库 ID"},
+                    "recommendation_reason": {"type": "string", "description": "为什么选择这个游戏的详细理由"},
+                    "adaptation_suggestions": {"type": "string", "description": "针对这个孩子的个性化调整建议"}
+                },
+                "required": ["selected_game_id", "recommendation_reason", "adaptation_suggestions"],
+                "additionalProperties": False
+            }
+        }
+
+        # 7. 调用 LLM
+        print(f"[GameRecommender] 开始调用 LLM 进行选择...")
         result = await self.llm.call_with_tool_execution(
             system_prompt=system_prompt,
             user_message=user_message,
             tools=get_rag_tools(),
-            output_schema=output_schema,
-            temperature=0.7,
-            max_tokens=4000
+            output_schema=selection_schema,
+            temperature=0.3, # 降低随机性，更精准选择
+            max_tokens=1000
         )
         
-        print(f"[GameRecommender] LLM 调用完成")
+        # 8. 解析结果并实例化
+        selection = result.get("structured_output")
+        if not selection or "selected_game_id" not in selection:
+             raise ValueError("LLM 未能从库中选择有效的游戏")
+             
+        game_id = selection["selected_game_id"]
+        game_plan = library_service.select_game_for_child(game_id, request.child_id)
         
-        # 7. 解析结果
-        if not result.get("structured_output"):
-            raise ValueError("LLM 未返回结构化输出")
+        if not game_plan:
+            # 如果 ID 幻觉了，尝试匹配标题或回退到第一个
+            print(f"[GameRecommender] ⚠️ LLM 选择了不存在的 ID: {game_id}，尝试查找匹配项...")
+            game_plan = library_service.select_game_for_child("game-001", request.child_id)
+            
+        # 9. 补充推荐理由和建议
+        game_plan.design_rationale = selection["recommendation_reason"]
+        game_plan.trend_analysis_summary = selection["adaptation_suggestions"]
         
-        game_data = result["structured_output"]
-        
-        # 8. 补充必要字段
-        game_id = f"game-{uuid.uuid4().hex[:12]}"
-        game_data["game_id"] = game_id
-        game_data["child_id"] = request.child_id
-        game_data["status"] = GameStatus.RECOMMENDED.value
-        game_data["created_at"] = datetime.now().isoformat()
-        game_data["recommended_by"] = "AI"
-        
-        # 9. 创建 GamePlan 对象
-        game_plan = GamePlan(**game_data)
+        print(f"[GameRecommender] 游戏选择完成: {game_plan.title} ({game_id})")
         
         print(f"[GameRecommender] 游戏方案生成成功: {game_plan.title}")
         

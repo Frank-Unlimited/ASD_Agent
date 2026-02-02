@@ -35,7 +35,7 @@ async def import_profile_from_image(
     try:
         # 1. 上传文件
         file_service = FileUploadService()
-        upload_result = await file_service.upload_file(file, category="documents")
+        upload_result = await file_service.upload_file(file, category="document")
         image_path = upload_result['file_path']
         
         print(f"[档案导入] 图片已上传: {image_path}")
@@ -107,7 +107,15 @@ async def import_profile_from_image(
         from src.models.profile import ChildProfile, Gender, DiagnosisLevel
         
         # 从 Graphiti 获取解析后的信息
-        child_data = await memory_service.get_child(memory_result["child_id"])
+        child_data = await memory_service.get_child(memory_result["child_id"]) or {}
+        
+        # 处理 child_data 为 None 的情况
+        if child_data is None:
+            print(f"[档案导入] 警告: 未能从 Memory 服务获取孩子数据，使用默认值")
+            child_data = {
+                "name": "待完善",
+                "basic_info": {}
+            }
         
         profile = ChildProfile(
             child_id=memory_result["child_id"],
