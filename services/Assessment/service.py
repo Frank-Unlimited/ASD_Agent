@@ -258,12 +258,18 @@ class AssessmentService:
         
         # 5. 解析结果
         if not result.get("structured_output"):
-            raise ValueError("Agent 1 未返回结构化输出")
+            print(f"[Agent 1] ⚠️ LLM 未返回结构化输出或解析失败，使用默认值。内容摘要: {result.get('content', '')[:100]}...")
+            interest_data = {}
+        else:
+            interest_data = result["structured_output"]
+            
+        try:
+            interest_heatmap = InterestHeatmap(**interest_data)
+        except Exception as e:
+            print(f"[Agent 1] ❌ Pydantic 校验失败: {e}，返回基础模型")
+            interest_heatmap = InterestHeatmap()
         
-        interest_data = result["structured_output"]
-        interest_heatmap = InterestHeatmap(**interest_data)
-        
-        print(f"[Agent 1] 兴趣挖掘完成: {len(interest_heatmap.dimensions)} 个兴趣维度")
+        print(f"[Agent 1] 兴趣挖掘完成")
         
         return interest_heatmap
     
@@ -336,14 +342,18 @@ class AssessmentService:
         
         # 5. 解析结果
         if not result.get("structured_output"):
-            print(f"[Agent 2] LLM 完整返回: {result}")
-            print(f"[Agent 2] LLM 返回内容: {result.get('content', '')}")
-            raise ValueError("Agent 2 未返回结构化输出")
+            print(f"[Agent 2] ⚠️ LLM 未返回结构化输出或解析失败，使用默认值。内容摘要: {result.get('content', '')[:100]}...")
+            dimension_data = {}
+        else:
+            dimension_data = result["structured_output"]
+            
+        try:
+            dimension_trends = DimensionTrends(**dimension_data)
+        except Exception as e:
+            print(f"[Agent 2] ❌ Pydantic 校验失败: {e}，返回基础模型")
+            dimension_trends = DimensionTrends()
         
-        dimension_data = result["structured_output"]
-        dimension_trends = DimensionTrends(**dimension_data)
-        
-        print(f"[Agent 2] 功能分析完成: {len(dimension_trends.active_dimensions)} 个维度")
+        print(f"[Agent 2] 功能分析完成")
         
         return dimension_trends
     
@@ -416,10 +426,17 @@ class AssessmentService:
         
         # 5. 解析结果
         if not result.get("structured_output"):
-            raise ValueError("Agent 3 未返回结构化输出")
-        
+            print(f"[Agent 3] ⚠️ LLM 未返回结构化输出或解析失败。内容摘要: {result.get('content', '')[:100]}...")
+            raise ValueError("Agent 3 未返回有效评估报告数据")
+            
         report_data = result["structured_output"]
-        assessment_report = AssessmentReport(**report_data)
+        
+        try:
+            assessment_report = AssessmentReport(**report_data)
+        except Exception as e:
+            print(f"[Agent 3] ❌ Pydantic 校验失败: {e}")
+            print(f"[Agent 3] 原始数据: {json.dumps(report_data, ensure_ascii=False)}")
+            raise ValueError(f"生成的评估报告格式不正确: {e}")
         
         print(f"[Agent 3] 综合评估完成")
         

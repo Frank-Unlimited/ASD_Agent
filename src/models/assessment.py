@@ -56,11 +56,11 @@ class InterestDimensionData(BaseModel):
 
 class InterestHeatmap(BaseModel):
     """兴趣热力图数据（兴趣挖掘 Agent 的输出）"""
-    dimensions: Dict[str, InterestDimensionData] = Field(..., description="8个兴趣维度的数据")
-    overall_breadth: InterestBreadth = Field(..., description="整体兴趣广度")
+    dimensions: Dict[str, InterestDimensionData] = Field(default_factory=dict, description="8个兴趣维度的数据")
+    overall_breadth: InterestBreadth = Field(default=InterestBreadth.MODERATE, description="整体兴趣广度")
     new_discoveries: List[str] = Field(default_factory=list, description="新发现的兴趣点")
     interest_verification: List[str] = Field(default_factory=list, description="兴趣验证结果")
-    analysis_summary: str = Field(..., description="分析总结")
+    analysis_summary: str = Field(default="暂无兴趣分析数据", description="分析总结")
 
 
 # ============ 功能分析相关 ============
@@ -86,11 +86,11 @@ class DimensionTrendData(BaseModel):
 
 class DimensionTrends(BaseModel):
     """功能维度趋势数据（功能分析 Agent 的输出）"""
-    active_dimensions: Dict[str, DimensionTrendData] = Field(..., description="活跃维度的趋势数据")
+    active_dimensions: Dict[str, DimensionTrendData] = Field(default_factory=dict, description="活跃维度的趋势数据")
     top_improving: List[Dict[str, Any]] = Field(default_factory=list, description="进步最快的维度")
     needs_attention: List[Dict[str, Any]] = Field(default_factory=list, description="需要关注的维度")
     dimension_correlations: List[str] = Field(default_factory=list, description="维度之间的关联")
-    analysis_summary: str = Field(..., description="分析总结")
+    analysis_summary: str = Field(default="暂无功能维度趋势分析数据", description="分析总结")
 
 
 # ============ 综合评估相关 ============

@@ -659,14 +659,8 @@ class MemoryService:
         profile_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        导入档案 - 使用 Graphiti-core 存储档案信息
-        
-        调用方：导入模块
-        
-        Args:
-            profile_data: 档案数据（文字，包含基本信息、医学报告、量表等）
-        
-        Returns:
+        从结构化数据导入档案，并生成初始评估
+        返回结构：
             {
                 "child_id": "...",
                 "assessment_id": "...",
@@ -686,7 +680,26 @@ class MemoryService:
         # 2. 生成 child_id
         child_id = f"child_{uuid.uuid4().hex[:12]}"
         
-        # 3. 构建档案文本（用于 Graphiti 存储）
+        # 2.1 创建 Person 节点 (保持传统兼容性)
+        child = Person(
+            person_id=child_id,
+            person_type="child",
+            name=name,
+            role="patient",
+            basic_info={
+                "age": age,
+                "diagnosis": diagnosis,
+                "imported_at": datetime.now(timezone.utc).isoformat(),
+                "source": "profile_import"
+            },
+            created_at=datetime.now(timezone.utc).isoformat()
+        )
+        
+        print(f"[MemoryService] 正在为 {name} 创建 Person 节点 (child_id: {child_id})...")
+        await self.storage.create_person(child)
+        print(f"[MemoryService] Person 节点创建成功")
+
+        # 3. 构建档案文本（用于 Graphiti 存储，方便 RAG 提取）
         profile_text = f"""
 # 孩子档案导入
 
@@ -706,51 +719,91 @@ class MemoryService:
 """
         
         # 4. 使用 Graphiti-core 存储档案（自动提取实体和关系）
-        result = await self.graphiti.add_episode(
+        print(f"[MemoryService] 正在将档案存储到 Graphiti...")
+        graphiti_result = await self.graphiti.add_episode(
             name=f"档案导入_{name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
             episode_body=profile_text,
             source_description=f"档案导入 - {name}",
             reference_time=datetime.now(timezone.utc),
             group_id=child_id
         )
-        
-        print(f"[Memory] 档案已存储到 Graphiti: episode_id={result.episode_id}")
-        
-        # 5. 生成初始评估（可选）
-        assessment_id = f"assess_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
-        
-        # 构建初始评估文本
-        assessment_text = f"""
-# 初始评估报告
+        print(f"[Memory] 档案已存储到 Graphiti: episode_id={graphiti_result.episode.uuid}")
 
-孩子：{name}
-档案ID：{child_id}
-评估时间：{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}
-
-## 档案概况
-根据导入的档案信息，{name} 的诊断为 {diagnosis}，年龄 {age} 岁。
-
-## 医学报告摘要
-{medical_reports[:500]}...
-
-## 下一步建议
-1. 完善孩子的详细信息
-2. 开始记录日常行为观察
-3. 设计个性化的地板时光游戏
-"""
-        
-        # 6. 存储初始评估
-        await self.store_assessment(
-            child_id=child_id,
-            assessment_text=assessment_text,
-            assessment_type="initial",
-            metadata={
-                "assessment_id": assessment_id,
-                "source": "profile_import"
-            }
+        # 5. 构建 Output Schema
+        output_schema = pydantic_to_json_schema(
+            model=ProfileImportOutput,
+            schema_name="ProfileImportOutput",
+            description="档案导入分析结果"
         )
         
-        # 7. 返回结果
+        # 6. 构建 LLM Prompt（解析档案，生成初始评估）
+        prompt = f"""请分析以下儿童档案，生成初始评估报告。
+
+## 目标
+1. 提取孩子的基本发展现况（FEDC 分级参考）
+2. 识别优势领域和挑战领域
+3. 提取关键的兴趣偏好（如果有）
+4. 提取关键的功能维度表现（如果有）
+5. 生成初步的干预建议
+
+## 档案内容
+{profile_text}
+
+请根据以上信息，输出符合 Schema 要求的 JSON 结果。
+"""
+        
+        # 7. 调用 LLM
+        print(f"[MemoryService] 开始调用 LLM 解析档案...")
+        result = await self.llm_service.call(
+            system_prompt="你是一个专业的 ASD 儿童档案分析师。",
+            user_message=prompt,
+            output_schema=output_schema,
+            temperature=0.3,
+            max_tokens=2500
+        )
+        
+        # 8. 获取结构化输出
+        if not result.get("structured_output"):
+            print(f"[MemoryService] LLM 未返回结构化输出，内容: {result.get('content', '')[:200]}...")
+            raise ValueError("LLM 未返回结构化输出")
+        
+        initial_assessment = result["structured_output"]
+        print(f"[MemoryService] LLM 解析成功: {json.dumps(initial_assessment, ensure_ascii=False)[:200]}...")
+        
+        # 9. 创建初始评估节点
+        assessment_id = f"assess_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        print(f"[MemoryService] 创建初始评估节点 (assessment_id: {assessment_id})...")
+        
+        assessment = ChildAssessment(
+            assessment_id=assessment_id,
+            child_id=child_id,
+            assessment_type="initial",
+            summary=initial_assessment.get("summary", ""),
+            strengths=initial_assessment.get("strengths", []),
+            challenges=initial_assessment.get("challenges", []),
+            fedc_level=initial_assessment.get("fedc_level"),
+            dimension_scores=initial_assessment.get("dimension_scores", {}),
+            interests=initial_assessment.get("interests", []),
+            recommendations=initial_assessment.get("recommendations", []),
+            created_at=datetime.now(timezone.utc).isoformat(),
+            metadata={"source": "profile_import"}
+        )
+        
+        await self.storage.create_assessment(assessment)
+        print(f"[MemoryService] 初始评估节点创建成功")
+        
+        # 10. 创建关系：孩子 -> 评估
+        print(f"[MemoryService] 创建接受评估关系...")
+        await self.storage.create_relationship(
+            from_id=child_id,
+            from_label="Person",
+            to_id=assessment_id,
+            to_label="ChildAssessment",
+            rel_type="接受评估"
+        )
+        print(f"[MemoryService] 关系创建成功")
+        
+        # 11. 返回结果
         return {
             "child_id": child_id,
             "assessment_id": assessment_id,
@@ -763,10 +816,41 @@ class MemoryService:
     
     async def get_child(self, child_id: str) -> Optional[Dict[str, Any]]:
         """
-        获取孩子档案 - 使用 Graphiti 原生查询
+        获取孩子档案 - 同时兼容原有 Person 节点和 Graphiti Entity 节点
         """
         try:
-            # 直接使用 Graphiti driver 查询
+            import json
+            # 1. 首先尝试查询原有的 Person 节点
+            records, _, _ = await self.graphiti.driver.execute_query(
+                """
+                MATCH (p:Person {person_id: $child_id})
+                RETURN p.person_id AS person_id,
+                       p.name AS name,
+                       properties(p) AS props,
+                       p.created_at AS created_at
+                """,
+                child_id=child_id
+            )
+            
+            if records:
+                r = records[0]
+                props = r["props"]
+                basic_info_str = props.get("basic_info", "{}")
+                try:
+                    basic_info = json.loads(basic_info_str) if isinstance(basic_info_str, str) else basic_info_str
+                except json.JSONDecodeError:
+                    basic_info = {} # Fallback if basic_info is not valid JSON string
+                
+                return {
+                    "person_id": r["person_id"],
+                    "name": r["name"],
+                    "person_type": props.get('person_type', 'child'),
+                    "role": props.get('role', 'patient'),
+                    "basic_info": basic_info,
+                    "created_at": str(r["created_at"])
+                }
+
+            # 2. 如果找不到，尝试查询 Graphiti 的 Entity 节点
             records, _, _ = await self.graphiti.driver.execute_query(
                 """
                 MATCH (p:Entity {uuid: $child_id})
@@ -780,15 +864,14 @@ class MemoryService:
             )
             
             if records:
-                record = records[0]
-                props = record['props']
+                r = records[0]
+                props = r['props']
                 
                 # 反序列化 basic_info
-                import json
                 basic_info_str = props.get('basic_info', '{}')
                 try:
                     basic_info = json.loads(basic_info_str) if isinstance(basic_info_str, str) else basic_info_str
-                except:
+                except json.JSONDecodeError:
                     basic_info = {}
                 
                 return {

@@ -29,6 +29,8 @@ import {
   Paperclip,
   ArrowUpRight
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Radar,
   RadarChart,
@@ -97,6 +99,7 @@ interface GameRecommendation {
   id: string;
   title: string;
   reason: string;
+  fullGame?: Game; // Added to support playing ad-hoc recommended games
 }
 
 interface NavCard {
@@ -108,7 +111,7 @@ interface NavCard {
 
 type ParsedCard = GameRecommendation | NavCard;
 
-const PageAIChat = ({ navigateTo, onStartGame, profile }: { navigateTo: (p: Page) => void, onStartGame: (id: string) => void, profile: ChildProfile | null }) => {
+const PageAIChat = ({ navigateTo, onStartGame, profile }: { navigateTo: (p: Page) => void, onStartGame: (id: string, fullGame?: Game) => void, profile: ChildProfile | null }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
@@ -249,7 +252,35 @@ const PageAIChat = ({ navigateTo, onStartGame, profile }: { navigateTo: (p: Page
           return (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm leading-relaxed ${msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
-                {cleanText}
+                {msg.role === 'user' ? (
+                  cleanText
+                ) : (
+                  <div className="prose prose-sm max-w-none">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="list-disc ml-4 mb-2" {...props} />,
+                        ol: ({ node, ...props }) => <ol className="list-decimal ml-4 mb-2" {...props} />,
+                        li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                        table: ({ node, ...props }) => (
+                          <div className="overflow-x-auto my-2">
+                            <table className="min-w-full border-collapse border border-gray-200" {...props} />
+                          </div>
+                        ),
+                        th: ({ node, ...props }) => <th className="border border-gray-200 px-2 py-1 bg-gray-50 text-left font-bold" {...props} />,
+                        td: ({ node, ...props }) => <td className="border border-gray-200 px-2 py-1" {...props} />,
+                        code: ({ node, inline, ...props }: any) => (
+                          inline
+                            ? <code className="bg-gray-100 rounded px-1 py-0.5" {...props} />
+                            : <code className="block bg-gray-100 rounded p-2 my-2 overflow-x-auto" {...props} />
+                        )
+                      }}
+                    >
+                      {cleanText}
+                    </ReactMarkdown>
+                  </div>
+                )}
               </div>
 
               {/* Render Cards */}
@@ -264,7 +295,7 @@ const PageAIChat = ({ navigateTo, onStartGame, profile }: { navigateTo: (p: Page
                   <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
                   <button
-                    onClick={() => onStartGame(card.id)}
+                    onClick={() => onStartGame(card.id, (card as GameRecommendation).fullGame)}
                     className="w-full bg-secondary text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-blue-600 transition"
                   >
                     <Play className="w-4 h-4 mr-2 fill-current" /> 开始游戏
@@ -351,7 +382,7 @@ const PageAIChat = ({ navigateTo, onStartGame, profile }: { navigateTo: (p: Page
   );
 };
 
-const PageCalendar = ({ navigateTo, onStartGame, calendarData }: { navigateTo: (p: Page) => void, onStartGame: (gameId: string) => void, calendarData: CalendarEvent[] }) => {
+const PageCalendar = ({ navigateTo, onStartGame, calendarData }: { navigateTo: (p: Page) => void, onStartGame: (gameId: string, fullGame?: Game) => void, calendarData: CalendarEvent[] }) => {
   return (
     <div className="p-4 space-y-6 h-full overflow-y-auto bg-background">
       {/* Weekly Goal */}
@@ -394,8 +425,8 @@ const PageCalendar = ({ navigateTo, onStartGame, calendarData }: { navigateTo: (
             return (
               <div key={day.day}
                 onClick={() => {
-                  if (day.status === 'today' && day.gameTitle === 'Sensory Bubbles' || day.day === 21) {
-                    onStartGame('2');
+                  if (day.status === 'today' && day.gameId) {
+                    onStartGame(day.gameId);
                   }
                 }}
                 className={`aspect-square rounded-xl border flex flex-col items-center justify-center p-1 cursor-pointer transition active:scale-95 ${bgClass}`}>
@@ -409,20 +440,25 @@ const PageCalendar = ({ navigateTo, onStartGame, calendarData }: { navigateTo: (
       </div>
 
       {/* Day Detail Card (Today) */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium">今日, 10:00</span>
-            <h3 className="text-lg font-bold text-gray-800 mt-2">感官泡泡追逐战</h3>
-            <p className="text-sm text-gray-500">目标: 自我调节</p>
+      {calendarData.find(d => d.status === 'today') && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium">今日, {calendarData.find(d => d.status === 'today')?.time || "10:00"}</span>
+              <h3 className="text-lg font-bold text-gray-800 mt-2">{calendarData.find(d => d.status === 'today')?.gameTitle}</h3>
+              <p className="text-sm text-gray-500">目标: {calendarData.find(d => d.status === 'today')?.gameId === 'game-002' ? '感官调节' : '发展目标'}</p>
+            </div>
+            <button
+              onClick={() => {
+                const todayGame = calendarData.find(d => d.status === 'today');
+                if (todayGame?.gameId) onStartGame(todayGame.gameId);
+              }}
+              className="w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-lg text-white hover:bg-green-600 transition animate-pulse">
+              <Play className="w-6 h-6 ml-1" />
+            </button>
           </div>
-          <button
-            onClick={() => onStartGame('2')}
-            className="w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-lg text-white hover:bg-green-600 transition animate-pulse">
-            <Play className="w-6 h-6 ml-1" />
-          </button>
         </div>
-      </div>
+      )}
 
       {/* Past Detail Card */}
       <div className="bg-gray-50 rounded-2xl p-4 border border-dashed border-gray-300">
@@ -545,18 +581,19 @@ const PageGames = ({ initialGameId, gameState, setGameState, onBack, games }: { 
 
   // Sync initialGameId with component state if provided
   useEffect(() => {
-    if (initialGameId && gameState !== GameState.PLAYING) {
+    if (initialGameId) {
       const game = games.find(g => g.id === initialGameId);
       if (game) {
         setActiveGame(game);
-        // We rely on App to set GameState to PLAYING when passing initialGameId, 
-        // but we ensure reset here if needed.
-        setCurrentStepIndex(0);
-        setTimer(0);
-        setLogs([]);
+        // If we are moving into playing state, reset counters
+        if (gameState === GameState.PLAYING && (!activeGame || activeGame.id !== game.id)) {
+          setCurrentStepIndex(0);
+          setTimer(0);
+          setLogs([]);
+        }
       }
     }
-  }, [initialGameId, games]);
+  }, [initialGameId, games, gameState]);
 
   useEffect(() => {
     if (gameState === GameState.PLAYING) {
@@ -971,7 +1008,26 @@ export default function App() {
     setGameMode(GameState.LIST);
   };
 
-  const handleStartGame = (gameId: string) => {
+  useEffect(() => {
+    const fetchGames = async () => {
+      try {
+        const libraryGames = await api.getGames();
+        setGames(libraryGames);
+      } catch (e) {
+        console.error("Failed to load games:", e);
+      }
+    };
+    fetchGames();
+  }, []);
+
+  const handleStartGame = (gameId: string, fullGame?: Game) => {
+    if (fullGame) {
+      // If we have full game data, ensure it's in the games list or handle it specially
+      setGames(prev => {
+        if (prev.some(g => g.id === gameId)) return prev;
+        return [...prev, fullGame];
+      });
+    }
     setActiveGameId(gameId);
     setCurrentPage(Page.GAMES);
     setGameMode(GameState.PLAYING);
