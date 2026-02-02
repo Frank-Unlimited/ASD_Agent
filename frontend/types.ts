@@ -38,6 +38,7 @@ export interface CalendarEvent {
   day: number;
   weekday: string;
   status: 'completed' | 'today' | 'future';
+  gameId?: string;
   gameTitle?: string;
   progress?: string;
   time?: string;

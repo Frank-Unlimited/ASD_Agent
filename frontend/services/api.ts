@@ -59,8 +59,8 @@ const MOCK_GAMES: Game[] = [
 ];
 
 const MOCK_CALENDAR: CalendarEvent[] = [
-  { day: 20, weekday: '一', status: 'completed', gameTitle: '积木高塔' },
-  { day: 21, weekday: '二', status: 'today', gameTitle: '感官泡泡', time: '10:00' },
+  { day: 20, weekday: '一', status: 'completed', gameId: 'game-001', gameTitle: '积木高塔' },
+  { day: 21, weekday: '二', status: 'today', gameId: 'game-002', gameTitle: '感官泡泡', time: '10:00' },
   { day: 22, weekday: '三', status: 'future' },
   { day: 23, weekday: '四', status: 'future' },
   { day: 24, weekday: '五', status: 'future' },
@@ -203,10 +203,37 @@ export const ApiService = {
         data.tool_calls.forEach(tool => {
           if (tool.tool_name === 'recommend_game' && tool.result.success && tool.result.game) {
             const game = tool.result.game;
+            // Map TargetDimension enum to friendly name
+            const dimensionMap: Record<string, string> = {
+              'eye_contact': '眼神接触',
+              'joint_attention': '共同注意',
+              'social_interaction': '社交互动',
+              'language': '语言沟通',
+              'imitation': '模仿尝试',
+              'emotional_regulation': '情绪调节',
+              'play_skills': '游戏技能',
+              'sensory': '感官感知',
+              'motor_skills': '运动技能',
+              'cognitive': '认知理解'
+            };
+            const targetName = dimensionMap[game.target_dimension] || game.target_dimension || "综合干预";
+
             const markerData = {
               id: game.game_id,
-              title: game.name,
-              reason: game.design_rationale || game.description
+              title: game.name || game.title,
+              reason: game.design_rationale || game.description,
+              // We still pass a minimal fullGame just in case the library sync is pending
+              fullGame: {
+                id: game.game_id,
+                title: game.name || game.title,
+                target: targetName,
+                duration: game.estimated_duration ? `${game.estimated_duration} 分钟` : "15 分钟",
+                reason: game.design_rationale || game.description,
+                steps: (game.steps || []).map((s: any) => ({
+                  instruction: s.title || s.instruction,
+                  guidance: s.description || s.guidance || (s.tips && s.tips.length > 0 ? s.tips[0] : "")
+                }))
+              }
             };
             finalResponse += `\n\n:::GAME_RECOMMENDATION:${JSON.stringify(markerData)}:::`;
           }
@@ -284,6 +311,41 @@ export const ApiService = {
   },
 
   async getGames(): Promise<Game[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/game/library`);
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success && result.data) {
+          // Map backend TargetDimension enums to friendly names if needed
+          const dimensionMap: Record<string, string> = {
+            'eye_contact': '眼神接触',
+            'joint_attention': '共同注意',
+            'social_interaction': '社交互动',
+            'language': '语言沟通',
+            'imitation': '模仿尝试',
+            'emotional_regulation': '情绪调节',
+            'play_skills': '游戏技能',
+            'sensory': '感官感知',
+            'motor_skills': '运动技能',
+            'cognitive': '认知理解'
+          };
+
+          return result.data.map((g: any) => ({
+            id: g.id,
+            title: g.title,
+            target: dimensionMap[g.target_dimension] || g.target_dimension,
+            duration: `${g.estimated_duration} 分钟`,
+            reason: g.description,
+            steps: (g.steps || []).map((s: any) => ({
+              instruction: s.title || s.instruction,
+              guidance: s.description || s.guidance || (s.tips && s.tips.length > 0 ? s.tips[0] : "")
+            }))
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch games library", e);
+    }
     return MOCK_GAMES;
   },
 

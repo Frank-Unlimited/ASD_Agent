@@ -38,6 +38,14 @@ def init_services():
     """
     print("[Container] 开始初始化服务...")
     
+    # 游戏知识库（库内预设游戏）
+    try:
+        from services.game.library_service import GameLibraryService
+        container.register('game_library', GameLibraryService())
+        print("[Container] ✅ 游戏库服务已注册")
+    except Exception as e:
+        print(f"[Container] ⚠️ 游戏库服务注册失败: {e}")
+
     # SQLite 服务（始终使用真实实现）
     try:
         from services.SQLite.service import SQLiteService
@@ -206,6 +214,11 @@ async def get_game_summarizer():
         game_summarizer.memory_service = await get_memory_service()
     
     return game_summarizer
+
+
+def get_game_library():
+    """获取游戏库服务"""
+    return container.get('game_library')
 
 
 async def get_assessment_service():

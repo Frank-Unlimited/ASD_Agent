@@ -146,7 +146,18 @@ class LLMService:
                     content = content.split("```", 1)[1].split("```", 1)[0].strip()
                 
                 try:
-                    result["structured_output"] = json.loads(content)
+                    data = json.loads(content)
+                    
+                    # 鲁棒性增强：自动脱壳 (Unwrap)
+                    # 如果返回的是字典，且只有一个键，且该键对应的值也是字典，则尝试脱壳
+                    # 例如：{"游戏方案": {...}} -> {...}
+                    if isinstance(data, dict) and len(data) == 1:
+                        key = list(data.keys())[0]
+                        if isinstance(data[key], dict):
+                            print(f"[LLM Service] 检测到嵌套 JSON，自动脱壳: '{key}'")
+                            data = data[key]
+                    
+                    result["structured_output"] = data
                 except json.JSONDecodeError as je:
                     print(f"[LLM Service] JSON 解析失败: {je}")
                     print(f"原始内容: {message.content[:500]}...")
