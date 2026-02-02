@@ -67,7 +67,7 @@ def init_services():
     # 业务服务：行为观察服务（依赖 Memory 服务）
     # Memory 服务延迟初始化，在第一次请求时创建
     try:
-        from services.Observation import ObservationService
+        from services.observation.service import ObservationService
         
         # 创建一个占位服务，实际的 memory_service 会在第一次使用时初始化
         observation_service = ObservationService(
@@ -135,7 +135,7 @@ async def get_memory_service():
     from services.Memory.service import get_memory_service as _get_memory_service
     return await _get_memory_service()
 
-
+ 
 def get_sqlite_service():
     """获取 SQLite 服务"""
     return container.get('sqlite')
