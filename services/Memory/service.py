@@ -718,14 +718,24 @@ class MemoryService:
 这是一份新导入的儿童档案，包含了孩子的基本信息、医学报告和评估量表数据。
 """
         
-        # 4. 使用 Graphiti-core 存储档案（自动提取实体和关系）
+        # 4. 定义实体类型（档案导入专用）
+        entity_types = {
+            'Person': PersonEntityModel,        # 孩子、医生、家长
+            'Interest': InterestEntityModel,    # 8个兴趣维度
+            'Function': FunctionEntityModel,    # 功能维度评分
+            'Assessment': AssessmentEntityModel # 评估记录
+        }
+        
+        # 5. 使用 Graphiti-core 存储档案（自动提取实体和关系）
         print(f"[MemoryService] 正在将档案存储到 Graphiti...")
         graphiti_result = await self.graphiti.add_episode(
             name=f"档案导入_{name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
             episode_body=profile_text,
             source_description=f"档案导入 - {name}",
             reference_time=datetime.now(timezone.utc),
-            group_id=child_id
+            source=EpisodeType.text,
+            group_id=child_id,
+            entity_types=entity_types  # 指定实体类型
         )
         print(f"[Memory] 档案已存储到 Graphiti: episode_id={graphiti_result.episode.uuid}")
 
