@@ -770,6 +770,28 @@ class MemoryService:
         initial_assessment = result["structured_output"]
         print(f"[MemoryService] LLM 解析成功: {json.dumps(initial_assessment, ensure_ascii=False)[:200]}...")
         
+        # 8.1 从LLM输出中提取name和age，更新Person节点
+        extracted_name = initial_assessment.get("name", "未命名")
+        extracted_age = initial_assessment.get("age")
+        
+        if extracted_name != "未命名" and extracted_name != name:
+            print(f"[MemoryService] 从档案中提取到姓名: {extracted_name}")
+            # 更新Person节点的name
+            await self.storage.update_person(
+                person_id=child_id,
+                updates={"name": extracted_name}
+            )
+            name = extracted_name  # 更新本地变量
+        
+        if extracted_age and extracted_age != age:
+            print(f"[MemoryService] 从档案中提取到年龄: {extracted_age}")
+            # 更新Person节点的basic_info
+            child.basic_info["age"] = extracted_age
+            await self.storage.update_person(
+                person_id=child_id,
+                updates={"basic_info": child.basic_info}
+            )
+        
         # 9. 创建初始评估节点
         assessment_id = f"assess_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
         print(f"[MemoryService] 创建初始评估节点 (assessment_id: {assessment_id})...")

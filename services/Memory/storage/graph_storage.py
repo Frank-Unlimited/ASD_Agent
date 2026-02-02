@@ -128,6 +128,44 @@ class GraphStorage:
             record = await result.single()
             return dict(record["p"]) if record else None
     
+    async def update_person(self, person_id: str, updates: Dict[str, Any]) -> bool:
+        """
+        更新人物节点属性
+        
+        Args:
+            person_id: 人物ID
+            updates: 要更新的属性字典（如 {"name": "新名字", "basic_info": {...}}）
+        
+        Returns:
+            是否更新成功
+        """
+        if not updates:
+            return False
+        
+        # 构建SET子句
+        set_clauses = []
+        params = {"person_id": person_id}
+        
+        for key, value in updates.items():
+            if key == "basic_info":
+                # basic_info需要序列化为JSON
+                set_clauses.append(f"p.{key} = $param_{key}")
+                params[f"param_{key}"] = json.dumps(value)
+            else:
+                set_clauses.append(f"p.{key} = $param_{key}")
+                params[f"param_{key}"] = value
+        
+        query = f"""
+        MATCH (p:Person {{person_id: $person_id}})
+        SET {', '.join(set_clauses)}
+        RETURN p.person_id as person_id
+        """
+        
+        async with self.driver.session() as session:
+            result = await session.run(query, **params)
+            record = await result.single()
+            return record is not None
+    
     # ============ Behavior 节点操作 ============
     
     async def create_behavior(self, behavior: Behavior) -> str:
