@@ -659,14 +659,8 @@ class MemoryService:
         profile_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        导入档案 - LLM 解析档案数据 → 创建档案节点 + 初始评估
-        
-        调用方：导入模块
-        
-        Args:
-            profile_data: 档案数据（文字，包含基本信息、医学报告、量表等）
-        
-        Returns:
+        从结构化数据导入档案，并生成初始评估
+        返回结构：
             {
                 "child_id": "...",
                 "assessment_id": "...",
@@ -683,9 +677,10 @@ class MemoryService:
         medical_reports = profile_data.get("medical_reports", "")
         assessment_scales = profile_data.get("assessment_scales", "")
         
-        # 2. 创建孩子档案节点
+        # 2. 生成 child_id
         child_id = f"child_{uuid.uuid4().hex[:12]}"
         
+        # 2.1 创建 Person 节点 (保持传统兼容性)
         child = Person(
             person_id=child_id,
             person_type="child",
@@ -703,37 +698,61 @@ class MemoryService:
         print(f"[MemoryService] 正在为 {name} 创建 Person 节点 (child_id: {child_id})...")
         await self.storage.create_person(child)
         print(f"[MemoryService] Person 节点创建成功")
+
+        # 3. 构建档案文本（用于 Graphiti 存储，方便 RAG 提取）
+        profile_text = f"""
+# 孩子档案导入
+
+## 基本信息
+- 姓名：{name}
+- 年龄：{age}
+- 诊断：{diagnosis}
+- 档案ID：{child_id}
+
+## 医学报告
+{medical_reports}
+
+## 评估量表
+{assessment_scales}
+
+这是一份新导入的儿童档案，包含了孩子的基本信息、医学报告和评估量表数据。
+"""
         
-        # 3. 构建 Output Schema
+        # 4. 使用 Graphiti-core 存储档案（自动提取实体和关系）
+        print(f"[MemoryService] 正在将档案存储到 Graphiti...")
+        graphiti_result = await self.graphiti.add_episode(
+            name=f"档案导入_{name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+            episode_body=profile_text,
+            source_description=f"档案导入 - {name}",
+            reference_time=datetime.now(timezone.utc),
+            group_id=child_id
+        )
+        print(f"[Memory] 档案已存储到 Graphiti: episode_id={graphiti_result.episode.uuid}")
+
+        # 5. 构建 Output Schema
         output_schema = pydantic_to_json_schema(
             model=ProfileImportOutput,
             schema_name="ProfileImportOutput",
             description="档案导入分析结果"
         )
         
-        # 4. 构建 LLM Prompt（解析档案，生成初始评估）
+        # 6. 构建 LLM Prompt（解析档案，生成初始评估）
         prompt = f"""请分析以下儿童档案，生成初始评估报告。
 
-【基本信息】
-姓名：{name}
-年龄：{age}
-诊断：{diagnosis}
-
-【医学报告】
-{medical_reports}
-
-【评估量表】
-{assessment_scales}
-
-【任务】
-1. 分析孩子的当前状况
+## 目标
+1. 提取孩子的基本发展现况（FEDC 分级参考）
 2. 识别优势领域和挑战领域
 3. 提取关键的兴趣偏好（如果有）
 4. 提取关键的功能维度表现（如果有）
 5. 生成初步的干预建议
+
+## 档案内容
+{profile_text}
+
+请根据以上信息，输出符合 Schema 要求的 JSON 结果。
 """
         
-        # 5. 调用 LLM
+        # 7. 调用 LLM
         print(f"[MemoryService] 开始调用 LLM 解析档案...")
         result = await self.llm_service.call(
             system_prompt="你是一个专业的 ASD 儿童档案分析师。",
@@ -743,7 +762,7 @@ class MemoryService:
             max_tokens=2500
         )
         
-        # 6. 获取结构化输出
+        # 8. 获取结构化输出
         if not result.get("structured_output"):
             print(f"[MemoryService] LLM 未返回结构化输出，内容: {result.get('content', '')[:200]}...")
             raise ValueError("LLM 未返回结构化输出")
@@ -751,24 +770,29 @@ class MemoryService:
         initial_assessment = result["structured_output"]
         print(f"[MemoryService] LLM 解析成功: {json.dumps(initial_assessment, ensure_ascii=False)[:200]}...")
         
-        # 7. 创建初始评估节点
+        # 9. 创建初始评估节点
         assessment_id = f"assess_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
         print(f"[MemoryService] 创建初始评估节点 (assessment_id: {assessment_id})...")
         
         assessment = ChildAssessment(
             assessment_id=assessment_id,
             child_id=child_id,
-            assessor_id="system_llm",
-            timestamp=datetime.now(timezone.utc).isoformat(),
-            assessment_type="comprehensive",
-            analysis=initial_assessment,
-            recommendations=initial_assessment.get("recommendations", [])
+            assessment_type="initial",
+            summary=initial_assessment.get("summary", ""),
+            strengths=initial_assessment.get("strengths", []),
+            challenges=initial_assessment.get("challenges", []),
+            fedc_level=initial_assessment.get("fedc_level"),
+            dimension_scores=initial_assessment.get("dimension_scores", {}),
+            interests=initial_assessment.get("interests", []),
+            recommendations=initial_assessment.get("recommendations", []),
+            created_at=datetime.now(timezone.utc).isoformat(),
+            metadata={"source": "profile_import"}
         )
         
         await self.storage.create_assessment(assessment)
         print(f"[MemoryService] 初始评估节点创建成功")
         
-        # 8. 创建关系：孩子 -> 评估
+        # 10. 创建关系：孩子 -> 评估
         print(f"[MemoryService] 创建接受评估关系...")
         await self.storage.create_relationship(
             from_id=child_id,
@@ -779,7 +803,7 @@ class MemoryService:
         )
         print(f"[MemoryService] 关系创建成功")
         
-        # 9. 返回结果
+        # 11. 返回结果
         return {
             "child_id": child_id,
             "assessment_id": assessment_id,
