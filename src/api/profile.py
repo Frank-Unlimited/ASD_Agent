@@ -204,15 +204,138 @@ async def get_profile(
     """获取孩子档案"""
     try:
         profile = sqlite_service.get_child(child_id)
-        
+
         if not profile:
             raise HTTPException(status_code=404, detail=f"档案不存在: {child_id}")
-        
+
         return profile.dict()
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取档案失败: {str(e)}")
+
+
+@router.get("/{child_id}/stats")
+async def get_profile_stats(
+    child_id: str,
+    sqlite_service = Depends(get_sqlite_service),
+    memory_service = Depends(get_memory_service)
+):
+    """获取孩子统计数据（雷达图、趋势图、兴趣热力图）"""
+    try:
+        # 获取档案
+        profile = sqlite_service.get_child(child_id)
+        if not profile:
+            raise HTTPException(status_code=404, detail=f"档案不存在: {child_id}")
+
+        # DIR 六大能力维度雷达图数据
+        radar_data = []
+        dimension_names = [
+            "自我调节", "亲密感", "双向沟通",
+            "共同注意", "情绪思考", "创造力"
+        ]
+
+        # 从档案中获取维度数据，如果没有则使用默认值
+        if profile.development_dimensions:
+            dim_map = {d.dimension_name: d.current_level or 50 for d in profile.development_dimensions}
+            for name in dimension_names:
+                radar_data.append({
+                    "subject": name,
+                    "A": dim_map.get(name, 50)
+                })
+        else:
+            # 默认数据
+            for name in dimension_names:
+                radar_data.append({
+                    "subject": name,
+                    "A": 50
+                })
+
+        # 趋势数据（从游戏会话历史获取）
+        trend_data = []
+        try:
+            sessions = sqlite_service.get_game_session_history(child_id, limit=7)
+            if sessions:
+                for i, session in enumerate(reversed(sessions)):
+                    trend_data.append({
+                        "name": f"Day{i+1}",
+                        "engagement": session.get("child_engagement_score", 70) or 70
+                    })
+            else:
+                # 默认趋势数据
+                trend_data = [
+                    {"name": "Day1", "engagement": 65},
+                    {"name": "Day2", "engagement": 70},
+                    {"name": "Day3", "engagement": 68},
+                    {"name": "Day4", "engagement": 75},
+                    {"name": "Day5", "engagement": 72},
+                    {"name": "Day6", "engagement": 78},
+                    {"name": "Day7", "engagement": 80}
+                ]
+        except:
+            trend_data = [
+                {"name": "Day1", "engagement": 65},
+                {"name": "Day2", "engagement": 70},
+                {"name": "Day3", "engagement": 68},
+                {"name": "Day4", "engagement": 75},
+                {"name": "Day5", "engagement": 72},
+                {"name": "Day6", "engagement": 78},
+                {"name": "Day7", "engagement": 80}
+            ]
+
+        # 兴趣热力图数据
+        interests_data = []
+        if profile.interests:
+            # 按类别分组
+            category_map = {}
+            for interest in profile.interests:
+                category = interest.tags[0] if interest.tags else "其他"
+                if category not in category_map:
+                    category_map[category] = []
+                category_map[category].append({
+                    "name": interest.name,
+                    "level": interest.intensity or 3
+                })
+
+            for category, items in category_map.items():
+                interests_data.append({
+                    "category": category,
+                    "items": items
+                })
+        else:
+            # 默认兴趣数据
+            interests_data = [
+                {
+                    "category": "感官偏好",
+                    "items": [
+                        {"name": "视觉追踪", "level": 4},
+                        {"name": "触觉探索", "level": 3},
+                        {"name": "听觉敏感", "level": 2}
+                    ]
+                },
+                {
+                    "category": "游戏偏好",
+                    "items": [
+                        {"name": "积木搭建", "level": 4},
+                        {"name": "角色扮演", "level": 2},
+                        {"name": "音乐律动", "level": 3}
+                    ]
+                }
+            ]
+
+        return {
+            "radar": radar_data,
+            "trend": trend_data,
+            "interests": interests_data
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Profile API] 获取统计数据失败: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"获取统计数据失败: {str(e)}")
 
 
 @router.get("/{child_id}/export")
