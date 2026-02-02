@@ -277,11 +277,16 @@ async def list_profiles(
     try:
         profiles = sqlite_service.get_all_children()
         return {
-            "profiles": profiles,
-            "total": len(profiles)
+            "profiles": profiles or [],
+            "total": len(profiles) if profiles else 0
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取档案列表失败: {str(e)}")
+        # 数据库未初始化或其他错误时返回空列表
+        print(f"[Profile API] 获取档案列表失败: {e}")
+        return {
+            "profiles": [],
+            "total": 0
+        }
 
 
 def _generate_profile_markdown(profile: ChildProfile, latest_assessment: dict = None) -> str:

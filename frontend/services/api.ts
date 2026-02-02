@@ -122,6 +122,119 @@ export const ApiService = {
     }
   },
 
+  /**
+   * Send a chat message (streaming via SSE)
+   */
+  async sendMessageStream(
+    message: string,
+    childId: string,
+    history: any[],
+    onContent: (text: string) => void,
+    onToolCall?: (toolName: string, displayName: string) => void,
+    onToolResult?: (result: any) => void,
+    onDone?: (toolCalls: ToolCall[]) => void,
+    onError?: (error: string) => void
+  ): Promise<void> {
+    const mappedHistory = history.map(msg => ({
+      role: msg.role === 'model' ? 'assistant' : msg.role,
+      content: msg.text || msg.content
+    }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message,
+          child_id: childId,
+          conversation_history: mappedHistory,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error("Backend Error:", response.status, errText);
+        throw new Error(`API Error: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No reader available');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const toolCalls: ToolCall[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let eventType = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith('data: ') && eventType) {
+            const dataStr = line.slice(6);
+            try {
+              const data = JSON.parse(dataStr);
+
+              switch (eventType) {
+                case 'content':
+                  if (data.text) {
+                    onContent(data.text);
+                  }
+                  break;
+                case 'tool_call':
+                  if (onToolCall && data.tool_name) {
+                    onToolCall(data.tool_name, data.tool_display_name || data.tool_name);
+                  }
+                  break;
+                case 'tool_result':
+                  if (data.tool_name && data.result) {
+                    toolCalls.push({
+                      tool_name: data.tool_name,
+                      tool_display_name: data.tool_display_name || data.tool_name,
+                      result: data.result
+                    });
+                    if (onToolResult) {
+                      onToolResult(data);
+                    }
+                  }
+                  break;
+                case 'done':
+                  if (onDone) {
+                    onDone(toolCalls);
+                  }
+                  break;
+                case 'error':
+                  if (onError && data.error) {
+                    onError(data.error);
+                  }
+                  break;
+              }
+            } catch (e) {
+              console.warn('Failed to parse SSE data:', dataStr);
+            }
+            eventType = '';
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Stream API Call Failed", e);
+      if (onError) {
+        onError(e instanceof Error ? e.message : 'Unknown error');
+      }
+      throw e;
+    }
+  },
+
   async getProfile(childId?: string): Promise<ChildProfile> {
     if (!childId) {
       childId = localStorage.getItem('active_child_id') || 'test_child_001';
