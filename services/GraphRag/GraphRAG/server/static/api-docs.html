@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GraphRAG API 文档</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .nav {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .nav h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .nav-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .nav-link {
+            padding: 10px 15px;
+            background: #f0f4ff;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .nav-link:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .api-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .api-section h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .api-endpoint {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .method {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+
+        .method.get {
+            background: #4caf50;
+            color: white;
+        }
+
+        .method.post {
+            background: #2196f3;
+            color: white;
+        }
+
+        .endpoint-path {
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .description {
+            margin: 15px 0;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .params-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .params-table th,
+        .params-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .params-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        .params-table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .required {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        .optional {
+            color: #4caf50;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .example-section {
+            margin: 20px 0;
+        }
+
+        .example-section h4 {
+            color: #764ba2;
+            margin-bottom: 10px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge.auth {
+            background: #ff9800;
+            color: white;
+        }
+
+        .response-example {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4caf50;
+            margin: 15px 0;
+        }
+
+        .error-example {
+            background: #ffebee;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #f44336;
+            margin: 15px 0;
+        }
+
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #667eea;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+        }
+
+        .back-to-top:hover {
+            background: #764ba2;
+            transform: translateY(-3px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 GraphRAG API 文档</h1>
+            <p>完整的 API 接口说明和使用示例</p>
+        </div>
+
+        <div class="nav">
+            <h2>🔗 快速导航</h2>
+            <div class="nav-links">
+                <a href="#health" class="nav-link">健康检查</a>
+                <a href="#query" class="nav-link">查询接口</a>
+                <a href="#upload" class="nav-link">文件上传</a>
+                <a href="#tasks" class="nav-link">任务管理</a>
+                <a href="#neo4j" class="nav-link">Neo4j 服务</a>
+                <a href="#auth" class="nav-link">鉴权说明</a>
+            </div>
+        </div>
+
+        <!-- 健康检查 -->
+        <div class="api-section" id="health">
+            <h2>🏥 健康检查</h2>
+            
+            <div class="api-endpoint">
+                <div>
+                    <span class="method get">GET</span>
+                    <span class="endpoint-path">/api/health</span>
+                </div>
+                
+                <div class="description">
+                    检查服务是否正常运行。
+                </div>
+
+                <h3>参数</h3>
+                <p>无需参数</p>
+
+                <h3>返回值</h3>
+                <div class="response-example">
+                    <strong>成功响应 (200 OK):</strong>
+                    <pre class="code-block">{
+  "status": "ok",
+  "version": "1.0.0"
+}</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>调用示例</h4>
+                    <pre class="code-block"># cURL
+curl http://localhost/api/health
+
+# JavaScript
+fetch('http://localhost/api/health')
+  .then(res => res.json())
+  .then(data => console.log(data));</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 查询接口 -->
+        <div class="api-section" id="query">
+            <h2>🔍 GraphRAG 查询接口</h2>
+            
+            <!-- GET 查询 -->
+            <div class="api-endpoint">
+                <div>
+                    <span class="method get">GET</span>
+                    <span class="endpoint-path">/api/query</span>
+                    <span class="badge auth">需要鉴权</span>
+                </div>
+                
+                <div class="description">
+                    执行 GraphRAG 查询，支持多种查询类型（局部、全局、混合、基础）。
+                </div>
+
+                <h3>查询参数</h3>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>参数名</th>
+                            <th>类型</th>
+                            <th>必需</th>
+                            <th>默认值</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>query</code></td>
+                            <td>string</td>
+                            <td><span class="required">必需</span></td>
+                            <td>-</td>
+                            <td>查询文本</td>
+                        </tr>
+                        <tr>
+                            <td><code>query_type</code></td>
+                            <td>string</td>
+                            <td><span class="optional">可选</span></td>
+                            <td>local</td>
+                            <td>查询类型：local（局部）、global（全局）、drift（混合）、basic（基础）</td>
+                        </tr>
+                        <tr>
+                            <td><code>response_type</code></td>
+                            <td>string</td>
+                            <td><span class="optional">可选</span></td>
+                            <td>text</td>
+                            <td>响应类型：text（文本）、json（JSON）</td>
+                        </tr>
+                        <tr>
+                            <td><code>community_level</code></td>
+                            <td>integer</td>
+                            <td><span class="optional">可选</span></td>
+                            <td>1</td>
+                            <td>社区层级（1-3）</td>
+                        </tr>
+                        <tr>
+                            <td><code>dynamic_community_selection</code></td>
+                            <td>boolean</td>
+                            <td><span class="optional">可选</span></td>
+                            <td>false</td>
+                            <td>启用动态社区选择（仅 global 查询）</td>
+                        </tr>
+                        <tr>
+                            <td><code>access_key</code></td>
+                            <td>string</td>
+                            <td><span class="required">必需</span></td>
+                            <td>-</td>
+                            <td>访问密钥（需要 'access_key1'）</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>返回值</h3>
+                <div class="response-example">
+                    <strong>成功响应 (200 OK):</strong>
+                    <pre class="code-block">{
+  "query": "你的查询问题",
+  "response": "查询结果文本...",
+  "query_type": "local",
+  "context": "上下文信息..."
+}</pre>
+                </div>
+
+                <div class="error-example">
+                    <strong>鉴权失败 (403 Forbidden):</strong>
+                    <pre class="code-block">{
+  "detail": "访问被拒绝：无效的访问密钥。查询需要有效的 access_key (access_key1)"
+}</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>调用示例</h4>
+                    <pre class="code-block"># cURL - 局部查询
+curl "http://localhost/api/query?query=主要话题有哪些&query_type=local&access_key=access_key1"
+
+# cURL - 全局查询
+curl "http://localhost/api/query?query=总结主要内容&query_type=global&access_key=access_key1"
+
+# JavaScript
+const params = new URLSearchParams({
+  query: '主要话题有哪些',
+  query_type: 'local',
+  access_key: 'access_key1'
+});
+
+fetch(`http://localhost/api/query?${params}`)
+  .then(res => res.json())
+  .then(data => console.log(data));</pre>
+                </div>
+            </div>
+
+            <!-- POST 查询 -->
+            <div class="api-endpoint">
+                <div>
+                    <span class="method post">POST</span>
+                    <span class="endpoint-path">/api/query</span>
+                    <span class="badge auth">需要鉴权</span>
+                </div>
+                
+                <div class="description">
+                    使用 POST 方法执行 GraphRAG 查询，适合复杂查询或大量参数。
+                </div>
+
+                <h3>请求体 (JSON)</h3>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>字段名</th>
+                            <th>类型</th>
+                            <th>必需</th>
+                            <th>默认值</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>query</code></td>
+                            <td>string</td>
+                            <td><span class="required">必需</span></td>
+                            <td>-</td>
+                            <td>查询文本</td>
+                        </tr>
+                        <tr>
+                            <td><code>query_type</code></td>
+                            <td>string</td>
+                            <td><span class="optional">可选</span></td>
+                            <td>local</td>
+                            <td>查询类型</td>
+                        </tr>
+                        <tr>
+                            <td><code>response_type</code></td>
+                            <td>string</td>
+                            <td><span class="optional">可选</span></td>
+                            <td>text</td>
+                            <td>响应类型</td>
+                        </tr>
+                        <tr>
+                            <td><code>community_level</code></td>
+                            <td>integer</td>
+                            <td><span class="optional">可选</span></td>
+                            <td>1</td>
+                            <td>社区层级</td>
+                        </tr>
+                        <tr>
+                            <td><code>dynamic_community_selection</code></td>
+                            <td>boolean</td>
+                            <td><span class="optional">可选</span></td>
+                            <td>false</td>
+                            <td>动态社区选择</td>
+                        </tr>
+                        <tr>
+                            <td><code>access_key</code></td>
+                            <td>string</td>
+                            <td><span class="required">必需</span></td>
+                            <td>-</td>
+                            <td>访问密钥（'access_key1'）</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="example-section">
+                    <h4>调用示例</h4>
+                    <pre class="code-block"># cURL
+curl -X POST http://localhost/api/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "主要话题有哪些",
+    "query_type": "local",
+    "access_key": "access_key1"
+  }'
+
+# JavaScript
+fetch('http://localhost/api/query', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    query: '主要话题有哪些',
+    query_type: 'local',
+    access_key: 'access_key1'
+  })
+})
+  .then(res => res.json())
+  .then(data => console.log(data));</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 文件上传 -->
+        <div class="api-section" id="upload">
+            <h2>📤 文件上传与索引更新</h2>
+            
+            <div class="api-endpoint">
+                <div>
+                    <span class="method post">POST</span>
+                    <span class="endpoint-path">/api/upload</span>
+                    <span class="badge auth">需要鉴权</span>
+                </div>
+                
+                <div class="description">
+                    上传文件（.txt 或 .pdf）并自动更新 GraphRAG 索引。支持增量更新。
+                </div>
+
+                <h3>请求参数 (multipart/form-data)</h3>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>参数名</th>
+                            <th>类型</th>
+                            <th>必需</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>file</code></td>
+                            <td>file</td>
+                            <td><span class="required">必需</span></td>
+                            <td>上传的文件（支持 .txt 和 .pdf）</td>
+                        </tr>
+                        <tr>
+                            <td><code>access_key</code></td>
+                            <td>string</td>
+                            <td><span class="required">必需</span></td>
+                            <td>访问密钥（需要 'access_key2'）</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>返回值</h3>
+                <div class="response-example">
+                    <strong>成功响应 (200 OK):</strong>
+                    <pre class="code-block">{
+  "status": "accepted",
+  "message": "文件已上传，索引更新已开始",
+  "task_id": "550e8400-e29b-41d4-a716-446655440000",
+  "file_name": "document.pdf",
+  "file_type": "pdf"
+}</pre>
+                </div>
+
+                <div class="error-example">
+                    <strong>鉴权失败 (403 Forbidden):</strong>
+                    <pre class="code-block">{
+  "detail": "访问被拒绝：无效的访问密钥。索引更新需要有效的 access_key (access_key2)"
+}</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>调用示例</h4>
+                    <pre class="code-block"># cURL
+curl -X POST http://localhost/api/upload \
+  -F "file=@document.pdf" \
+  -F "access_key=access_key2"
+
+# JavaScript
+const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+formData.append('access_key', 'access_key2');
+
+fetch('http://localhost/api/upload', {
+  method: 'POST',
+  body: formData
+})
+  .then(res => res.json())
+  .then(data => console.log(data));</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 任务管理 -->
+        <div class="api-section" id="tasks">
+            <h2>📋 索引任务管理</h2>
+            
+            <!-- 查询任务状态 -->
+            <div class="api-endpoint">
+                <div>
+                    <span class="method get">GET</span>
+                    <span class="endpoint-path">/api/index/status/{task_id}</span>
+                </div>
+                
+                <div class="description">
+                    查询指定任务的状态信息。
+                </div>
+
+                <h3>路径参数</h3>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>参数名</th>
+                            <th>类型</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>task_id</code></td>
+                            <td>string</td>
+                            <td>任务 ID（UUID 格式）</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>返回值</h3>
+                <div class="response-example">
+                    <strong>成功响应 (200 OK):</strong>
+                    <pre class="code-block">{
+  "status": "completed",
+  "message": "索引更新成功！",
+  "file_name": "document.pdf",
+  "file_type": "pdf",
+  "file_path": "/path/to/file",
+  "created_at": "2024-01-01T12:00:00",
+  "output": "详细日志输出..."
+}</pre>
+                </div>
+
+                <div class="description">
+                    <strong>状态值说明：</strong>
+                    <ul style="margin-top: 10px; padding-left: 20px;">
+                        <li><code>pending</code> - 等待处理</li>
+                        <li><code>running</code> - 正在运行</li>
+                        <li><code>completed</code> - 已完成</li>
+                        <li><code>failed</code> - 失败</li>
+                    </ul>
+                </div>
+
+                <div class="example-section">
+                    <h4>调用示例</h4>
+                    <pre class="code-block"># cURL
+curl http://localhost/api/index/status/550e8400-e29b-41d4-a716-446655440000
+
+# JavaScript
+fetch('http://localhost/api/index/status/550e8400-e29b-41d4-a716-446655440000')
+  .then(res => res.json())
+  .then(data => console.log(data));</pre>
+                </div>
+            </div>
+
+            <!-- 列出所有任务 -->
+            <div class="api-endpoint">
+                <div>
+                    <span class="method get">GET</span>
+                    <span class="endpoint-path">/api/index/tasks</span>
+                </div>
+                
+                <div class="description">
+                    获取所有索引任务的列表。
+                </div>
+
+                <h3>参数</h3>
+                <p>无需参数</p>
+
+                <h3>返回值</h3>
+                <div class="response-example">
+                    <strong>成功响应 (200 OK):</strong>
+                    <pre class="code-block">{
+  "tasks": [
+    {
+      "task_id": "550e8400-e29b-41d4-a716-446655440000",
+      "status": "completed",
+      "message": "索引更新成功！",
+      "file_name": "document.pdf",
+      "file_type": "pdf",
+      "created_at": "2024-01-01T12:00:00"
+    },
+    {
+      "task_id": "660e8400-e29b-41d4-a716-446655440001",
+      "status": "running",
+      "message": "正在更新索引...",
+      "file_name": "text.txt",
+      "file_type": "txt",
+      "created_at": "2024-01-01T13:00:00"
+    }
+  ]
+}</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>调用示例</h4>
+                    <pre class="code-block"># cURL
+curl http://localhost/api/index/tasks
+
+# JavaScript
+fetch('http://localhost/api/index/tasks')
+  .then(res => res.json())
+  .then(data => console.log(data));</pre>
+                </div>
+            </div>
+
+            <!-- 查询任务日志 -->
+            <div class="api-endpoint">
+                <div>
+                    <span class="method get">GET</span>
+                    <span class="endpoint-path">/api/index/logs/{task_id}</span>
+                </div>
+                
+                <div class="description">
+                    获取任务的实时日志和进度信息。
+                </div>
+
+                <h3>路径参数</h3>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>参数名</th>
+                            <th>类型</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>task_id</code></td>
+                            <td>string</td>
+                            <td>任务 ID</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>查询参数</h3>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>参数名</th>
+                            <th>类型</th>
+                            <th>默认值</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>lines</code></td>
+                            <td>integer</td>
+                            <td>50</td>
+                            <td>返回最后 N 行日志</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>返回值</h3>
+                <div class="response-example">
+                    <strong>成功响应 (200 OK):</strong>
+                    <pre class="code-block">{
+  "task_id": "550e8400-e29b-41d4-a716-446655440000",
+  "logs": [
+    "[2024-01-01 12:00:00] INFO - 开始索引更新任务",
+    "[2024-01-01 12:00:01] INFO - 加载配置文件...",
+    "[2024-01-01 12:00:02] INFO - 开始构建索引..."
+  ],
+  "current_workflow": "生成社区报告",
+  "progress": 80,
+  "log_file": "task_550e8400.log"
+}</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>调用示例</h4>
+                    <pre class="code-block"># cURL - 获取最后 100 行日志
+curl "http://localhost/api/index/logs/550e8400-e29b-41d4-a716-446655440000?lines=100"
+
+# JavaScript
+fetch('http://localhost/api/index/logs/550e8400-e29b-41d4-a716-446655440000?lines=100')
+  .then(res => res.json())
+  .then(data => console.log(data));</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Neo4j 服务 -->
+        <div class="api-section" id="neo4j">
+            <h2>�️ Neo4/j 图数据库服务</h2>
+            
+            <div class="description">
+                Neo4j 服务通过 Nginx 代理提供访问，支持 HTTP Browser 和 HTTP API 两种方式。
+            </div>
+
+            <!-- Neo4j Browser -->
+            <div class="api-endpoint">
+                <div>
+                    <span class="method get">GET</span>
+                    <span class="endpoint-path">/neo4j/</span>
+                </div>
+                
+                <div class="description">
+                    访问 Neo4j Browser 图形界面，用于可视化查询和管理数据库。
+                </div>
+
+                <h3>访问方式</h3>
+                <pre class="code-block"># 本地访问
+http://localhost/neo4j/
+
+# 远程访问
+http://YOUR_IP/neo4j/</pre>
+
+                <h3>功能</h3>
+                <ul style="padding-left: 20px; line-height: 1.8;">
+                    <li>可视化数据库结构</li>
+                    <li>执行 Cypher 查询</li>
+                    <li>查看节点和关系</li>
+                    <li>数据库管理</li>
+                </ul>
+
+                <h3>登录信息</h3>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>字段</th>
+                            <th>默认值</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>用户名</td>
+                            <td><code>neo4j</code></td>
+                            <td>默认用户名</td>
+                        </tr>
+                        <tr>
+                            <td>密码</td>
+                            <td><code>neo4j</code></td>
+                            <td>首次登录后需修改</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Neo4j HTTP API -->
+            <div class="api-endpoint">
+                <div>
+                    <span class="method post">POST</span>
+                    <span class="endpoint-path">/neo4j-db/{database}/tx/commit</span>
+                </div>
+                
+                <div class="description">
+                    通过 HTTP API 执行 Cypher 查询，适合程序化访问。
+                </div>
+
+                <h3>路径参数</h3>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>参数名</th>
+                            <th>类型</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>database</code></td>
+                            <td>string</td>
+                            <td>数据库名称（默认：neo4j）</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>请求头</h3>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>Header</th>
+                            <th>值</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>Content-Type</code></td>
+                            <td>application/json</td>
+                            <td>必需</td>
+                        </tr>
+                        <tr>
+                            <td><code>Authorization</code></td>
+                            <td>Basic {base64(username:password)}</td>
+                            <td>必需，Basic 认证</td>
+                        </tr>
+                        <tr>
+                            <td><code>Accept</code></td>
+                            <td>application/json</td>
+                            <td>必需</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>请求体 (JSON)</h3>
+                <pre class="code-block">{
+  "statements": [
+    {
+      "statement": "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100",
+      "resultDataContents": ["row", "graph"]
+    }
+  ]
+}</pre>
+
+                <h3>返回值</h3>
+                <div class="response-example">
+                    <strong>成功响应 (200 OK):</strong>
+                    <pre class="code-block">{
+  "results": [
+    {
+      "columns": ["n", "r", "m"],
+      "data": [
+        {
+          "row": [...],
+          "graph": {
+            "nodes": [
+              {
+                "id": "123",
+                "labels": ["Entity"],
+                "properties": {
+                  "title": "示例节点",
+                  "description": "..."
+                }
+              }
+            ],
+            "relationships": [
+              {
+                "id": "456",
+                "type": "RELATED_TO",
+                "startNode": "123",
+                "endNode": "789",
+                "properties": {
+                  "weight": 0.8
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "errors": []
+}</pre>
+                </div>
+
+                <div class="error-example">
+                    <strong>认证失败 (401 Unauthorized):</strong>
+                    <pre class="code-block">{
+  "errors": [
+    {
+      "code": "Neo.ClientError.Security.Unauthorized",
+      "message": "The client is unauthorized due to authentication failure."
+    }
+  ]
+}</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>调用示例</h4>
+                    <pre class="code-block"># cURL - 查询所有节点和关系
+curl -X POST http://localhost/neo4j-db/neo4j/tx/commit \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $(echo -n 'neo4j:password' | base64)" \
+  -H "Accept: application/json" \
+  -d '{
+    "statements": [
+      {
+        "statement": "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100",
+        "resultDataContents": ["row", "graph"]
+      }
+    ]
+  }'
+
+# JavaScript
+const auth = btoa('neo4j:password');
+
+fetch('http://localhost/neo4j-db/neo4j/tx/commit', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Basic ${auth}`,
+    'Accept': 'application/json'
+  },
+  body: JSON.stringify({
+    statements: [{
+      statement: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100',
+      resultDataContents: ['row', 'graph']
+    }]
+  })
+})
+  .then(res => res.json())
+  .then(data => console.log(data));</pre>
+                </div>
+            </div>
+
+            <!-- 常用 Cypher 查询 -->
+            <div class="api-endpoint">
+                <h3>📝 常用 Cypher 查询示例</h3>
+                
+                <div class="example-section">
+                    <h4>1. 查看所有节点和关系</h4>
+                    <pre class="code-block">MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>2. 查看特定类型节点</h4>
+                    <pre class="code-block">MATCH (n:Entity) RETURN n LIMIT 50</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>3. 查看特定关系</h4>
+                    <pre class="code-block">MATCH (n)-[r:RELATED_TO]->(m) RETURN n, r, m</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>4. 查看所有节点标签</h4>
+                    <pre class="code-block">CALL db.labels()</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>5. 查看所有关系类型</h4>
+                    <pre class="code-block">CALL db.relationshipTypes()</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>6. 统计节点数量</h4>
+                    <pre class="code-block">MATCH (n) RETURN count(n) as nodeCount</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>7. 查找特定属性的节点</h4>
+                    <pre class="code-block">MATCH (n:Entity {title: "示例"}) RETURN n</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>8. 查看节点的所有关系</h4>
+                    <pre class="code-block">MATCH (n:Entity)-[r]-(m) WHERE n.title = "示例" RETURN n, r, m</pre>
+                </div>
+            </div>
+
+            <!-- URL 参数配置 -->
+            <div class="api-endpoint">
+                <h3>🔧 前端自动配置</h3>
+                
+                <div class="description">
+                    通过 URL 参数可以自动配置 Neo4j 连接信息：
+                </div>
+
+                <pre class="code-block">http://YOUR_IP/?ip=http://5c7f0d56.r12.vip.cpolar.cn&neo4jpwd=mypassword</pre>
+
+                <div class="description" style="margin-top: 15px;">
+                    <strong>效果：</strong>
+                    <ul style="padding-left: 20px; margin-top: 10px; line-height: 1.8;">
+                        <li>Neo4j HTTP API URL 自动填充为：<code>http://5c7f0d56.r12.vip.cpolar.cn/neo4j-db/neo4j</code></li>
+                        <li>Neo4j 密码自动填充为：<code>mypassword</code></li>
+                        <li>参数缓存到浏览器 localStorage</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 架构说明 -->
+            <div class="api-endpoint">
+                <h3>🏗️ 架构说明</h3>
+                
+                <div class="description">
+                    <strong>Nginx 代理配置：</strong>
+                </div>
+
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>访问路径</th>
+                            <th>代理目标</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>/neo4j/</code></td>
+                            <td>http://localhost:7474/</td>
+                            <td>Neo4j Browser 界面</td>
+                        </tr>
+                        <tr>
+                            <td><code>/neo4j-db/</code></td>
+                            <td>http://localhost:7474/db/</td>
+                            <td>Neo4j HTTP API</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="description" style="margin-top: 15px;">
+                    <strong>优势：</strong>
+                    <ul style="padding-left: 20px; margin-top: 10px; line-height: 1.8;">
+                        <li>✅ 仅需开放 80 端口</li>
+                        <li>✅ 统一网关访问</li>
+                        <li>✅ 支持远程访问</li>
+                        <li>✅ 无需配置防火墙规则</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 鉴权说明 -->
+        <div class="api-section" id="auth">
+            <h2>🔐 鉴权说明</h2>
+            
+            <div class="api-endpoint">
+                <h3>Access Key 鉴权机制</h3>
+                
+                <div class="description">
+                    系统使用 <code>access_key</code> 进行简单鉴权，不同的操作需要不同的密钥。
+                </div>
+
+                <h3>权限类型</h3>
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>权限类型</th>
+                            <th>Access Key</th>
+                            <th>适用接口</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>查询权限</strong></td>
+                            <td><code>access_key1</code></td>
+                            <td>GET/POST /api/query</td>
+                            <td>允许执行 GraphRAG 查询</td>
+                        </tr>
+                        <tr>
+                            <td><strong>更新权限</strong></td>
+                            <td><code>access_key2</code></td>
+                            <td>POST /api/upload</td>
+                            <td>允许上传文件和更新索引</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>URL 参数自动配置</h3>
+                <div class="description">
+                    访问系统时可以通过 URL 参数传递配置信息，参数会自动缓存到浏览器：
+                </div>
+
+                <pre class="code-block">http://YOUR_IP/?ip=SERVER_IP&access_key=KEY&neo4jpwd=PASSWORD</pre>
+
+                <table class="params-table">
+                    <thead>
+                        <tr>
+                            <th>参数</th>
+                            <th>说明</th>
+                            <th>示例</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>ip</code></td>
+                            <td>服务器 IP，自动填充 Neo4j URL</td>
+                            <td>http://5c7f0d56.r12.vip.cpolar.cn</td>
+                        </tr>
+                        <tr>
+                            <td><code>access_key</code></td>
+                            <td>访问密钥，用于 API 鉴权</td>
+                            <td>access_key1 或 access_key2</td>
+                        </tr>
+                        <tr>
+                            <td><code>neo4jpwd</code></td>
+                            <td>Neo4j 密码，自动填充</td>
+                            <td>your_password</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>鉴权失败响应</h3>
+                <div class="error-example">
+                    <strong>HTTP 403 Forbidden:</strong>
+                    <pre class="code-block">{
+  "detail": "访问被拒绝：无效的访问密钥。查询需要有效的 access_key (access_key1)"
+}</pre>
+                </div>
+
+                <h3>完整访问示例</h3>
+                <div class="example-section">
+                    <h4>场景 1：查询用户访问</h4>
+                    <pre class="code-block"># 访问 URL
+http://localhost/?ip=http://5c7f0d56.r12.vip.cpolar.cn&access_key=access_key1&neo4jpwd=mypassword
+
+# 效果：
+# - Neo4j URL 自动填充为：http://5c7f0d56.r12.vip.cpolar.cn/neo4j-db/neo4j
+# - Neo4j 密码自动填充为：mypassword
+# - 可以执行查询（access_key=access_key1）
+# - 无法上传文件（需要 access_key=access_key2）</pre>
+                </div>
+
+                <div class="example-section">
+                    <h4>场景 2：更新用户访问</h4>
+                    <pre class="code-block"># 访问 URL
+http://localhost/?access_key=access_key2
+
+# 效果：
+# - 无法执行查询（需要 access_key=access_key1）
+# - 可以上传文件和更新索引（access_key=access_key2）</pre>
+                </div>
+
+                <h3>安全建议</h3>
+                <div class="description">
+                    <ul style="padding-left: 20px; line-height: 1.8;">
+                        <li>🔒 不要在 URL 中明文传递敏感信息（生产环境）</li>
+                        <li>🔄 定期更换 access_key</li>
+                        <li>🔐 使用 HTTPS 加密传输</li>
+                        <li>🌐 配置 IP 白名单限制访问</li>
+                        <li>📝 记录所有 API 调用日志</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 查询类型说明 -->
+        <div class="api-section">
+            <h2>🔎 查询类型详解</h2>
+            
+            <div class="api-endpoint">
+                <h3>Local Search（局部搜索）</h3>
+                <div class="description">
+                    <strong>适用场景：</strong>查询特定实体、关系和细节信息<br>
+                    <strong>工作原理：</strong>基于实体嵌入进行相似度匹配，返回最相关的局部知识<br>
+                    <strong>示例问题：</strong>
+                    <ul style="padding-left: 20px; margin-top: 10px;">
+                        <li>"某个实体的详细信息"</li>
+                        <li>"两个概念之间的关系"</li>
+                        <li>"特定主题的相关内容"</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="api-endpoint">
+                <h3>Global Search（全局搜索）</h3>
+                <div class="description">
+                    <strong>适用场景：</strong>需要全局视角的问题，如总结、趋势分析<br>
+                    <strong>工作原理：</strong>通过社区报告提供宏观理解<br>
+                    <strong>示例问题：</strong>
+                    <ul style="padding-left: 20px; margin-top: 10px;">
+                        <li>"主要主题有哪些"</li>
+                        <li>"整体趋势是什么"</li>
+                        <li>"总结主要内容"</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="api-endpoint">
+                <h3>Drift Search（混合搜索）</h3>
+                <div class="description">
+                    <strong>适用场景：</strong>复杂问题，需要综合多方面信息<br>
+                    <strong>工作原理：</strong>结合局部和全局搜索，通过迭代查询深入探索<br>
+                    <strong>示例问题：</strong>
+                    <ul style="padding-left: 20px; margin-top: 10px;">
+                        <li>"复杂的多步推理问题"</li>
+                        <li>"需要综合多方面信息的查询"</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="api-endpoint">
+                <h3>Basic Search（基础搜索）</h3>
+                <div class="description">
+                    <strong>适用场景：</strong>快速查找文本片段<br>
+                    <strong>工作原理：</strong>基于文本单元的简单向量搜索，不使用图结构<br>
+                    <strong>示例问题：</strong>
+                    <ul style="padding-left: 20px; margin-top: 10px;">
+                        <li>"查找包含特定关键词的文本"</li>
+                        <li>"快速文本检索"</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 错误码说明 -->
+        <div class="api-section">
+            <h2>⚠️ 错误码说明</h2>
+            
+            <table class="params-table">
+                <thead>
+                    <tr>
+                        <th>状态码</th>
+                        <th>说明</th>
+                        <th>常见原因</th>
+                        <th>解决方案</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>200</strong></td>
+                        <td>成功</td>
+                        <td>请求成功处理</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td><strong>400</strong></td>
+                        <td>请求错误</td>
+                        <td>参数格式错误、缺少必需参数</td>
+                        <td>检查请求参数是否正确</td>
+                    </tr>
+                    <tr>
+                        <td><strong>403</strong></td>
+                        <td>禁止访问</td>
+                        <td>access_key 无效或缺失</td>
+                        <td>提供正确的 access_key</td>
+                    </tr>
+                    <tr>
+                        <td><strong>404</strong></td>
+                        <td>未找到</td>
+                        <td>任务 ID 不存在</td>
+                        <td>检查任务 ID 是否正确</td>
+                    </tr>
+                    <tr>
+                        <td><strong>500</strong></td>
+                        <td>服务器错误</td>
+                        <td>服务器内部错误</td>
+                        <td>查看服务器日志，联系管理员</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 快速开始 -->
+        <div class="api-section">
+            <h2>🚀 快速开始</h2>
+            
+            <div class="api-endpoint">
+                <h3>步骤 1：访问系统</h3>
+                <pre class="code-block">http://YOUR_IP/?ip=SERVER_IP&access_key=access_key1&neo4jpwd=PASSWORD</pre>
+
+                <h3>步骤 2：执行查询</h3>
+                <pre class="code-block">curl "http://localhost/api/query?query=主要话题有哪些&access_key=access_key1"</pre>
+
+                <h3>步骤 3：上传文件</h3>
+                <pre class="code-block">curl -X POST http://localhost/api/upload \
+  -F "file=@document.pdf" \
+  -F "access_key=access_key2"</pre>
+
+                <h3>步骤 4：查看任务状态</h3>
+                <pre class="code-block">curl http://localhost/api/index/tasks</pre>
+            </div>
+        </div>
+
+        <!-- 联系信息 -->
+        <div class="api-section">
+            <h2>📞 技术支持</h2>
+            <div class="description">
+                <p><strong>服务地址：</strong> <code>http://localhost</code> 或 <code>http://YOUR_IP</code></p>
+                <p><strong>API 基础路径：</strong> <code>/api</code></p>
+                <p><strong>文档版本：</strong> v1.0.0</p>
+                <p><strong>最后更新：</strong> 2024-12-16</p>
+            </div>
+        </div>
+
+    </div>
+
+    <a href="#" class="back-to-top">↑ 返回顶部</a>
+
+    <script>
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // 返回顶部按钮
+        const backToTop = document.querySelector('.back-to-top');
+        window.addEventListener('scroll', () => {
+            if (window.pageYOffset > 300) {
+                backToTop.style.display = 'block';
+            } else {
+                backToTop.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

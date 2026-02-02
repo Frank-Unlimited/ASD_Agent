@@ -103,15 +103,18 @@ class FileUploadService:
                     detail=f"文件大小超过限制: {file_size / 1024 / 1024:.2f}MB > {MAX_FILE_SIZE_BYTES / 1024 / 1024}MB"
                 )
             
+            # 确保父目录存在
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            
             # 保存文件
             with open(file_path, 'wb') as f:
                 f.write(content)
             
-            # 转换为 Windows 风格路径（使用双反斜杠）
-            windows_path = str(file_path.absolute()).replace('/', '\\')
+            # 获取绝对路径字符串
+            abs_path = str(file_path.absolute())
             
             return {
-                "file_path": windows_path,
+                "file_path": abs_path,
                 "filename": new_filename,
                 "original_filename": file.filename,
                 "file_size": file_size,

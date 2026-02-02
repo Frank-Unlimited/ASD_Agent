@@ -1,0 +1,70 @@
+services:
+  graphrag-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: graphrag-service
+    ports:
+      - "8080:80"
+    volumes:
+      # Mount vector database directory (required - contains LanceDB vector store)
+      # This directory is not in the repository due to large file size
+      - ./data/output:/app/data/output
+    environment:
+      # Server configuration
+      - HOST=0.0.0.0
+      - PORT=80
+      
+      # GraphRAG project paths
+      - GRAPHRAG_PROJECT_DIR=/app
+      - GRAPHRAG_DATA_DIR=data
+      
+      # GraphRAG LLM configuration
+      - GRAPHRAG_API_BASE=${GRAPHRAG_API_BASE:-https://ark.cn-beijing.volces.com/api/v3}
+      - GRAPHRAG_API_KEY=${GRAPHRAG_API_KEY}
+      - GRAPHRAG_MODEL_NAME=${GRAPHRAG_MODEL_NAME:-doubao-1-5-lite-32k-250115}
+      
+      # Doubao API Key (legacy)
+      - DOUBAO_API_KEY=${DOUBAO_API_KEY:-${GRAPHRAG_API_KEY}}
+      
+      # Embedding model configuration
+      - Embedding_API_BASE=${Embedding_API_BASE:-https://api.openai-proxy.org/v1}
+      - Embedding_API_KEY=${Embedding_API_KEY}
+      - Embedding_MODEL_NAME=${Embedding_MODEL_NAME:-text-embedding-3-small}
+      
+      # PDF processing - Image description (Vision model)
+      - IMAGE_DESCRIPTION_API_KEY=${IMAGE_DESCRIPTION_API_KEY:-${GRAPHRAG_API_KEY}}
+      - IMAGE_DESCRIPTION_MODEL=${IMAGE_DESCRIPTION_MODEL:-doubao-1-5-vision-pro-32k-250115}
+      - IMAGE_DESCRIPTION_BASE_URL=${IMAGE_DESCRIPTION_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      
+      # PDF processing - Table description
+      - TABLE_DESCRIPTION_API_KEY=${TABLE_DESCRIPTION_API_KEY:-${GRAPHRAG_API_KEY}}
+      - TABLE_DESCRIPTION_MODEL=${TABLE_DESCRIPTION_MODEL:-doubao-1-5-lite-32k-250115}
+      - TABLE_DESCRIPTION_BASE_URL=${TABLE_DESCRIPTION_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      
+      # MinerU service configuration
+      - MINERU_API_URL=${MINERU_API_URL:-http://host.docker.internal:6688/}
+      - MINERU_OUTPUT_DIR=${MINERU_OUTPUT_DIR:-/app/data/mineru_output}
+      
+      # PDF output directory
+      - PDF_LOCAL_OUTPUT_DIR=${PDF_LOCAL_OUTPUT_DIR:-/app/data/pdf_outputs}
+      
+      # Access keys (optional - can be set in code)
+      - QUERY_ACCESS_KEY=${QUERY_ACCESS_KEY:-hanhaochen}
+      - UPDATE_ACCESS_KEY=${UPDATE_ACCESS_KEY:-duping}
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    networks:
+      - graphrag-network
+
+networks:
+  graphrag-network:
+    driver: bridge

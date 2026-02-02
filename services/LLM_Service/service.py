@@ -92,10 +92,17 @@ class LLMService:
         
         # 添加输出格式
         if output_schema:
-            request_params["response_format"] = {
-                "type": "json_schema",
-                "json_schema": output_schema
-            }
+            # DeepSeek 目前主要支持 json_object，未必支持 json_schema
+            if "deepseek" in self.model.lower():
+                request_params["response_format"] = {"type": "json_object"}
+                # DeepSeek 要求 JSON 模式下 Prompt 必须包含 "json" 字样
+                if "json" not in system_prompt.lower() and "json" not in user_message.lower():
+                    messages[0]["content"] += "\nReturn your response in valid JSON format."
+            else:
+                request_params["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": output_schema
+                }
         
         try:
             # 调用 API

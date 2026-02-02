@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 # 上传文件根目录
-UPLOAD_BASE_DIR = os.getenv('UPLOAD_BASE_DIR', 'E:/pro/hhc/uploads')
+UPLOAD_BASE_DIR = os.getenv('UPLOAD_DIR', os.getenv('UPLOAD_BASE_DIR', './uploads'))
 
 # 最大文件大小（MB）
 MAX_FILE_SIZE_MB = int(os.getenv('MAX_FILE_SIZE_MB', '100'))
@@ -46,5 +46,5 @@ def ensure_upload_dirs():
     base_dir = Path(UPLOAD_BASE_DIR)
     base_dir.mkdir(parents=True, exist_ok=True)
     
-    for category_dir in FILE_CATEGORIES.values():
-        (base_dir / category_dir).mkdir(exist_ok=True)
+    for category_dir in list(FILE_CATEGORIES.values()) + ['others']:
+        (base_dir / category_dir).mkdir(parents=True, exist_ok=True)
