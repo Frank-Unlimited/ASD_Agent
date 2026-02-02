@@ -920,6 +920,61 @@ class MemoryService:
             traceback.print_exc()
             return None
     
+    async def get_child_stats(self, child_id: str) -> Dict[str, Any]:
+        """
+        获取孩子的统计数据
+        
+        Returns:
+            {
+                "observation_count": 观察记录数量,
+                "game_session_count": 游戏会话数量,
+                "assessment_count": 评估次数,
+                "last_activity": 最近活动时间
+            }
+        """
+        try:
+            # 查询统计数据
+            records, _, _ = await self.graphiti.driver.execute_query(
+                """
+                MATCH (p:Person {person_id: $child_id})
+                OPTIONAL MATCH (p)-[:PERFORMED]->(b:Behavior)
+                OPTIONAL MATCH (p)-[:PLAYED]->(g:FloorTimeGame)
+                OPTIONAL MATCH (p)-[:RECEIVED_ASSESSMENT]->(a:ChildAssessment)
+                WITH p, 
+                     count(DISTINCT b) as behavior_count,
+                     count(DISTINCT g) as game_count,
+                     count(DISTINCT a) as assessment_count,
+                     max(coalesce(b.timestamp, g.timestamp, a.timestamp)) as last_time
+                RETURN behavior_count, game_count, assessment_count, last_time
+                """,
+                child_id=child_id
+            )
+            
+            if records:
+                r = records[0]
+                return {
+                    "observation_count": r["behavior_count"] or 0,
+                    "game_session_count": r["game_count"] or 0,
+                    "assessment_count": r["assessment_count"] or 0,
+                    "last_activity": r["last_time"]
+                }
+            
+            return {
+                "observation_count": 0,
+                "game_session_count": 0,
+                "assessment_count": 0,
+                "last_activity": None
+            }
+            
+        except Exception as e:
+            print(f"[get_child_stats] 查询失败: {e}")
+            return {
+                "observation_count": 0,
+                "game_session_count": 0,
+                "assessment_count": 0,
+                "last_activity": None
+            }
+    
     async def save_child(self, child: Person) -> str:
         """
         保存孩子档案 - 使用 Graphiti 原生存储
