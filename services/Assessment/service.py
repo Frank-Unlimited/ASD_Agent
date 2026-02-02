@@ -469,47 +469,58 @@ class AssessmentService:
         
         # 整体评估
         text_parts.append(f"\n## 整体评估")
-        text_parts.append(assessment_report.overall_summary)
+        text_parts.append(assessment_report.overall_assessment)
         
         # 兴趣分析
         text_parts.append(f"\n## 兴趣分析")
         text_parts.append(f"\n发现 {len(interest_heatmap.dimensions)} 个兴趣维度：")
         
-        for dim in interest_heatmap.dimensions[:5]:  # 只显示前5个
-            text_parts.append(f"\n### {dim.name}")
-            text_parts.append(f"- 强度: {dim.intensity}/10")
-            text_parts.append(f"- 类型: {dim.interest_type}")
-            if dim.description:
-                text_parts.append(f"- 描述: {dim.description}")
+        # dimensions 是字典，需要转换为列表
+        dimension_items = list(interest_heatmap.dimensions.values())[:5]  # 只显示前5个
+        for dim in dimension_items:
+            text_parts.append(f"\n### {dim.dimension_name}")
+            text_parts.append(f"- 强度: {dim.strength}/10")
+            text_parts.append(f"- 趋势: {dim.trend.value}")
+            text_parts.append(f"- 置信度: {dim.confidence.value}")
+            if dim.key_objects:
+                objects_str = ", ".join([obj.name for obj in dim.key_objects[:3]])
+                text_parts.append(f"- 关键对象: {objects_str}")
         
         # 功能维度分析
         text_parts.append(f"\n## 功能维度分析")
         text_parts.append(f"\n活跃维度数量: {len(dimension_trends.active_dimensions)}")
         
-        for dim in dimension_trends.active_dimensions[:5]:  # 只显示前5个
+        # active_dimensions 也是字典，需要转换为列表
+        active_dim_items = list(dimension_trends.active_dimensions.values())[:5]  # 只显示前5个
+        for dim in active_dim_items:
             text_parts.append(f"\n### {dim.dimension_name}")
-            text_parts.append(f"- 趋势: {dim.trend}")
-            text_parts.append(f"- 当前水平: {dim.current_level}")
-            if dim.qualitative_changes:
-                text_parts.append(f"- 质变: {', '.join(dim.qualitative_changes)}")
+            text_parts.append(f"- 趋势: {dim.trend.value}")
+            text_parts.append(f"- 当前水平: {dim.current_level}/10")
+            text_parts.append(f"- 变化: {dim.change}")
+            if dim.breakthrough_moments:
+                text_parts.append(f"- 突破时刻: {len(dim.breakthrough_moments)} 个")
         
-        # 进步亮点
-        if assessment_report.progress_highlights:
-            text_parts.append(f"\n## 进步亮点")
-            for i, highlight in enumerate(assessment_report.progress_highlights, 1):
-                text_parts.append(f"{i}. {highlight}")
-        
-        # 需要关注的领域
-        if assessment_report.areas_of_concern:
-            text_parts.append(f"\n## 需要关注的领域")
-            for i, concern in enumerate(assessment_report.areas_of_concern, 1):
-                text_parts.append(f"{i}. {concern}")
+        # 突破性进步
+        if assessment_report.breakthroughs:
+            text_parts.append(f"\n## 突破性进步")
+            for i, breakthrough in enumerate(assessment_report.breakthroughs, 1):
+                if isinstance(breakthrough, dict):
+                    desc = breakthrough.get('description', str(breakthrough))
+                    text_parts.append(f"{i}. {desc}")
+                else:
+                    text_parts.append(f"{i}. {breakthrough}")
         
         # 建议
         if assessment_report.recommendations:
-            text_parts.append(f"\n## 建议")
+            text_parts.append(f"\n## 干预建议")
             for i, rec in enumerate(assessment_report.recommendations, 1):
                 text_parts.append(f"{i}. {rec}")
+        
+        # 下阶段目标
+        if assessment_report.next_phase_goals:
+            text_parts.append(f"\n## 下阶段目标")
+            for i, goal in enumerate(assessment_report.next_phase_goals, 1):
+                text_parts.append(f"{i}. {goal.dimension}: {goal.strategy}")
         
         return "\n".join(text_parts)
 

@@ -445,7 +445,7 @@ def build_comprehensive_assessment_prompt(
 
 请以 JSON 格式返回完整评估报告，**必须包含**以下字段：
 
-- overall_summary: 整体总结（300-500字，采用三明治结构）
+- overall_assessment: 整体发展评价（300-500字，采用三明治结构）
   - 第一段：肯定和亮点
   - 第二段：需要关注的领域
   - 第三段：积极的展望和鼓励
