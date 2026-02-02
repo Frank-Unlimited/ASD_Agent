@@ -659,7 +659,7 @@ class MemoryService:
         profile_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        导入档案 - LLM 解析档案数据 → 创建档案节点 + 初始评估
+        导入档案 - 使用 Graphiti-core 存储档案信息
         
         调用方：导入模块
         
@@ -683,94 +683,74 @@ class MemoryService:
         medical_reports = profile_data.get("medical_reports", "")
         assessment_scales = profile_data.get("assessment_scales", "")
         
-        # 2. 创建孩子档案节点
+        # 2. 生成 child_id
         child_id = f"child_{uuid.uuid4().hex[:12]}"
         
-        child = Person(
-            person_id=child_id,
-            person_type="child",
-            name=name,
-            role="patient",
-            basic_info={
-                "age": age,
-                "diagnosis": diagnosis,
-                "imported_at": datetime.now(timezone.utc).isoformat(),
-                "source": "profile_import"
-            },
-            created_at=datetime.now(timezone.utc).isoformat()
-        )
-        
-        await self.storage.create_person(child)
-        
-        # 3. 构建 Output Schema
-        output_schema = pydantic_to_json_schema(
-            model=ProfileImportOutput,
-            schema_name="ProfileImportOutput",
-            description="档案导入分析结果"
-        )
-        
-        # 4. 构建 LLM Prompt（解析档案，生成初始评估）
-        prompt = f"""请分析以下儿童档案，生成初始评估报告。
+        # 3. 构建档案文本（用于 Graphiti 存储）
+        profile_text = f"""
+# 孩子档案导入
 
-【基本信息】
-姓名：{name}
-年龄：{age}
-诊断：{diagnosis}
+## 基本信息
+- 姓名：{name}
+- 年龄：{age}
+- 诊断：{diagnosis}
+- 档案ID：{child_id}
 
-【医学报告】
+## 医学报告
 {medical_reports}
 
-【评估量表】
+## 评估量表
 {assessment_scales}
 
-【任务】
-1. 分析孩子的当前状况
-2. 识别优势领域和挑战领域
-3. 提取关键的兴趣偏好（如果有）
-4. 提取关键的功能维度表现（如果有）
-5. 生成初步的干预建议
+这是一份新导入的儿童档案，包含了孩子的基本信息、医学报告和评估量表数据。
 """
         
-        # 5. 调用 LLM
-        result = await self.llm_service.call(
-            system_prompt="你是一个专业的 ASD 儿童档案分析师。",
-            user_message=prompt,
-            output_schema=output_schema,
-            temperature=0.3,
-            max_tokens=2500
+        # 4. 使用 Graphiti-core 存储档案（自动提取实体和关系）
+        result = await self.graphiti.add_episode(
+            name=f"档案导入_{name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+            episode_body=profile_text,
+            source_description=f"档案导入 - {name}",
+            reference_time=datetime.now(timezone.utc),
+            group_id=child_id
         )
         
-        # 6. 获取结构化输出
-        if not result.get("structured_output"):
-            raise ValueError("LLM 未返回结构化输出")
+        print(f"[Memory] 档案已存储到 Graphiti: episode_id={result.episode_id}")
         
-        initial_assessment = result["structured_output"]
-        
-        # 7. 创建初始评估节点
+        # 5. 生成初始评估（可选）
         assessment_id = f"assess_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
         
-        assessment = ChildAssessment(
-            assessment_id=assessment_id,
+        # 构建初始评估文本
+        assessment_text = f"""
+# 初始评估报告
+
+孩子：{name}
+档案ID：{child_id}
+评估时间：{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}
+
+## 档案概况
+根据导入的档案信息，{name} 的诊断为 {diagnosis}，年龄 {age} 岁。
+
+## 医学报告摘要
+{medical_reports[:500]}...
+
+## 下一步建议
+1. 完善孩子的详细信息
+2. 开始记录日常行为观察
+3. 设计个性化的地板时光游戏
+"""
+        
+        # 6. 存储初始评估
+        await self.store_assessment(
             child_id=child_id,
-            assessor_id="system_llm",
-            timestamp=datetime.now(timezone.utc).isoformat(),
-            assessment_type="comprehensive",
-            analysis=initial_assessment,
-            recommendations=initial_assessment.get("recommendations", [])
+            assessment_text=assessment_text,
+            assessment_type="initial",
+            metadata={
+                "assessment_id": assessment_id,
+                "source": "profile_import"
+            }
         )
         
-        await self.storage.create_assessment(assessment)
-        
-        # 8. 创建关系：孩子 -> 评估
-        await self.storage.create_relationship(
-            from_id=child_id,
-            from_label="Person",
-            to_id=assessment_id,
-            to_label="ChildAssessment",
-            rel_type="接受评估"
-        )
-        
-        # 9. 返回结果
+        # 7. 返回结果
         return {
             "child_id": child_id,
             "assessment_id": assessment_id,
