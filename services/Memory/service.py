@@ -57,6 +57,7 @@ from .entity_models import (
     BehaviorEntityModel,
     ObjectEntityModel,
     InterestEntityModel,
+    InterestDimensionEntityModel,  # 新增
     FunctionEntityModel,
     PersonEntityModel,
     GameSummaryEntityModel,
@@ -213,20 +214,23 @@ class MemoryService:
             'Behavior': BehaviorEntityModel,
             'Object': ObjectEntityModel,
             'Person': PersonEntityModel,
+            'InterestDimension': InterestDimensionEntityModel,  # 新增：兴趣维度（固定8个）
         }
         
-        # 2. 定义边类型
+        # 2. 定义边类型（使用英文名称，避免编码问题）
         edge_types = {
-            '展现': ExhibitEdgeModel,
-            '涉及对象': InvolveObjectEdgeModel,
-            '涉及人物': InvolvePersonEdgeModel,
+            'exhibits': ExhibitEdgeModel,
+            'involves_object': InvolveObjectEdgeModel,
+            'involves_person': InvolvePersonEdgeModel,
+            'shows_interest': ShowInterestEdgeModel,  # 新增：行为->兴趣维度
         }
         
         # 3. 定义边类型映射
         edge_type_map = {
-            ('Person', 'Behavior'): ['展现'],
-            ('Behavior', 'Object'): ['涉及对象'],
-            ('Behavior', 'Person'): ['涉及人物'],
+            ('Person', 'Behavior'): ['exhibits'],
+            ('Behavior', 'Object'): ['involves_object'],
+            ('Behavior', 'Person'): ['involves_person'],
+            ('Behavior', 'InterestDimension'): ['shows_interest'],  # 新增：行为可以表现多个兴趣维度
         }
         
         # 4. 使用 Graphiti-core 自动提取
@@ -382,13 +386,13 @@ class MemoryService:
         
         # 2. 定义边类型（评估层会建立 Behavior -> Interest/Function 的关系）
         edge_types = {
-            '体现兴趣': ShowInterestEdgeModel,
-            '体现功能': ShowFunctionEdgeModel,
+            'shows_interest': ShowInterestEdgeModel,
+            'shows_function': ShowFunctionEdgeModel,
         }
         
         edge_type_map = {
-            ('KeyBehavior', 'Interest'): ['体现兴趣'],
-            ('KeyBehavior', 'Function'): ['体现功能'],
+            ('KeyBehavior', 'Interest'): ['shows_interest'],
+            ('KeyBehavior', 'Function'): ['shows_function'],
         }
         
         # 3. 使用 Graphiti-core 自动提取
@@ -614,13 +618,13 @@ class MemoryService:
         
         # 2. 定义边类型（评估会建立 Behavior -> Interest/Function 的关系）
         edge_types = {
-            '体现兴趣': ShowInterestEdgeModel,
-            '体现功能': ShowFunctionEdgeModel,
+            'shows_interest': ShowInterestEdgeModel,
+            'shows_function': ShowFunctionEdgeModel,
         }
         
         edge_type_map = {
-            ('Behavior', 'Interest'): ['体现兴趣'],
-            ('Behavior', 'Function'): ['体现功能'],
+            ('Behavior', 'Interest'): ['shows_interest'],
+            ('Behavior', 'Function'): ['shows_function'],
         }
         
         # 3. 使用 Graphiti-core 自动提取
@@ -2247,6 +2251,243 @@ class MemoryService:
         # 保留 storage 的关闭（向后兼容）
         if hasattr(self, 'storage') and self.storage:
             await self.storage.close()
+    
+    # ========== 兴趣维度探索度计算 ==========
+    
+    async def calculate_exploration_score(
+        self,
+        child_id: str,
+        dimension: str
+    ) -> Dict[str, Any]:
+        """
+        计算兴趣维度的探索度
+        
+        通过 Cypher 查询计算：
+        - 关联的行为数量
+        - 行为权重总和
+        - 行为多样性（涉及的事件类型数量）
+        - 时间跨度
+        
+        公式：exploration_score = Σ(weight_i) * diversity_factor
+        
+        Args:
+            child_id: 孩子ID
+            dimension: 兴趣维度（visual/auditory/tactile/motor/construction/order/cognitive/social）
+        
+        Returns:
+            {
+                "dimension": str,
+                "exploration_score": float,  # 0-100
+                "behavior_count": int,
+                "total_weight": float,
+                "event_types": List[str],
+                "first_observed": str,
+                "last_observed": str,
+                "time_span_days": int
+            }
+        """
+        query = """
+        MATCH (b:Entity:Behavior {group_id: $child_id})
+              -[r:show_interest]->(i:Entity:InterestDimension)
+        WHERE i.dimension_id = $dimension
+        RETURN 
+            count(DISTINCT b) as behavior_count,
+            sum(r.weight) as total_weight,
+            collect(DISTINCT b.event_type) as event_types,
+            min(r.created_at) as first_observed,
+            max(r.created_at) as last_observed
+        """
+        
+        result = await self.storage.execute_query(query, {
+            "child_id": child_id,
+            "dimension": dimension
+        })
+        
+        if not result or len(result) == 0:
+            return {
+                "dimension": dimension,
+                "exploration_score": 0.0,
+                "behavior_count": 0,
+                "total_weight": 0.0,
+                "event_types": [],
+                "first_observed": None,
+                "last_observed": None,
+                "time_span_days": 0
+            }
+        
+        record = result[0]
+        behavior_count = record.get("behavior_count", 0)
+        total_weight = record.get("total_weight", 0.0) or 0.0
+        event_types = record.get("event_types", [])
+        first_observed = record.get("first_observed")
+        last_observed = record.get("last_observed")
+        
+        # 计算时间跨度
+        time_span_days = 0
+        if first_observed and last_observed:
+            try:
+                first_dt = datetime.fromisoformat(first_observed)
+                last_dt = datetime.fromisoformat(last_observed)
+                time_span_days = (last_dt - first_dt).days
+            except:
+                time_span_days = 0
+        
+        # 计算探索度
+        # 基础分数：加权行为数量
+        base_score = min(100, total_weight * 10)  # 10个权重为1.0的行为 = 100分
+        
+        # 多样性加成：涉及的事件类型越多，说明兴趣表现越丰富
+        event_types_count = len(event_types)
+        diversity_factor = 1 + (event_types_count - 1) * 0.1  # 每多一种类型+10%
+        
+        exploration_score = min(100, base_score * diversity_factor)
+        
+        return {
+            "dimension": dimension,
+            "exploration_score": round(exploration_score, 2),
+            "behavior_count": behavior_count,
+            "total_weight": round(total_weight, 2),
+            "event_types": event_types,
+            "first_observed": first_observed,
+            "last_observed": last_observed,
+            "time_span_days": time_span_days
+        }
+    
+    async def calculate_all_exploration_scores(
+        self,
+        child_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        计算孩子所有兴趣维度的探索度
+        
+        Args:
+            child_id: 孩子ID
+        
+        Returns:
+            List of exploration score data, sorted by score DESC
+        """
+        dimensions = [
+            "visual", "auditory", "tactile", "motor",
+            "construction", "order", "cognitive", "social"
+        ]
+        
+        results = []
+        for dimension in dimensions:
+            score_data = await self.calculate_exploration_score(child_id, dimension)
+            if score_data["behavior_count"] > 0:  # 只返回有数据的维度
+                results.append(score_data)
+        
+        # 按探索度降序排序
+        results.sort(key=lambda x: x["exploration_score"], reverse=True)
+        
+        return results
+    
+    async def get_behaviors_for_interest_dimension(
+        self,
+        child_id: str,
+        dimension: str,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        获取某个兴趣维度的所有关联行为（用于评估Agent分析）
+        
+        Args:
+            child_id: 孩子ID
+            dimension: 兴趣维度
+            limit: 返回数量限制
+        
+        Returns:
+            List of behavior data with weight and reasoning
+        """
+        query = """
+        MATCH (b:Entity:Behavior {group_id: $child_id})
+              -[r:show_interest]->(i:Entity:InterestDimension)
+        WHERE i.dimension_id = $dimension
+        RETURN 
+            b.description as behavior,
+            b.event_type as event_type,
+            b.emotional_state as emotion,
+            b.duration_seconds as duration,
+            b.significance as significance,
+            r.weight as weight,
+            r.reasoning as reasoning,
+            r.manifestation as manifestation,
+            r.created_at as observed_at
+        ORDER BY r.created_at DESC
+        LIMIT $limit
+        """
+        
+        result = await self.storage.execute_query(query, {
+            "child_id": child_id,
+            "dimension": dimension,
+            "limit": limit
+        })
+        
+        behaviors = []
+        for record in result:
+            behaviors.append({
+                "behavior": record.get("behavior"),
+                "event_type": record.get("event_type"),
+                "emotion": record.get("emotion"),
+                "duration": record.get("duration"),
+                "significance": record.get("significance"),
+                "weight": record.get("weight"),
+                "reasoning": record.get("reasoning"),
+                "manifestation": record.get("manifestation"),
+                "observed_at": record.get("observed_at")
+            })
+        
+        return behaviors
+    
+    async def get_multi_interest_behaviors(
+        self,
+        child_id: str,
+        min_dimensions: int = 2
+    ) -> List[Dict[str, Any]]:
+        """
+        查找涉及多个兴趣维度的行为（交叉兴趣）
+        
+        这些行为可能特别有价值，因为它们同时满足多个兴趣点
+        
+        Args:
+            child_id: 孩子ID
+            min_dimensions: 最少关联的维度数量
+        
+        Returns:
+            List of behaviors with their interest dimensions
+        """
+        query = """
+        MATCH (b:Entity:Behavior {group_id: $child_id})
+              -[r:show_interest]->(i:Entity:InterestDimension)
+        WITH b, collect({
+            dimension: i.dimension_id, 
+            weight: r.weight,
+            reasoning: r.reasoning
+        }) as interests
+        WHERE size(interests) >= $min_dimensions
+        RETURN 
+            b.description as behavior,
+            b.event_type as event_type,
+            interests,
+            size(interests) as dimension_count
+        ORDER BY dimension_count DESC, b.created_at DESC
+        """
+        
+        result = await self.storage.execute_query(query, {
+            "child_id": child_id,
+            "min_dimensions": min_dimensions
+        })
+        
+        behaviors = []
+        for record in result:
+            behaviors.append({
+                "behavior": record.get("behavior"),
+                "event_type": record.get("event_type"),
+                "interests": record.get("interests"),
+                "dimension_count": record.get("dimension_count")
+            })
+        
+        return behaviors
 
 
 # ============ 全局服务实例 ============
