@@ -42,49 +42,13 @@ class GraphStorage:
     async def initialize_fixed_nodes(self):
         """
         初始化固定节点
-        - 8个兴趣维度节点
-        - 33个功能维度节点
-        - 创建唯一约束和索引
+        - 只创建约束和索引
+        - InterestDimension 节点由 LLM 动态创建
         """
-        # 先创建约束和索引
+        # 创建约束和索引
         await self.index_manager.create_constraints_and_indexes()
         
-        async with self.driver.session() as session:
-            # 创建8个兴趣维度节点
-            for interest_name in get_all_interest_names():
-                config = INTEREST_DIMENSIONS[interest_name]
-                query = """
-                MERGE (i:InterestDimension {interest_id: $interest_id})
-                ON CREATE SET i.name = $name,
-                              i.display_name = $display_name,
-                              i.description = $description
-                """
-                await session.run(query,
-                    interest_id=f"interest_{interest_name}",
-                    name=interest_name,
-                    display_name=config["display_name"],
-                    description=config["description"]
-                )
-            
-            # 创建33个功能维度节点
-            for function_name in get_all_function_names():
-                config = FUNCTION_DIMENSIONS[function_name]
-                query = """
-                MERGE (f:FunctionDimension {function_id: $function_id})
-                ON CREATE SET f.name = $name,
-                              f.display_name = $display_name,
-                              f.category = $category,
-                              f.description = $description
-                """
-                await session.run(query,
-                    function_id=f"function_{function_name}",
-                    name=function_name,
-                    display_name=config["display_name"],
-                    category=config["category"],
-                    description=config["description"]
-                )
-            
-            print("[GraphStorage] 固定节点初始化完成")
+        print("[GraphStorage] 固定节点初始化完成（只创建约束和索引，InterestDimension 由 LLM 动态创建）")
     
     # ============ Person 节点操作 ============
     
@@ -127,6 +91,44 @@ class GraphStorage:
             result = await session.run(query, person_id=person_id)
             record = await result.single()
             return dict(record["p"]) if record else None
+    
+    async def update_person(self, person_id: str, updates: Dict[str, Any]) -> bool:
+        """
+        更新人物节点属性
+        
+        Args:
+            person_id: 人物ID
+            updates: 要更新的属性字典（如 {"name": "新名字", "basic_info": {...}}）
+        
+        Returns:
+            是否更新成功
+        """
+        if not updates:
+            return False
+        
+        # 构建SET子句
+        set_clauses = []
+        params = {"person_id": person_id}
+        
+        for key, value in updates.items():
+            if key == "basic_info":
+                # basic_info需要序列化为JSON
+                set_clauses.append(f"p.{key} = $param_{key}")
+                params[f"param_{key}"] = json.dumps(value)
+            else:
+                set_clauses.append(f"p.{key} = $param_{key}")
+                params[f"param_{key}"] = value
+        
+        query = f"""
+        MATCH (p:Person {{person_id: $person_id}})
+        SET {', '.join(set_clauses)}
+        RETURN p.person_id as person_id
+        """
+        
+        async with self.driver.session() as session:
+            result = await session.run(query, **params)
+            record = await result.single()
+            return record is not None
     
     # ============ Behavior 节点操作 ============
     
@@ -707,3 +709,24 @@ class GraphStorage:
             result = await session.run(query, **params)
             record = await result.single()
             return record is not None
+
+    # ============ 通用查询方法 ============
+    
+    async def execute_query(self, query: str, params: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+        """
+        执行通用 Cypher 查询
+        
+        Args:
+            query: Cypher 查询语句
+            params: 查询参数
+        
+        Returns:
+            查询结果列表
+        """
+        if params is None:
+            params = {}
+        
+        async with self.driver.session() as session:
+            result = await session.run(query, **params)
+            records = await result.data()
+            return records

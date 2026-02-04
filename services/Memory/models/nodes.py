@@ -136,9 +136,19 @@ class ChildAssessment:
     child_id: str = ""
     assessor_id: str = ""
     timestamp: str = ""
-    assessment_type: Literal["comprehensive", "interest_mining", "trend_analysis"] = "comprehensive"
+    assessment_type: Literal["comprehensive", "interest_mining", "trend_analysis", "initial"] = "comprehensive"
     analysis: Dict[str, Any] = field(default_factory=dict)
     recommendations: Dict[str, Any] = field(default_factory=dict)
+    
+    # 初始评估相关字段
+    summary: str = ""
+    strengths: List[str] = field(default_factory=list)
+    challenges: List[str] = field(default_factory=list)
+    fedc_level: Optional[int] = None
+    dimension_scores: Dict[str, Any] = field(default_factory=dict)
+    interests: List[str] = field(default_factory=list)
+    created_at: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 # 节点类型映射

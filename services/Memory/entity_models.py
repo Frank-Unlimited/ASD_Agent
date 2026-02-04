@@ -60,7 +60,7 @@ class ObjectEntityModel(BaseModel):
 
 
 class InterestEntityModel(BaseModel):
-    """兴趣实体模型 - 用于识别体现的兴趣维度"""
+    """[DEPRECATED] 旧的兴趣实体模型 - 请使用 InterestDimensionEntityModel"""
     
     interest_name: Literal["visual", "auditory", "tactile", "motor", "construction", "order", "cognitive", "social"] = Field(
         ...,
@@ -82,6 +82,29 @@ class InterestEntityModel(BaseModel):
     is_primary: bool = Field(
         True,
         description="是否为主要兴趣"
+    )
+
+
+class InterestDimensionEntityModel(BaseModel):
+    """兴趣维度实体模型 - 由 LLM 动态创建
+    
+    注意：Graphiti 的 name 字段是保护字段，不能在模型中定义
+    因此使用 dimension_id 作为维度标识符
+    """
+    
+    dimension_id: Literal["visual", "auditory", "tactile", "motor", "construction", "order", "cognitive", "social"] = Field(
+        ...,
+        description="兴趣维度标识符（8个维度之一）"
+    )
+    
+    display_name: str = Field(
+        ...,
+        description="维度的中文显示名称（如：视觉、听觉、触觉等）"
+    )
+    
+    description: Optional[str] = Field(
+        None,
+        description="该维度的简短描述"
     )
 
 
@@ -233,9 +256,31 @@ class InvolveObjectEdgeModel(BaseModel):
 
 
 class ShowInterestEdgeModel(BaseModel):
-    """体现兴趣边模型 - 行为体现兴趣"""
-    intensity: float = Field(..., ge=0.0, le=10.0, description="强度")
-    duration_seconds: Optional[int] = Field(None, description="持续时长")
+    """体现兴趣边模型 - 行为体现兴趣
+    
+    这个边连接 Behavior 节点和 InterestDimension 节点，
+    表达行为对某个兴趣维度的贡献程度。
+    
+    边的权重用于计算兴趣维度的探索度：
+    exploration_score = Σ(weight_i) * diversity_factor
+    """
+    
+    weight: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="关联权重：这个行为对该兴趣维度的贡献度（0-1）"
+    )
+    
+    reasoning: Optional[str] = Field(
+        None,
+        description="推理依据：为什么这个行为体现了该兴趣维度"
+    )
+    
+    manifestation: Optional[str] = Field(
+        None,
+        description="具体表现：行为如何体现兴趣（如：'持续观察5分钟'、'主动寻找'）"
+    )
 
 
 class ShowFunctionEdgeModel(BaseModel):

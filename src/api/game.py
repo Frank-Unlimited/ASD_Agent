@@ -66,6 +66,43 @@ async def recommend_game(
         raise HTTPException(status_code=500, detail=f"游戏推荐失败: {str(e)}")
 
 
+@router.get("/library")
+async def get_game_library():
+    """
+    获取游戏库中的所有预设游戏
+    """
+    try:
+        from src.container import get_game_library as _get_game_library
+        service = _get_game_library()
+        games = service.list_games()
+        return {
+            "success": True,
+            "data": games,
+            "message": f"成功获取 {len(games)} 个预设游戏"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取游戏库失败: {str(e)}")
+
+
+@router.get("/list")
+async def get_game_list():
+    """
+    获取游戏列表（前端兼容接口）
+    
+    返回所有游戏，包括预设游戏和推荐的游戏
+    """
+    try:
+        from src.container import get_game_library as _get_game_library
+        service = _get_game_library()
+        games = service.list_games()
+        return {
+            "games": games,
+            "total": len(games)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取游戏列表失败: {str(e)}")
+
+
 @router.get("/calendar/{child_id}")
 async def get_game_calendar(child_id: str):
     """

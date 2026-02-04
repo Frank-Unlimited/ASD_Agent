@@ -21,60 +21,26 @@ class IndexManager:
         """
         创建所有必要的唯一约束和索引
         
-        约束会自动创建索引，所以先创建约束
+        注意：在完全 Graphiti 化架构中，大部分节点由 Graphiti 管理
+        这里只创建固定节点（InterestDimension）的约束
         """
         # 唯一约束（自动创建索引）
         constraints = [
-            # Person 节点唯一约束
-            "CREATE CONSTRAINT person_id_unique IF NOT EXISTS FOR (p:Person) REQUIRE p.person_id IS UNIQUE",
-            
-            # Behavior 节点唯一约束
-            "CREATE CONSTRAINT behavior_id_unique IF NOT EXISTS FOR (b:Behavior) REQUIRE b.behavior_id IS UNIQUE",
-            
-            # Object 节点唯一约束
-            "CREATE CONSTRAINT object_id_unique IF NOT EXISTS FOR (o:Object) REQUIRE o.object_id IS UNIQUE",
-            
-            # InterestDimension 节点唯一约束
-            "CREATE CONSTRAINT interest_id_unique IF NOT EXISTS FOR (i:InterestDimension) REQUIRE i.interest_id IS UNIQUE",
-            
-            # FunctionDimension 节点唯一约束
-            "CREATE CONSTRAINT function_id_unique IF NOT EXISTS FOR (f:FunctionDimension) REQUIRE f.function_id IS UNIQUE",
-            
-            # FloorTimeGame 节点唯一约束
-            "CREATE CONSTRAINT game_id_unique IF NOT EXISTS FOR (g:FloorTimeGame) REQUIRE g.game_id IS UNIQUE",
-            
-            # ChildAssessment 节点唯一约束
-            "CREATE CONSTRAINT assessment_id_unique IF NOT EXISTS FOR (a:ChildAssessment) REQUIRE a.assessment_id IS UNIQUE",
+            # InterestDimension 节点唯一约束（8个固定维度）
+            "CREATE CONSTRAINT interest_dimension_unique IF NOT EXISTS FOR (i:InterestDimension) REQUIRE i.dimension IS UNIQUE",
         ]
         
         # 额外的索引（用于查询优化）
         indexes = [
-            # Person 节点索引
-            "CREATE INDEX person_type_index IF NOT EXISTS FOR (p:Person) ON (p.person_type)",
+            # Graphiti Entity 节点索引（由 Graphiti 自动创建，这里列出供参考）
+            # - Entity.uuid (由 Graphiti 创建)
+            # - Entity.name (由 Graphiti 创建)
+            # - Entity.group_id (由 Graphiti 创建)
+            # - Episodic.uuid (由 Graphiti 创建)
+            # - Episodic.group_id (由 Graphiti 创建)
             
-            # Behavior 节点索引
-            "CREATE INDEX behavior_child_index IF NOT EXISTS FOR (b:Behavior) ON (b.child_id)",
-            "CREATE INDEX behavior_timestamp_index IF NOT EXISTS FOR (b:Behavior) ON (b.timestamp)",
-            "CREATE INDEX behavior_significance_index IF NOT EXISTS FOR (b:Behavior) ON (b.significance)",
-            "CREATE INDEX behavior_child_time_index IF NOT EXISTS FOR (b:Behavior) ON (b.child_id, b.timestamp)",
-            
-            # Object 节点索引
-            "CREATE INDEX object_name_index IF NOT EXISTS FOR (o:Object) ON (o.name)",
-            
-            # InterestDimension 节点索引
-            "CREATE INDEX interest_name_index IF NOT EXISTS FOR (i:InterestDimension) ON (i.name)",
-            
-            # FunctionDimension 节点索引
-            "CREATE INDEX function_name_index IF NOT EXISTS FOR (f:FunctionDimension) ON (f.name)",
-            "CREATE INDEX function_category_index IF NOT EXISTS FOR (f:FunctionDimension) ON (f.category)",
-            
-            # FloorTimeGame 节点索引
-            "CREATE INDEX game_child_index IF NOT EXISTS FOR (g:FloorTimeGame) ON (g.child_id)",
-            "CREATE INDEX game_status_index IF NOT EXISTS FOR (g:FloorTimeGame) ON (g.status)",
-            
-            # ChildAssessment 节点索引
-            "CREATE INDEX assessment_child_index IF NOT EXISTS FOR (a:ChildAssessment) ON (a.child_id)",
-            "CREATE INDEX assessment_timestamp_index IF NOT EXISTS FOR (a:ChildAssessment) ON (a.timestamp)",
+            # 注意：Neo4j 不支持在索引创建时使用 WHERE 子句
+            # 如果需要特定类型的索引，应该使用标签（如 :Behavior）
         ]
         
         async with self.driver.session() as session:
@@ -84,9 +50,9 @@ class IndexManager:
                 try:
                     await session.run(constraint_query)
                     constraint_name = constraint_query.split("FOR")[1].split("REQUIRE")[0].strip()
-                    print(f"  ✓ {constraint_name}")
+                    print(f"  OK {constraint_name}")
                 except Exception as e:
-                    print(f"  ✗ 约束创建失败: {str(e)[:100]}")
+                    print(f"  FAIL constraint: {str(e)[:100]}")
             
             # 创建索引
             print("\n[IndexManager] 创建索引...")

@@ -182,6 +182,8 @@ class ProfileFunctionCategory(BaseModel):
 
 class ProfileImportOutput(BaseModel):
     """档案导入输出"""
+    name: str = Field(default="未命名", description="孩子姓名（从档案中提取）")
+    age: Optional[int] = Field(None, description="年龄（从档案中提取）")
     overall_assessment: str = Field(..., description="整体评估（200字以内）")
     strengths: List[str] = Field(default_factory=list, description="优势领域")
     challenges: List[str] = Field(default_factory=list, description="挑战领域")
