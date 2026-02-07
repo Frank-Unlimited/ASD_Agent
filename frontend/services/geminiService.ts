@@ -2,7 +2,7 @@
 import { GoogleGenAI, Chat, Content, Type } from "@google/genai";
 import { ChatMessage, LogEntry, BehaviorAnalysis, InterestDimensionType, ProfileUpdate, AbilityDimensionType } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const GAMES_LIBRARY = `
 现有游戏库（ID - 名称 - 目标 - 适合特征）：
