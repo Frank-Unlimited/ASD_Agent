@@ -6,6 +6,36 @@ from typing import Optional, List, Dict, Any
 from src.models.assessment import InterestHeatmap, DimensionTrends
 
 
+def serialize_for_json(obj):
+    """
+    递归处理对象，将 DateTime、mappingproxy 等不可序列化的对象转换为可序列化格式
+    
+    Args:
+        obj: 要序列化的对象
+        
+    Returns:
+        可 JSON 序列化的对象
+    """
+    if isinstance(obj, dict):
+        return {k: serialize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [serialize_for_json(item) for item in obj]
+    elif hasattr(obj, 'isoformat'):  # DateTime 对象
+        return obj.isoformat()
+    elif isinstance(obj, type(type.__dict__)):  # mappingproxy
+        return dict(obj)
+    elif hasattr(obj, '__dict__') and not isinstance(obj, type):  # Pydantic 模型等（排除类本身）
+        return serialize_for_json(obj.__dict__)
+    elif isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    else:
+        # 尝试转换为字符串
+        try:
+            return str(obj)
+        except:
+            return f"<non-serializable: {type(obj).__name__}>"
+
+
 def build_interest_mining_prompt(
     behaviors: List[Dict[str, Any]],
     recent_games: List[Dict[str, Any]],
@@ -62,7 +92,7 @@ def build_interest_mining_prompt(
     if previous_interest:
         previous_summary = f"""
 ### 上一次兴趣评估（用于对比）
-{json.dumps(previous_interest, ensure_ascii=False, indent=2)}
+{json.dumps(serialize_for_json(previous_interest), ensure_ascii=False, indent=2)}
 """
     else:
         previous_summary = "### 上一次兴趣评估\n暂无历史评估数据。\n"
@@ -187,7 +217,7 @@ def build_dimension_analysis_prompt(
             ai_analysis = b.get('ai_analysis', {})
             behaviors_summary += f"- [{timestamp}] {description} (类型: {event_type}, 重要性: {significance})\n"
             if ai_analysis:
-                behaviors_summary += f"  AI分析: {json.dumps(ai_analysis, ensure_ascii=False)}\n"
+                behaviors_summary += f"  AI分析: {json.dumps(serialize_for_json(ai_analysis), ensure_ascii=False)}\n"
     else:
         behaviors_summary = "### 最近的行为记录\n暂无行为记录。\n"
     
@@ -212,7 +242,7 @@ def build_dimension_analysis_prompt(
     if previous_function:
         previous_summary = f"""
 ### 上一次功能评估（用于对比）
-{json.dumps(previous_function, ensure_ascii=False, indent=2)}
+{json.dumps(serialize_for_json(previous_function), ensure_ascii=False, indent=2)}
 """
     else:
         previous_summary = "### 上一次功能评估\n暂无历史评估数据。\n"
@@ -343,13 +373,13 @@ def build_comprehensive_assessment_prompt(
     # 构建兴趣热力图摘要
     interest_summary = f"""
 ### 兴趣热力图分析（Agent 1 输出）
-{json.dumps(interest_heatmap.dict(), ensure_ascii=False, indent=2)}
+{json.dumps(serialize_for_json(interest_heatmap.dict()), ensure_ascii=False, indent=2)}
 """
     
     # 构建功能维度趋势摘要
     dimension_summary = f"""
 ### 功能维度趋势分析（Agent 2 输出）
-{json.dumps(dimension_trends.dict(), ensure_ascii=False, indent=2)}
+{json.dumps(serialize_for_json(dimension_trends.dict()), ensure_ascii=False, indent=2)}
 """
     
     # 构建游戏摘要
@@ -370,9 +400,10 @@ def build_comprehensive_assessment_prompt(
     # 构建上一次综合评估
     previous_summary = ""
     if previous_assessment:
+        serializable_assessment = serialize_for_json(previous_assessment)
         previous_summary = f"""
 ### 上一次综合评估（用于对比）
-{json.dumps(previous_assessment, ensure_ascii=False, indent=2)}
+{json.dumps(serializable_assessment, ensure_ascii=False, indent=2)}
 """
     else:
         previous_summary = "### 上一次综合评估\n暂无历史评估数据。\n"
@@ -445,7 +476,7 @@ def build_comprehensive_assessment_prompt(
 
 请以 JSON 格式返回完整评估报告，**必须包含**以下字段：
 
-- overall_summary: 整体总结（300-500字，采用三明治结构）
+- overall_assessment: 整体发展评价（300-500字，采用三明治结构）
   - 第一段：肯定和亮点
   - 第二段：需要关注的领域
   - 第三段：积极的展望和鼓励

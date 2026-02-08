@@ -722,14 +722,24 @@ class MemoryService:
 这是一份新导入的儿童档案，包含了孩子的基本信息、医学报告和评估量表数据。
 """
         
-        # 4. 使用 Graphiti-core 存储档案（自动提取实体和关系）
+        # 4. 定义实体类型（档案导入专用）
+        entity_types = {
+            'Person': PersonEntityModel,        # 孩子、医生、家长
+            'Interest': InterestEntityModel,    # 8个兴趣维度
+            'Function': FunctionEntityModel,    # 功能维度评分
+            'Assessment': AssessmentEntityModel # 评估记录
+        }
+        
+        # 5. 使用 Graphiti-core 存储档案（自动提取实体和关系）
         print(f"[MemoryService] 正在将档案存储到 Graphiti...")
         graphiti_result = await self.graphiti.add_episode(
             name=f"档案导入_{name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
             episode_body=profile_text,
             source_description=f"档案导入 - {name}",
             reference_time=datetime.now(timezone.utc),
-            group_id=child_id
+            source=EpisodeType.text,
+            group_id=child_id,
+            entity_types=entity_types  # 指定实体类型
         )
         print(f"[Memory] 档案已存储到 Graphiti: episode_id={graphiti_result.episode.uuid}")
 
@@ -923,6 +933,61 @@ class MemoryService:
             import traceback
             traceback.print_exc()
             return None
+    
+    async def get_child_stats(self, child_id: str) -> Dict[str, Any]:
+        """
+        获取孩子的统计数据
+        
+        Returns:
+            {
+                "observation_count": 观察记录数量,
+                "game_session_count": 游戏会话数量,
+                "assessment_count": 评估次数,
+                "last_activity": 最近活动时间
+            }
+        """
+        try:
+            # 查询统计数据
+            records, _, _ = await self.graphiti.driver.execute_query(
+                """
+                MATCH (p:Person {person_id: $child_id})
+                OPTIONAL MATCH (p)-[:PERFORMED]->(b:Behavior)
+                OPTIONAL MATCH (p)-[:PLAYED]->(g:FloorTimeGame)
+                OPTIONAL MATCH (p)-[:RECEIVED_ASSESSMENT]->(a:ChildAssessment)
+                WITH p, 
+                     count(DISTINCT b) as behavior_count,
+                     count(DISTINCT g) as game_count,
+                     count(DISTINCT a) as assessment_count,
+                     max(coalesce(b.timestamp, g.timestamp, a.timestamp)) as last_time
+                RETURN behavior_count, game_count, assessment_count, last_time
+                """,
+                child_id=child_id
+            )
+            
+            if records:
+                r = records[0]
+                return {
+                    "observation_count": r["behavior_count"] or 0,
+                    "game_session_count": r["game_count"] or 0,
+                    "assessment_count": r["assessment_count"] or 0,
+                    "last_activity": r["last_time"]
+                }
+            
+            return {
+                "observation_count": 0,
+                "game_session_count": 0,
+                "assessment_count": 0,
+                "last_activity": None
+            }
+            
+        except Exception as e:
+            print(f"[get_child_stats] 查询失败: {e}")
+            return {
+                "observation_count": 0,
+                "game_session_count": 0,
+                "assessment_count": 0,
+                "last_activity": None
+            }
     
     async def save_child(self, child: Person) -> str:
         """

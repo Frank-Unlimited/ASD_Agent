@@ -69,7 +69,11 @@ async def import_profile_from_image(
         
         result_text = parse_image(image_base64, prompt)
         
-        print(f"[档案导入] 文字提取完成")
+        print(f"[档案导入] ✅ 文字提取完成")
+        print(f"[档案导入] 📄 Gemini 解析结果（完整）:")
+        print("=" * 80)
+        print(result_text)
+        print("=" * 80)
         
         # 3. 分离提取的文字和画像总结
         extracted_text = ""
@@ -84,8 +88,8 @@ async def import_profile_from_image(
             extracted_text = result_text
             profile_summary = "档案已导入，正在生成详细评估..."
         
-        print(f"提取文字: {extracted_text[:200]}...")
-        print(f"画像总结: {profile_summary[:100]}...")
+        print(f"[档案导入] 📝 提取的文字（前200字）: {extracted_text[:200]}...")
+        print(f"[档案导入] 🎯 画像总结（前100字）: {profile_summary[:100]}...")
         
         # 4. 构建医学报告数据，交给 Memory 服务解析
         report_data = {
@@ -235,21 +239,16 @@ async def get_profile_stats(
             "共同注意", "情绪思考", "创造力"
         ]
 
-        # 从档案中获取维度数据，如果没有则使用默认值
+        # 从档案中获取维度数据
         if profile.development_dimensions:
-            dim_map = {d.dimension_name: d.current_level or 50 for d in profile.development_dimensions}
+            dim_map = {d.dimension_name: d.current_level for d in profile.development_dimensions}
             for name in dimension_names:
-                radar_data.append({
-                    "subject": name,
-                    "A": dim_map.get(name, 50)
-                })
-        else:
-            # 默认数据
-            for name in dimension_names:
-                radar_data.append({
-                    "subject": name,
-                    "A": 50
-                })
+                level = dim_map.get(name)
+                if level is not None:
+                    radar_data.append({
+                        "subject": name,
+                        "A": level
+                    })
 
         # 趋势数据（从游戏会话历史获取）
         trend_data = []
@@ -261,27 +260,8 @@ async def get_profile_stats(
                         "name": f"Day{i+1}",
                         "engagement": session.get("child_engagement_score", 70) or 70
                     })
-            else:
-                # 默认趋势数据
-                trend_data = [
-                    {"name": "Day1", "engagement": 65},
-                    {"name": "Day2", "engagement": 70},
-                    {"name": "Day3", "engagement": 68},
-                    {"name": "Day4", "engagement": 75},
-                    {"name": "Day5", "engagement": 72},
-                    {"name": "Day6", "engagement": 78},
-                    {"name": "Day7", "engagement": 80}
-                ]
-        except:
-            trend_data = [
-                {"name": "Day1", "engagement": 65},
-                {"name": "Day2", "engagement": 70},
-                {"name": "Day3", "engagement": 68},
-                {"name": "Day4", "engagement": 75},
-                {"name": "Day5", "engagement": 72},
-                {"name": "Day6", "engagement": 78},
-                {"name": "Day7", "engagement": 80}
-            ]
+        except Exception as e:
+            print(f"[Profile API] 获取趋势数据失败: {e}")
 
         # 兴趣热力图数据
         interests_data = []
@@ -302,26 +282,6 @@ async def get_profile_stats(
                     "category": category,
                     "items": items
                 })
-        else:
-            # 默认兴趣数据
-            interests_data = [
-                {
-                    "category": "感官偏好",
-                    "items": [
-                        {"name": "视觉追踪", "level": 4},
-                        {"name": "触觉探索", "level": 3},
-                        {"name": "听觉敏感", "level": 2}
-                    ]
-                },
-                {
-                    "category": "游戏偏好",
-                    "items": [
-                        {"name": "积木搭建", "level": 4},
-                        {"name": "角色扮演", "level": 2},
-                        {"name": "音乐律动", "level": 3}
-                    ]
-                }
-            ]
 
         return {
             "radar": radar_data,
@@ -409,6 +369,44 @@ async def list_profiles(
         return {
             "profiles": [],
             "total": 0
+        }
+
+
+@router.get("/{child_id}/stats")
+async def get_profile_stats(
+    child_id: str,
+    memory_service = Depends(get_memory_service)
+):
+    """
+    获取孩子的统计数据
+    
+    返回：
+    - 观察记录数量
+    - 游戏会话数量
+    - 评估次数
+    - 最近活动时间
+    """
+    try:
+        # 从Memory服务获取统计数据
+        stats = await memory_service.get_child_stats(child_id)
+        
+        return {
+            "child_id": child_id,
+            "stats": stats,
+            "message": "统计数据获取成功"
+        }
+    except Exception as e:
+        # 如果获取失败，返回默认值
+        print(f"[Profile API] 获取统计数据失败: {e}")
+        return {
+            "child_id": child_id,
+            "stats": {
+                "observation_count": 0,
+                "game_session_count": 0,
+                "assessment_count": 0,
+                "last_activity": None
+            },
+            "message": "统计数据获取成功（使用默认值）"
         }
 
 
