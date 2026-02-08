@@ -1,5 +1,6 @@
 
 export enum Page {
+  WELCOME = 'WELCOME',
   CHAT = 'CHAT',
   CALENDAR = 'CALENDAR',
   PROFILE = 'PROFILE',
