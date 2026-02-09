@@ -7,13 +7,6 @@ export const USE_REAL_API = true;
 const API_BASE_URL = 'http://127.0.0.1:8000'; 
 
 // --- Mock Data (Fallback) ---
-const MOCK_PROFILE: ChildProfile = {
-  name: "乐乐",
-  age: 4,
-  diagnosis: "ASD 谱系一级",
-  avatar: "https://picsum.photos/200"
-};
-
 const MOCK_GAMES: Game[] = [
   {
     id: '1',
@@ -67,7 +60,6 @@ async function fetchWithFallback<T>(endpoint: string, mockData: T): Promise<T> {
 // --- API Client ---
 
 export const api = {
-  getProfile: async () => MOCK_PROFILE,
   getGames: async () => MOCK_GAMES,
   
   // 3. Dialogue Agent: Chat with Context
@@ -123,5 +115,65 @@ export const api = {
           }
       }
       return { source: 'REPORT', interestUpdates: [], abilityUpdates: [] };
+  },
+
+  // 7. Diagnosis Agent: Report Analysis for Child Profile
+  analyzeReportForDiagnosis: async (reportText: string): Promise<string> => {
+      if (USE_REAL_API) {
+          try {
+              const response = await sendGeminiMessage(
+                  `请作为专业的ASD孤独症诊断专家，分析以下医疗报告或评估报告。请提取关键信息并给出孩子的整体画像，包括：
+1. 核心症状表现
+2. 社交沟通能力
+3. 重复刻板行为
+4. 感觉处理特点
+5. 认知发展水平
+6. 优势和挑战领域
+
+请用简洁专业的语言描述，字数控制在300字以内。
+
+报告内容：
+${reportText}`,
+                  [],
+                  ''
+              );
+              return response;
+          } catch(err) {
+              console.warn("Gemini Diagnosis Analysis failed.");
+              return '报告分析失败，请稍后重试。';
+          }
+      }
+      return '离线模式下无法分析报告。';
+  },
+
+  // 8. Diagnosis Agent: Verbal Input Analysis
+  analyzeVerbalInput: async (verbalInput: string): Promise<string> => {
+      if (USE_REAL_API) {
+          try {
+              const response = await sendGeminiMessage(
+                  `请作为专业的ASD孤独症诊断专家，根据家长的描述，分析孩子的情况并给出专业的画像评估。
+
+请从以下维度进行分析：
+1. 社交互动特点
+2. 沟通表达能力
+3. 行为模式和兴趣
+4. 感觉处理特点
+5. 认知发展水平
+6. 优势领域和需要支持的方面
+
+请用温和、专业的语言描述，让家长能够理解，字数控制在300字以内。
+
+家长描述：
+${verbalInput}`,
+                  [],
+                  ''
+              );
+              return response;
+          } catch(err) {
+              console.warn("Gemini Verbal Analysis failed.");
+              return '分析失败，请稍后重试。';
+          }
+      }
+      return '离线模式下无法分析。';
   }
 };

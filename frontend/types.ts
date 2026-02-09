@@ -15,9 +15,11 @@ export enum GameState {
 
 export interface ChildProfile {
   name: string;
-  age: number;
-  diagnosis: string;
+  gender: string;
+  birthDate: string; // YYYY-MM-DD 格式
+  diagnosis: string; // 孩子画像/诊断描述
   avatar: string;
+  createdAt: string; // 创建时间
 }
 
 export interface GameStep {

@@ -67,13 +67,6 @@ import { fileUploadService } from './services/fileUpload';
 import { speechService } from './services/speechService';
 
 // --- Mock Data ---
-const MOCK_PROFILE: ChildProfile = {
-  name: "乐乐",
-  age: 4,
-  diagnosis: "ASD 谱系一级",
-  avatar: "https://picsum.photos/200"
-};
-
 const MOCK_GAMES: Game[] = [
   {
     id: '1',
@@ -142,7 +135,7 @@ const getDimensionConfig = (dim: string) => {
   }
 };
 
-const Sidebar = ({ isOpen, onClose, setPage, onLogout }: { isOpen: boolean, onClose: () => void, setPage: (p: Page) => void, onLogout: () => void }) => {
+const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen: boolean, onClose: () => void, setPage: (p: Page) => void, onLogout: () => void, childProfile: ChildProfile | null }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   
   return (
@@ -164,10 +157,10 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout }: { isOpen: boolean, onCl
             className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition" 
             onClick={() => setShowProfileMenu(!showProfileMenu)}
           >
-            <img src={MOCK_PROFILE.avatar} alt="Profile" className="w-10 h-10 rounded-full" />
+            <img src={childProfile?.avatar || 'https://ui-avatars.com/api/?name=User&background=random&size=200'} alt="Profile" className="w-10 h-10 rounded-full" />
             <div className="flex-1">
-              <p className="font-semibold text-sm">{MOCK_PROFILE.name}</p>
-              <p className="text-xs text-gray-500">{MOCK_PROFILE.diagnosis}</p>
+              <p className="font-semibold text-sm">{childProfile?.name || '未设置'}</p>
+              <p className="text-xs text-gray-500">{childProfile?.diagnosis || '暂无信息'}</p>
             </div>
             <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${showProfileMenu ? 'rotate-90' : ''}`} />
           </div>
@@ -200,19 +193,22 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout }: { isOpen: boolean, onCl
 // --- Page Components ---
 
 const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) => {
-  const [step, setStep] = useState(1); // 1: 基本信息, 2: 导入报告
+  const [step, setStep] = useState(1); // 1: 基本信息, 2: 孩子情况了解
   const [name, setName] = useState('');
   const [gender, setGender] = useState('');
-  const [age, setAge] = useState('');
-  const [parentComment, setParentComment] = useState('');
-  const [enableReport, setEnableReport] = useState(false);
+  const [birthDate, setBirthDate] = useState('');
+  
+  // 第二步：导入报告或口述
+  const [inputMode, setInputMode] = useState<'none' | 'report' | 'verbal'>('none');
   const [reportFile, setReportFile] = useState<File | null>(null);
-  const [reportAnalysis, setReportAnalysis] = useState<string>('');
+  const [verbalInput, setVerbalInput] = useState('');
+  const [childDiagnosis, setChildDiagnosis] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleNextStep = () => {
-    if (!name || !gender || !age) {
+    if (!name || !gender || !birthDate) {
       alert('请填写孩子的基本信息');
       return;
     }
@@ -220,21 +216,13 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
   };
 
   const handleSubmit = () => {
-    console.log('handleSubmit 被调用');
-    console.log('canSubmit:', canSubmit);
-    console.log('enableReport:', enableReport);
-    console.log('reportAnalysis:', reportAnalysis);
-    
     const childInfo = {
       name,
       gender,
-      age: parseInt(age),
-      parentComment,
-      reportFile: enableReport ? reportFile : null,
-      reportAnalysis: enableReport ? reportAnalysis : ''
+      birthDate,
+      diagnosis: childDiagnosis || '暂无评估信息',
+      createdAt: new Date().toISOString()
     };
-
-    console.log('childInfo:', childInfo);
     onComplete(childInfo);
   };
 
@@ -244,25 +232,28 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
 
     setReportFile(file);
     setIsAnalyzing(true);
-    setReportAnalysis('');
+    setChildDiagnosis('');
 
     try {
       const category = fileUploadService.categorizeFile(file);
       
       if (category === 'image') {
-        const result = await multimodalService.parseImage(file, '请分析这份医疗报告或评估报告，提取关键信息');
+        const result = await multimodalService.parseImage(
+          file, 
+          '请作为专业的ASD孤独症诊断专家，分析这份医疗报告或评估报告。请提取关键信息并给出孩子的整体画像，包括：1. 核心症状表现 2. 社交沟通能力 3. 重复刻板行为 4. 感觉处理特点 5. 认知发展水平 6. 优势和挑战领域。请用简洁专业的语言描述。'
+        );
         if (result.success) {
-          setReportAnalysis(result.content);
+          setChildDiagnosis(result.content);
         } else {
           alert('报告分析失败：' + result.error);
           setReportFile(null);
         }
       } else if (category === 'document') {
         const textContent = file.type === "text/plain" ? await file.text() : `文件名: ${file.name}`;
-        // 简单处理文档
-        setReportAnalysis(`已上传文档：${file.name}\n\n文档内容将在后续处理中分析。`);
+        const analysis = await api.analyzeReportForDiagnosis(textContent);
+        setChildDiagnosis(analysis);
       } else {
-        alert('不支持的文件类型，请上传图片或文档');
+        alert('不支持的文件类型，请上传图片（JPG/PNG）或文档（TXT/PDF）');
         setReportFile(null);
       }
     } catch (error) {
@@ -273,12 +264,28 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
     }
   };
 
-  // 判断是否可以点击"开始使用"
-  const canSubmit = !enableReport || (enableReport && reportAnalysis);
+  const handleVerbalAnalysis = async () => {
+    if (!verbalInput.trim()) {
+      alert('请先描述孩子的情况');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const analysis = await api.analyzeVerbalInput(verbalInput);
+      setChildDiagnosis(analysis);
+    } catch (error) {
+      alert('分析失败：' + (error instanceof Error ? error.message : '未知错误'));
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const canSubmit = step === 1 || (step === 2 && (inputMode === 'none' || childDiagnosis));
 
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-green-50 to-blue-50 p-6 flex items-center justify-center">
-      <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-8">
+      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-8">
         {/* 标题 */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-full mx-auto mb-4 flex items-center justify-center">
@@ -289,7 +296,9 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
           
           {/* 步骤指示器 */}
           <div className="flex items-center justify-center mt-6 space-x-2">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${step === 1 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-600'}`}>1</div>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${step === 1 ? 'bg-primary text-white' : 'bg-green-500 text-white'}`}>
+              {step > 1 ? <CheckCircle2 className="w-5 h-5" /> : '1'}
+            </div>
             <div className={`w-12 h-1 rounded ${step === 2 ? 'bg-primary' : 'bg-gray-200'}`}></div>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${step === 2 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-600'}`}>2</div>
           </div>
@@ -298,38 +307,32 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
         {/* 第一步：基本信息 */}
         {step === 1 && (
           <div className="space-y-5 animate-in fade-in slide-in-from-right">
-            {/* 孩子姓名 */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">孩子姓名 *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">孩子姓名 *</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="请输入孩子的名字"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition"
+                placeholder="请输入孩子的姓名或昵称"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition"
               />
             </div>
 
-            {/* 性别 */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">性别 *</label>
-              <div className="flex gap-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">性别 *</label>
+              <div className="flex gap-4">
                 <button
                   onClick={() => setGender('男')}
-                  className={`flex-1 py-3 rounded-xl font-bold transition ${
-                    gender === '男'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  className={`flex-1 py-3 rounded-xl border-2 transition ${
+                    gender === '男' ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-gray-300 text-gray-600'
                   }`}
                 >
                   男孩
                 </button>
                 <button
                   onClick={() => setGender('女')}
-                  className={`flex-1 py-3 rounded-xl font-bold transition ${
-                    gender === '女'
-                      ? 'bg-pink-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  className={`flex-1 py-3 rounded-xl border-2 transition ${
+                    gender === '女' ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-gray-300 text-gray-600'
                   }`}
                 >
                   女孩
@@ -337,148 +340,232 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
               </div>
             </div>
 
-            {/* 年龄 */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">年龄 *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">出生日期 *</label>
               <input
-                type="number"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                placeholder="请输入年龄"
-                min="1"
-                max="18"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition"
+                type="date"
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition"
               />
             </div>
 
-            {/* 家长评价 */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">家长对孩子的评价（选填）</label>
-              <textarea
-                value={parentComment}
-                onChange={(e) => setParentComment(e.target.value)}
-                placeholder="请简单描述孩子的特点、兴趣爱好、行为表现等..."
-                rows={4}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition resize-none"
-              />
-            </div>
-
-            {/* 下一页按钮 */}
             <button
               onClick={handleNextStep}
-              className="w-full bg-gradient-to-r from-primary to-secondary text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition transform active:scale-95 flex items-center justify-center"
+              disabled={!name || !gender || !birthDate}
+              className="w-full py-4 bg-gradient-to-r from-primary to-secondary text-white rounded-xl font-medium hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              下一页
-              <ChevronRight className="w-5 h-5 ml-2" />
+              下一步
             </button>
           </div>
         )}
 
-        {/* 第二步：导入报告 */}
+        {/* 第二步：了解孩子情况 */}
         {step === 2 && (
-          <div className="space-y-5 animate-in fade-in slide-in-from-left">
-            {/* 导入报告开关 */}
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center space-x-3">
-                <FileText className="w-5 h-5 text-gray-600" />
-                <span className="font-bold text-gray-700">导入医疗报告</span>
+          <div className="space-y-6 animate-in fade-in slide-in-from-left">
+            {/* 引导说明 */}
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-5 border border-blue-100">
+              <div className="flex items-start space-x-3">
+                <Lightbulb className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                <div>
+                  <h3 className="font-bold text-gray-800 mb-2">帮助我们更好地了解{name}</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    您可以选择上传医疗评估报告，或者用自己的话描述孩子的情况。这将帮助我们为{name}提供更个性化的干预建议。
+                    <span className="text-blue-600 font-medium">（此步骤可跳过，后续也可以在档案页面补充）</span>
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={() => {
-                  setEnableReport(!enableReport);
-                  if (enableReport) {
-                    // 关闭时清空数据
-                    setReportFile(null);
-                    setReportAnalysis('');
-                  }
-                }}
-                className={`relative w-14 h-7 rounded-full transition ${
-                  enableReport ? 'bg-primary' : 'bg-gray-300'
-                }`}
-              >
-                <div
-                  className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${
-                    enableReport ? 'translate-x-8' : 'translate-x-1'
-                  }`}
-                />
-              </button>
             </div>
 
-            {/* 上传报告区域 */}
-            {enableReport && (
-              <div className="animate-in fade-in slide-in-from-top-2 space-y-4">
+            {/* 选择输入方式 */}
+            {inputMode === 'none' && (
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => setInputMode('report')}
+                  className="p-6 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition group"
+                >
+                  <FileText className="w-12 h-12 text-gray-400 group-hover:text-primary mx-auto mb-3 transition" />
+                  <h4 className="font-bold text-gray-800 mb-1">上传报告</h4>
+                  <p className="text-xs text-gray-500">医疗评估报告、诊断书等</p>
+                </button>
+                <button
+                  onClick={() => setInputMode('verbal')}
+                  className="p-6 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition group"
+                >
+                  <Keyboard className="w-12 h-12 text-gray-400 group-hover:text-primary mx-auto mb-3 transition" />
+                  <h4 className="font-bold text-gray-800 mb-1">口述情况</h4>
+                  <p className="text-xs text-gray-500">用您的话描述孩子</p>
+                </button>
+              </div>
+            )}
+
+            {/* 上传报告模式 */}
+            {inputMode === 'report' && (
+              <div className="space-y-4 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-gray-800">上传医疗报告</h4>
+                  <button
+                    onClick={() => {
+                      setInputMode('none');
+                      setReportFile(null);
+                      setChildDiagnosis('');
+                    }}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
                 <input
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileSelect}
                   className="hidden"
-                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt"
                 />
+                
                 <div
                   onClick={() => !isAnalyzing && fileInputRef.current?.click()}
-                  className={`border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition ${isAnalyzing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`border-2 border-dashed rounded-xl p-8 text-center transition ${
+                    isAnalyzing ? 'border-gray-300 bg-gray-50 cursor-not-allowed' : 'border-gray-300 hover:border-primary hover:bg-primary/5 cursor-pointer'
+                  }`}
                 >
                   {isAnalyzing ? (
                     <div className="flex flex-col items-center">
                       <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
-                      <p className="text-gray-600 font-medium">正在分析报告...</p>
+                      <p className="text-gray-600 font-medium">AI 正在分析报告...</p>
+                      <p className="text-xs text-gray-400 mt-1">这可能需要几秒钟</p>
                     </div>
                   ) : reportFile ? (
                     <div className="flex items-center justify-center space-x-3">
-                      <CheckCircle2 className="w-6 h-6 text-primary" />
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
                       <span className="text-gray-700 font-medium">{reportFile.name}</span>
                     </div>
                   ) : (
                     <div>
                       <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-600 font-medium mb-1">点击即可上传图片或文档</p>
-                      <p className="text-xs text-gray-400">支持 PDF、Word、图片等格式</p>
+                      <p className="text-gray-700 font-medium mb-1">点击上传报告图片或文档</p>
+                      <p className="text-xs text-gray-400">支持 JPG、PNG、PDF、TXT 格式</p>
                     </div>
                   )}
                 </div>
 
-                {/* 显示分析结果 */}
-                {reportAnalysis && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 animate-in fade-in">
-                    <div className="flex items-center mb-2">
-                      <CheckCircle2 className="w-5 h-5 text-blue-600 mr-2" />
-                      <span className="font-bold text-blue-800">报告分析结果</span>
+                {childDiagnosis && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 animate-in fade-in">
+                    <div className="flex items-center mb-3">
+                      <CheckCircle2 className="w-5 h-5 text-green-600 mr-2" />
+                      <span className="font-bold text-green-800">AI 分析结果 - {name}的画像</span>
                     </div>
-                    <div className="bg-white rounded-lg p-3 max-h-64 overflow-y-auto text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                      {reportAnalysis}
+                    <div className="bg-white rounded-lg p-4 max-h-64 overflow-y-auto text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                      {childDiagnosis}
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* 提示信息 */}
-            {enableReport && !reportAnalysis && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-sm text-yellow-800">
-                <span className="font-bold">提示：</span>启用导入报告后，需要上传并分析完成才能继续。
+            {/* 口述情况模式 */}
+            {inputMode === 'verbal' && (
+              <div className="space-y-4 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-gray-800">描述{name}的情况</h4>
+                  <button
+                    onClick={() => {
+                      setInputMode('none');
+                      setVerbalInput('');
+                      setChildDiagnosis('');
+                    }}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-gray-700">
+                  <p className="mb-2"><span className="font-medium">您可以描述：</span></p>
+                  <ul className="space-y-1 text-xs text-gray-600 ml-4">
+                    <li>• 孩子的社交互动特点（如眼神接触、与人互动的方式）</li>
+                    <li>• 沟通表达能力（语言发展、非语言沟通）</li>
+                    <li>• 行为模式（重复行为、特殊兴趣、日常习惯）</li>
+                    <li>• 感觉处理特点（对声音、光线、触觉的反应）</li>
+                    <li>• 优势和挑战（擅长的领域、需要支持的方面）</li>
+                  </ul>
+                </div>
+
+                <textarea
+                  value={verbalInput}
+                  onChange={(e) => setVerbalInput(e.target.value)}
+                  placeholder={`例如：${name}今年${new Date().getFullYear() - new Date(birthDate).getFullYear()}岁，平时比较喜欢独自玩耍，对旋转的物体特别感兴趣。语言表达还比较少，但能听懂简单的指令。对声音比较敏感，听到突然的响声会捂耳朵...`}
+                  rows={8}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition resize-none"
+                />
+
+                <button
+                  onClick={handleVerbalAnalysis}
+                  disabled={!verbalInput.trim() || isAnalyzing}
+                  className="w-full py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      AI 分析中...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5 mr-2" />
+                      生成孩子画像
+                    </>
+                  )}
+                </button>
+
+                {childDiagnosis && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 animate-in fade-in">
+                    <div className="flex items-center mb-3">
+                      <CheckCircle2 className="w-5 h-5 text-green-600 mr-2" />
+                      <span className="font-bold text-green-800">AI 分析结果 - {name}的画像</span>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 max-h-64 overflow-y-auto text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                      {childDiagnosis}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* 按钮组 */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-4">
               <button
                 onClick={() => setStep(1)}
-                className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-xl font-bold text-lg hover:bg-gray-200 transition transform active:scale-95 flex items-center justify-center"
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition flex items-center"
               >
-                <ChevronLeft className="w-5 h-5 mr-2" />
-                上一页
+                <ChevronLeft className="w-5 h-5 mr-1" />
+                上一步
               </button>
+              
+              {inputMode === 'none' && (
+                <button
+                  onClick={handleSubmit}
+                  className="flex-1 py-3 bg-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-300 transition"
+                >
+                  跳过此步骤
+                </button>
+              )}
+
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className={`flex-1 py-4 rounded-xl font-bold text-lg transition transform active:scale-95 ${
+                className={`flex-1 py-3 rounded-xl font-medium transition ${
                   canSubmit
                     ? 'bg-gradient-to-r from-primary to-secondary text-white hover:shadow-lg'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                开始使用
+                {childDiagnosis ? '完成并开始使用' : '开始使用'}
               </button>
+            </div>
+          </div>
+        )}
             </div>
           </div>
         )}
@@ -912,7 +999,7 @@ const PageCalendar = ({ navigateTo, onStartGame }: { navigateTo: (p: Page) => vo
   );
 };
 
-const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportReport, onExportReport }: { trendData: any[], interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void }) => {
+const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportReport, onExportReport, childProfile, calculateAge }: { trendData: any[], interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void, childProfile: ChildProfile | null, calculateAge: (birthDate: string) => number }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -931,9 +1018,11 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
     { name: "社交互动", dims: ['Social'] as InterestDimensionType[] }
   ];
 
+  const age = childProfile ? calculateAge(childProfile.birthDate) : 0;
+
   return (
     <div className="p-4 space-y-6 h-full overflow-y-auto bg-background">
-      <div className="flex items-center space-x-4 bg-white p-5 rounded-2xl shadow-sm"><img src={MOCK_PROFILE.avatar} className="w-16 h-16 rounded-full border-2 border-white shadow" alt="乐乐" /><div><h2 className="text-2xl font-bold text-gray-800">{MOCK_PROFILE.name}, {MOCK_PROFILE.age}岁</h2><p className="text-gray-500 font-medium">{MOCK_PROFILE.diagnosis}</p></div></div>
+      <div className="flex items-center space-x-4 bg-white p-5 rounded-2xl shadow-sm"><img src={childProfile?.avatar || 'https://ui-avatars.com/api/?name=User&background=random&size=200'} className="w-16 h-16 rounded-full border-2 border-white shadow" alt={childProfile?.name || '孩子'} /><div><h2 className="text-2xl font-bold text-gray-800">{childProfile?.name || '未设置'}, {age}岁</h2><p className="text-gray-500 font-medium">{childProfile?.diagnosis || '暂无评估信息'}</p></div></div>
       <div className="bg-white p-4 rounded-2xl shadow-sm"><h3 className="font-bold text-gray-700 mb-4 flex items-center"><Activity className="w-4 h-4 mr-2 text-primary"/> DIR 六大能力维度 (实时)</h3><div className="h-64 w-full"><ResponsiveContainer width="100%" height="100%"><RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarChartData}><PolarGrid stroke="#e5e7eb" /><PolarAngleAxis dataKey="subject" tick={{ fill: '#4b5563', fontSize: 11, fontWeight: 500 }} /><PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} /><Radar name="乐乐" dataKey="A" stroke="#10B981" fill="#10B981" fillOpacity={0.4} /></RadarChart></ResponsiveContainer></div></div>
        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100"><div className="flex justify-between items-center mb-4"><h3 className="font-bold text-gray-700 flex items-center"><Flame className="w-4 h-4 mr-2 text-accent"/> 兴趣热力图 (实时分析)</h3><span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-full">强度 1-5</span></div><div className="space-y-5">{categories.map((cat, idx) => (<div key={idx}><div className="flex items-center mb-2"><div className="w-2 h-2 rounded-full bg-gray-300 mr-2"></div><h4 className="text-xs font-bold text-gray-500">{cat.name}</h4></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{cat.dims.map((dim, i) => { const rawScore = interestProfile[dim] || 0; const level = getLevel(rawScore); const config = getDimensionConfig(dim); let colorClass = 'bg-gray-50 text-gray-400'; if (level >= 5) colorClass = 'bg-orange-500 text-white shadow-md shadow-orange-200'; else if (level >= 4) colorClass = 'bg-orange-400 text-white'; else if (level >= 3) colorClass = 'bg-orange-300 text-white'; else if (level >= 2) colorClass = 'bg-orange-100 text-orange-800'; return (<div key={i} className={`${colorClass} rounded-xl p-2 flex flex-col items-center justify-center text-center h-20 transition hover:scale-105`}><div className="flex items-center space-x-1 mb-1"><config.icon className="w-3 h-3" /><span className="text-xs font-bold leading-tight">{config.label}</span></div><div className="flex space-x-0.5">{[...Array(level)].map((_, starI) => (<div key={starI} className={`w-1 h-1 rounded-full ${level >= 3 ? 'bg-white/70' : 'bg-orange-500/40'}`}></div>))}</div></div>); })}</div></div>))}</div></div>
       <div className="bg-white p-4 rounded-2xl shadow-sm"><h3 className="font-bold text-gray-700 mb-4 flex items-center"><TrendingUp className="w-4 h-4 mr-2 text-secondary"/> 互动参与度趋势</h3><div className="h-48 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" /><XAxis dataKey="name" tick={{fontSize: 10, fill: '#9ca3af'}} axisLine={false} tickLine={false} /><YAxis hide domain={[0, 100]} /><Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} /><Line type="monotone" dataKey="engagement" stroke="#3B82F6" strokeWidth={3} dot={{r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff'}} animationDuration={1500} /></LineChart></ResponsiveContainer></div></div>
@@ -1153,6 +1242,17 @@ export default function App() {
   const [trendData, setTrendData] = useState(INITIAL_TREND_DATA);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
+  // 加载真实的儿童档案
+  const [childProfile, setChildProfile] = useState<ChildProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('asd_floortime_child_profile');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to load child profile:', e);
+    }
+    return null;
+  });
+
   const [interestProfile, setInterestProfile] = useState<UserInterestProfile>(() => {
     try { const saved = localStorage.getItem('asd_floortime_interests_v1'); if (saved) return JSON.parse(saved); } catch (e) {}
     return INITIAL_INTEREST_SCORES;
@@ -1196,6 +1296,18 @@ export default function App() {
   const handleStartGame = (gameId: string) => { setActiveGameId(gameId); setGameMode(GameState.PLAYING); setCurrentPage(Page.GAMES); };
   const handleUpdateTrend = (newScore: number) => { setTrendData(prev => [...prev, { name: '本次', engagement: newScore }]); };
   
+  // 计算年龄的辅助函数
+  const calculateAge = (birthDate: string): number => {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+  
   // 导入报告处理（在档案页面）
   const handleImportReportFromProfile = async (file: File) => {
     const category = fileUploadService.categorizeFile(file);
@@ -1235,19 +1347,22 @@ export default function App() {
   // 欢迎页面完成处理
   const handleWelcomeComplete = async (childInfo: any) => {
     // 保存孩子信息到 localStorage
-    localStorage.setItem('asd_floortime_child_profile', JSON.stringify({
+    const profile: ChildProfile = {
       name: childInfo.name,
       gender: childInfo.gender,
-      age: childInfo.age,
-      parentComment: childInfo.parentComment,
-      reportAnalysis: childInfo.reportAnalysis || '',
-      createdAt: new Date().toISOString()
-    }));
+      birthDate: childInfo.birthDate,
+      diagnosis: childInfo.diagnosis || '暂无评估信息',
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(childInfo.name)}&background=random&size=200`,
+      createdAt: childInfo.createdAt
+    };
     
-    // 如果有报告分析结果，保存到系统
-    if (childInfo.reportAnalysis) {
-      console.log('报告分析结果:', childInfo.reportAnalysis);
-      // TODO: 调用后端 SQLite API 保存数据
+    localStorage.setItem('asd_floortime_child_profile', JSON.stringify(profile));
+    setChildProfile(profile);
+    
+    // 标记不再是首次使用
+    setIsFirstTime(false);
+    setCurrentPage(Page.CHAT);
+  };
       // await api.saveReportToSQLite(childInfo.reportAnalysis);
       
       // 如果是文档类型，可以进一步分析并更新档案
@@ -1301,7 +1416,7 @@ export default function App() {
       case Page.WELCOME: return "欢迎使用"; 
       case Page.CHAT: return "AI 地板时光助手"; 
       case Page.CALENDAR: return "游戏计划"; 
-      case Page.PROFILE: return "乐乐的档案"; 
+      case Page.PROFILE: return `${childProfile?.name || '孩子'}的档案`; 
       case Page.GAMES: return "游戏库"; 
       default: return "App"; 
     } 
@@ -1309,7 +1424,7 @@ export default function App() {
 
   return (
     <div className="max-w-md mx-auto h-screen bg-gray-50 flex flex-col shadow-2xl overflow-hidden relative">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} setPage={handleNavigate} onLogout={handleLogout} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} setPage={handleNavigate} onLogout={handleLogout} childProfile={childProfile} />
       
       {/* 退出登录确认对话框 */}
       {showLogoutConfirm && (
@@ -1339,12 +1454,12 @@ export default function App() {
         </div>
       )}
       
-      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 z-10 sticky top-0"><div className="flex items-center">{currentPage !== Page.CHAT && currentPage !== Page.WELCOME && (<button onClick={() => setCurrentPage(Page.CHAT)} className="mr-3 text-gray-500 hover:text-primary transition"><ChevronLeft className="w-6 h-6" /></button>)}{currentPage === Page.CHAT && (<button onClick={() => setSidebarOpen(true)} className="mr-3 text-gray-700 hover:text-primary transition"><Menu className="w-6 h-6" /></button>)}<h1 className="text-lg font-bold text-gray-800">{getHeaderTitle()}</h1></div>{currentPage === Page.GAMES && gameMode === GameState.PLAYING ? (<button onClick={() => setGameMode(GameState.SUMMARY)} className="text-red-500 font-bold text-sm h-8 flex items-center px-2 rounded hover:bg-red-50 transition">结束</button>) : currentPage !== Page.WELCOME && (<div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden border border-gray-200"><img src={MOCK_PROFILE.avatar} alt="User" /></div>)}</header>
+      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 z-10 sticky top-0"><div className="flex items-center">{currentPage !== Page.CHAT && currentPage !== Page.WELCOME && (<button onClick={() => setCurrentPage(Page.CHAT)} className="mr-3 text-gray-500 hover:text-primary transition"><ChevronLeft className="w-6 h-6" /></button>)}{currentPage === Page.CHAT && (<button onClick={() => setSidebarOpen(true)} className="mr-3 text-gray-700 hover:text-primary transition"><Menu className="w-6 h-6" /></button>)}<h1 className="text-lg font-bold text-gray-800">{getHeaderTitle()}</h1></div>{currentPage === Page.GAMES && gameMode === GameState.PLAYING ? (<button onClick={() => setGameMode(GameState.SUMMARY)} className="text-red-500 font-bold text-sm h-8 flex items-center px-2 rounded hover:bg-red-50 transition">结束</button>) : currentPage !== Page.WELCOME && (<div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden border border-gray-200"><img src={childProfile?.avatar || 'https://ui-avatars.com/api/?name=User&background=random&size=200'} alt="User" /></div>)}</header>
       <main className="flex-1 overflow-hidden relative">
         {currentPage === Page.WELCOME && <PageWelcome onComplete={handleWelcomeComplete} />}
         {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} />}
         {currentPage === Page.CALENDAR && <PageCalendar navigateTo={handleNavigate} onStartGame={handleStartGame} />}
-        {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} />}
+        {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} />}
         {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CALENDAR)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} />)}
       </main>
     </div>
