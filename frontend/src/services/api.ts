@@ -1,6 +1,6 @@
 
 import { ChildProfile, Game, CalendarEvent, InterestCategory, ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate } from '../types';
-import { sendGeminiMessage, evaluateSession, analyzeReport, recommendGame } from './geminiService';
+import { sendQwenMessageSync, evaluateSession, analyzeReport, recommendGame } from './qwenService';
 import { MEDICAL_REPORT_ANALYSIS_PROMPT, VERBAL_DESCRIPTION_ANALYSIS_PROMPT } from '../prompts/diagnosis-analysis';
 
 // --- Configuration ---
@@ -67,9 +67,9 @@ export const api = {
   sendMessage: async (message: string, history: ChatMessage[], profileContext: string): Promise<string> => {
     if (USE_REAL_API) {
       try {
-        return await sendGeminiMessage(message, history, profileContext);
+        return await sendQwenMessageSync(message, history, profileContext);
       } catch (err: any) {
-        console.warn("Gemini API failed, using fallback.");
+        console.warn("Qwen API failed, using fallback.");
       }
     }
     return "网络连接不稳定，请稍后再试。";
@@ -93,7 +93,7 @@ export const api = {
         try {
             return await evaluateSession(logs);
         } catch (err) {
-            console.warn("Gemini Evaluation failed, using mock.");
+            console.warn("Qwen Evaluation failed, using mock.");
         }
      }
      return {
@@ -112,7 +112,7 @@ export const api = {
           try {
               return await analyzeReport(reportText);
           } catch(err) {
-              console.warn("Gemini Report Analysis failed.");
+              console.warn("Qwen Report Analysis failed.");
           }
       }
       return { source: 'REPORT', interestUpdates: [], abilityUpdates: [] };
@@ -123,10 +123,10 @@ export const api = {
       if (USE_REAL_API) {
           try {
               const prompt = MEDICAL_REPORT_ANALYSIS_PROMPT.replace('{reportContent}', reportText);
-              const response = await sendGeminiMessage(prompt, [], '');
+              const response = await sendQwenMessageSync(prompt, [], '');
               return response;
           } catch(err) {
-              console.warn("Gemini Diagnosis Analysis failed.");
+              console.warn("Qwen Diagnosis Analysis failed.");
               return '报告分析失败，请稍后重试。';
           }
       }
@@ -138,10 +138,10 @@ export const api = {
       if (USE_REAL_API) {
           try {
               const prompt = VERBAL_DESCRIPTION_ANALYSIS_PROMPT.replace('{verbalDescription}', verbalInput);
-              const response = await sendGeminiMessage(prompt, [], '');
+              const response = await sendQwenMessageSync(prompt, [], '');
               return response;
           } catch(err) {
-              console.warn("Gemini Verbal Analysis failed.");
+              console.warn("Qwen Verbal Analysis failed.");
               return '分析失败，请稍后重试。';
           }
       }

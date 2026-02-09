@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { sendQwenMessage } from './services/qwenService';
 import { 
   MessageCircle, 
   Calendar as CalendarIcon, 
@@ -95,11 +96,15 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen:
             onClick={() => setShowProfileMenu(!showProfileMenu)}
           >
             <img src={childProfile?.avatar || 'https://ui-avatars.com/api/?name=User&background=random&size=200'} alt="Profile" className="w-10 h-10 rounded-full" />
-            <div className="flex-1">
-              <p className="font-semibold text-sm">{childProfile?.name || '未设置'}</p>
-              <p className="text-xs text-gray-500">{childProfile?.diagnosis || '暂无信息'}</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm truncate">{childProfile?.name || '未设置'}</p>
+              <p className="text-xs text-gray-500 truncate">
+                {childProfile?.birthDate 
+                  ? `${calculateAge(childProfile.birthDate)}岁 · ${childProfile.gender || ''}`
+                  : '暂无信息'}
+              </p>
             </div>
-            <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${showProfileMenu ? 'rotate-90' : ''}`} />
+            <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${showProfileMenu ? 'rotate-90' : ''}`} />
           </div>
           
           {/* 弹出菜单 */}
@@ -774,21 +779,121 @@ const PageAIChat = ({
     }
 
     setLoading(true);
+    
+    // 创建一个临时消息用于流式更新
+    const tempMsgId = (Date.now() + 1).toString();
+    const tempMsg: ChatMessage = { 
+      id: tempMsgId, 
+      role: 'model', 
+      text: '', 
+      timestamp: new Date() 
+    };
+    setMessages(prev => [...prev, tempMsg]);
+    
     try {
-      // *** Dialogue Agent Call with Profile Context ***
-      const responseText = await api.sendMessage(textToSend, messages, profileContext);
+      // *** 使用 Qwen 流式对话 ***
+      let fullResponse = '';
+      let toolCallsReceived: any[] = [];
       
-      const modelMsg: ChatMessage = { 
-        id: (Date.now() + 1).toString(), 
-        role: 'model', 
-        text: responseText, 
-        timestamp: new Date() 
-      };
-      setMessages(prev => [...prev, modelMsg]);
+      await sendQwenMessage(textToSend, messages, profileContext, {
+        onContent: (chunk) => {
+          // 实时更新消息内容
+          fullResponse += chunk;
+          setMessages(prev => 
+            prev.map(msg => 
+              msg.id === tempMsgId 
+                ? { ...msg, text: fullResponse }
+                : msg
+            )
+          );
+        },
+        onToolCall: (toolCall) => {
+          // 处理 Function Call
+          console.log('Tool called:', toolCall);
+          toolCallsReceived.push(toolCall);
+          
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            
+            switch (toolCall.function.name) {
+              case 'recommend_game':
+                // 添加游戏推荐卡片到响应中
+                fullResponse += `\n\n:::GAME_RECOMMENDATION:${JSON.stringify(args)}:::`;
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.id === tempMsgId 
+                      ? { ...msg, text: fullResponse }
+                      : msg
+                  )
+                );
+                break;
+                
+              case 'log_behavior':
+                // 添加行为记录卡片
+                fullResponse += `\n\n:::BEHAVIOR_LOG_CARD:${JSON.stringify(args)}:::`;
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.id === tempMsgId 
+                      ? { ...msg, text: fullResponse }
+                      : msg
+                  )
+                );
+                break;
+                
+              case 'create_weekly_plan':
+                // 添加周计划卡片
+                fullResponse += `\n\n:::WEEKLY_PLAN_CARD:${JSON.stringify(args)}:::`;
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.id === tempMsgId 
+                      ? { ...msg, text: fullResponse }
+                      : msg
+                  )
+                );
+                break;
+                
+              case 'navigate_page':
+                // 添加导航卡片
+                fullResponse += `\n\n:::NAVIGATION_CARD:${JSON.stringify(args)}:::`;
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.id === tempMsgId 
+                      ? { ...msg, text: fullResponse }
+                      : msg
+                  )
+                );
+                break;
+            }
+          } catch (e) {
+            console.error('Failed to parse tool arguments:', e);
+          }
+        },
+        onComplete: (fullText, toolCalls) => {
+          console.log('Stream completed:', { fullText, toolCalls });
+          setLoading(false);
+        },
+        onError: (error) => {
+          console.error('Stream error:', error);
+          setMessages(prev => 
+            prev.map(msg => 
+              msg.id === tempMsgId 
+                ? { ...msg, text: '抱歉，我遇到了一些问题。请稍后再试。' }
+                : msg
+            )
+          );
+          setLoading(false);
+        }
+      });
+      
     } catch (e) {
       console.error(e);
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "我在听，请继续告诉我互动的细节。", timestamp: new Date() }]);
-    } finally {
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === tempMsgId 
+            ? { ...msg, text: '我在听，请继续告诉我互动的细节。' }
+            : msg
+        )
+      );
       setLoading(false);
     }
   };

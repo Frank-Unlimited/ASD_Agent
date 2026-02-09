@@ -12,8 +12,7 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        // Gemini service still uses process.env
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        // Qwen service uses import.meta.env, no need to define process.env
       },
       resolve: {
         alias: {
