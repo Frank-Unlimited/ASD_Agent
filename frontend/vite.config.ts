@@ -11,13 +11,8 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        // Gemini service still uses process.env
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.DASHSCOPE_API_KEY': JSON.stringify(env.VITE_DASHSCOPE_API_KEY),
-        'process.env.DASHSCOPE_BASE_URL': JSON.stringify(env.VITE_DASHSCOPE_BASE_URL),
-        'process.env.DASHSCOPE_MODEL': JSON.stringify(env.VITE_DASHSCOPE_MODEL),
-        'process.env.MAX_IMAGE_SIZE': JSON.stringify(env.VITE_MAX_IMAGE_SIZE),
-        'process.env.MAX_VIDEO_SIZE': JSON.stringify(env.VITE_MAX_VIDEO_SIZE)
       },
       resolve: {
         alias: {

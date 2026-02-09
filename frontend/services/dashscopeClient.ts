@@ -41,12 +41,12 @@ class DashScopeClient {
   private model: string;
 
   constructor() {
-    this.apiKey = process.env.DASHSCOPE_API_KEY || '';
-    this.baseUrl = process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-    this.model = process.env.DASHSCOPE_MODEL || 'qwen-vl-plus';
+    this.apiKey = import.meta.env.VITE_DASHSCOPE_API_KEY || '';
+    this.baseUrl = import.meta.env.VITE_DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+    this.model = import.meta.env.VITE_DASHSCOPE_MODEL || 'qwen-vl-plus';
 
     if (!this.apiKey) {
-      console.warn('DashScope API Key not found. Please set DASHSCOPE_API_KEY in .env');
+      console.warn('DashScope API Key not found. Please set VITE_DASHSCOPE_API_KEY in .env');
     }
   }
 
