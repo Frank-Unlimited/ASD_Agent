@@ -1,61 +1,13 @@
 # IDE and Editor folders
 .vscode/
 .claude/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-build/
-dist/
-*.egg-info/
+.kiro/
 
 # OS
 .DS_Store
-
-# Python specific
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-env/
-ENV/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.pytest_cache/
-.mypy_cache/
-.coverage
-htmlcov/
-*.egg-info/
-dist/
-build/
-
-# Environment
-.env
-.env.local
-
-# Database
-*.db
-*.db-journal
-data/
-
-# Uploads
-uploads/
-
-# Logs
-logs/
-*.log
+Thumbs.db
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -64,4 +16,4 @@ logs/
 # Temporary files
 tmp/
 temp/
-Thumbs.db
+nul

@@ -32,8 +32,8 @@ class FileUploadService {
 
   // 文件大小限制（字节）
   private readonly MAX_SIZES = {
-    image: parseInt(process.env.MAX_IMAGE_SIZE || '10485760'), // 10MB
-    video: parseInt(process.env.MAX_VIDEO_SIZE || '52428800'), // 50MB
+    image: parseInt(import.meta.env.VITE_MAX_IMAGE_SIZE || '10485760'), // 10MB
+    video: parseInt(import.meta.env.VITE_MAX_VIDEO_SIZE || '52428800'), // 50MB
     audio: 20971520, // 20MB
     document: 10485760 // 10MB
   };

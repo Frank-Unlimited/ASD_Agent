@@ -19,6 +19,9 @@ interface DashScopeRequest {
   messages: DashScopeMessage[];
   temperature?: number;
   max_tokens?: number;
+  response_format?: {
+    type: 'json_object' | 'text';
+  };
 }
 
 interface DashScopeResponse {
@@ -41,12 +44,12 @@ class DashScopeClient {
   private model: string;
 
   constructor() {
-    this.apiKey = process.env.DASHSCOPE_API_KEY || '';
-    this.baseUrl = process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-    this.model = process.env.DASHSCOPE_MODEL || 'qwen-vl-plus';
+    this.apiKey = import.meta.env.VITE_DASHSCOPE_API_KEY || '';
+    this.baseUrl = import.meta.env.VITE_DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+    this.model = import.meta.env.VITE_DASHSCOPE_MODEL || 'qwen-vl-plus';
 
     if (!this.apiKey) {
-      console.warn('DashScope API Key not found. Please set DASHSCOPE_API_KEY in .env');
+      console.warn('DashScope API Key not found. Please set VITE_DASHSCOPE_API_KEY in .env');
     }
   }
 
@@ -85,7 +88,11 @@ class DashScopeClient {
   /**
    * 分析图片
    */
-  async analyzeImage(base64Image: string, prompt: string = '请详细分析这张图片'): Promise<string> {
+  async analyzeImage(
+    base64Image: string, 
+    prompt: string = '请详细分析这张图片',
+    useJsonFormat: boolean = false
+  ): Promise<string> {
     const request: DashScopeRequest = {
       model: this.model,
       messages: [{
@@ -106,6 +113,13 @@ class DashScopeClient {
       temperature: 0.7,
       max_tokens: 2000
     };
+
+    // 如果需要 JSON 格式输出，添加 response_format
+    if (useJsonFormat) {
+      request.response_format = {
+        type: 'json_object'
+      };
+    }
 
     return await this.callAPI(request);
   }

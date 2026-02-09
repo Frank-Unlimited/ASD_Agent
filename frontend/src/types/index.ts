@@ -15,9 +15,26 @@ export enum GameState {
 
 export interface ChildProfile {
   name: string;
-  age: number;
-  diagnosis: string;
+  gender: string;
+  birthDate: string; // YYYY-MM-DD 格式
+  diagnosis: string; // 孩子画像/诊断描述（最新的）
   avatar: string;
+  createdAt: string; // 创建时间
+}
+
+// 报告类型
+export type ReportType = 'hospital' | 'ai_generated' | 'assessment' | 'other';
+
+// 医疗/评估报告
+export interface MedicalReport {
+  id: string; // 报告唯一ID
+  imageUrl: string; // 报告原图（base64 或 URL）
+  ocrResult: string; // OCR 识别结果
+  summary: string; // 报告摘要（一句话）
+  diagnosis: string; // 根据报告生成的孩子画像
+  date: string; // 报告日期 YYYY-MM-DD
+  type: ReportType; // 报告类型
+  createdAt: string; // 导入时间
 }
 
 export interface GameStep {
