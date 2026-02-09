@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { 
   MessageCircle, 
@@ -60,81 +60,17 @@ import {
   CartesianGrid, 
   Tooltip 
 } from 'recharts';
-import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate } from './types';
+import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, MedicalReport } from './types';
 import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
 import { speechService } from './services/speechService';
-import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts/asd-report-analysis';
-
-// --- Mock Data ---
-const MOCK_GAMES: Game[] = [
-  {
-    id: '1',
-    title: '积木高塔轮流堆',
-    target: '共同注意 (Shared Attention)',
-    duration: '15 分钟',
-    reason: '通过结构化的轮流互动，建立规则感和眼神接触。',
-    steps: [
-      { instruction: '和孩子面对面坐好，保持视线平齐。', guidance: '位置是关键！确保你能直接看到他的眼睛。' },
-      { instruction: '你放一块积木，然后递给孩子一块。', guidance: '动作要慢。拿积木的时候，把积木举到你眼睛旁边。' },
-      { instruction: '等待孩子看你一眼（眼神接触）再松手给他。', guidance: '数默数1-2-3，等待那个眼神接触的瞬间。' },
-      { instruction: '当塔很高倒塌时，一起夸张地大笑庆祝！', guidance: '情感共鸣很重要。' }
-    ]
-  },
-  {
-    id: '2',
-    title: '感官泡泡追逐战',
-    target: '自我调节 (Self-Regulation)',
-    duration: '10 分钟',
-    reason: '帮助孩子进行情绪调节，同时增加非语言的共同参与。',
-    steps: [
-      { instruction: '缓慢地吹出泡泡。', guidance: '观察他的反应。' },
-      { instruction: '鼓励孩子去戳破泡泡。', guidance: '如果他不敢碰，你可以先示范戳破一个。' },
-      { instruction: '突然停止，做出夸张的表情等待（暂停）。', guidance: '这是“中断模式”。' },
-      { instruction: '等待孩子发出信号（声音或手势）要求更多，再继续吹。', guidance: '任何信号都可以！' }
-    ]
-  },
-  {
-    id: '3',
-    title: 'VR 奇幻森林绘画',
-    target: '创造力 & 空间感知',
-    duration: '20 分钟',
-    reason: '利用沉浸式VR体验，让孩子在3D空间中自由涂鸦。',
-    isVR: true,
-    steps: [
-      { instruction: '帮助孩子佩戴 VR 眼镜，进入“魔法森林”画室。', guidance: '刚开始可能会有不适感，先让孩子适应1-2分钟。' },
-      { instruction: '选择“光之画笔”，在空中画出第一条线。', guidance: '示范动作要夸张。' },
-      { instruction: '进行“接龙绘画”：你画一部分，孩子补全一部分。', guidance: '这是建立共同关注的好时机。' },
-      { instruction: '保存作品并“具象化”展示。', guidance: '在虚拟空间中把画作“挂”在树上。' }
-    ]
-  }
-];
-
-const WEEK_DATA: CalendarEvent[] = [
-  { day: 20, weekday: '周一', status: 'completed', gameTitle: '积木高塔', progress: '眼神接触 +3次' },
-  { day: 21, weekday: '周二', status: 'today', time: '10:00', gameTitle: '感官泡泡' },
-  { day: 22, weekday: '周三', status: 'future' },
-  { day: 23, weekday: '周四', status: 'future' },
-  { day: 24, weekday: '周五', status: 'future' },
-  { day: 25, weekday: '周六', status: 'future' },
-  { day: 26, weekday: '周日', status: 'future' },
-];
+import { reportStorageService } from './services/reportStorage';
+import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
+import { MOCK_GAMES, WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
+import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
 
 // --- Helper Components ---
-const getDimensionConfig = (dim: string) => {
-  switch (dim) {
-    case 'Visual': return { icon: Eye, color: 'text-purple-600 bg-purple-100', label: '视觉偏好' };
-    case 'Auditory': return { icon: Ear, color: 'text-blue-600 bg-blue-100', label: '听觉敏感' };
-    case 'Tactile': return { icon: Hand, color: 'text-amber-600 bg-amber-100', label: '触觉探索' };
-    case 'Motor': return { icon: Activity, color: 'text-green-600 bg-green-100', label: '运动前庭' };
-    case 'Construction': return { icon: Layers, color: 'text-cyan-600 bg-cyan-100', label: '建构拼搭' };
-    case 'Order': return { icon: ListOrdered, color: 'text-slate-600 bg-slate-100', label: '秩序规律' };
-    case 'Cognitive': return { icon: BrainCircuit, color: 'text-indigo-600 bg-indigo-100', label: '认知学习' };
-    case 'Social': return { icon: Users, color: 'text-pink-600 bg-pink-100', label: '社交互动' };
-    default: return { icon: Sparkles, color: 'text-gray-600 bg-gray-100', label: dim };
-  }
-};
 
 const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen: boolean, onClose: () => void, setPage: (p: Page) => void, onLogout: () => void, childProfile: ChildProfile | null }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -205,6 +141,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
   const [reportImageUrl, setReportImageUrl] = useState<string>(''); // 报告图片预览
   const [verbalInput, setVerbalInput] = useState('');
   const [ocrResult, setOcrResult] = useState<string>(''); // OCR 提取结果
+  const [reportSummary, setReportSummary] = useState<string>(''); // 报告摘要
   const [childDiagnosis, setChildDiagnosis] = useState<string>(''); // 孩子画像
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
@@ -236,6 +173,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
     setReportFile(file);
     setIsAnalyzing(true);
     setOcrResult('');
+    setReportSummary('');
     setChildDiagnosis('');
     
     // 创建图片预览 URL
@@ -248,8 +186,14 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
       if (category === 'image') {
         const result = await multimodalService.parseImage(
           file, 
-          ASD_REPORT_ANALYSIS_PROMPT
+          ASD_REPORT_ANALYSIS_PROMPT,
+          true  // 使用 JSON 格式输出
         );
+        
+        // 打印 AI 返回结果到控制台
+        console.log('=== AI 返回结果 ===');
+        console.log('原始内容:', result.content);
+        console.log('==================');
         
         if (result.success) {
           // 尝试解析 JSON 格式的结果
@@ -262,15 +206,49 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
             }
             
             const parsed = JSON.parse(jsonContent);
-            setOcrResult(parsed.ocr || '');
-            setChildDiagnosis(parsed.profile || '');
+            
+            console.log('=== 解析后的 JSON ===');
+            console.log('OCR:', parsed.ocr);
+            console.log('Summary:', parsed.summary);
+            console.log('Profile:', parsed.profile);
+            console.log('====================');
+            
+            // 确保转换为字符串
+            const ocrText = typeof parsed.ocr === 'string' ? parsed.ocr : JSON.stringify(parsed.ocr, null, 2);
+            const summaryText = typeof parsed.summary === 'string' ? parsed.summary : '';
+            const profileText = typeof parsed.profile === 'string' ? parsed.profile : JSON.stringify(parsed.profile, null, 2);
+            
+            setOcrResult(ocrText || '（未提取到文字）');
+            setReportSummary(summaryText || '（未生成摘要）');
+            setChildDiagnosis(profileText || '（未生成画像）');
+            
+            // 保存报告到数据库
+            const metadata = result.metadata;
+            if (metadata?.base64) {
+              const report: MedicalReport = {
+                id: reportStorageService.generateReportId(),
+                imageUrl: metadata.base64,
+                ocrResult: ocrText,
+                summary: summaryText,
+                diagnosis: profileText,
+                date: new Date().toISOString().split('T')[0],
+                type: 'hospital',
+                createdAt: new Date().toISOString()
+              };
+              
+              reportStorageService.saveReport(report);
+              console.log('报告已保存到数据库:', report.id);
+            }
           } catch (parseError) {
             // 如果不是 JSON 格式，将整个内容作为画像
-            console.warn('无法解析 JSON 格式，使用原始内容');
+            console.warn('无法解析 JSON 格式，使用原始内容', parseError);
+            console.log('解析错误详情:', parseError);
             setChildDiagnosis(result.content);
             setOcrResult('（OCR 提取失败，请查看画像内容）');
+            setReportSummary('（未生成摘要）');
           }
         } else {
+          console.error('报告分析失败:', result.error);
           alert('报告分析失败：' + result.error);
           setReportFile(null);
           setReportImageUrl('');
@@ -316,16 +294,10 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-green-50 to-blue-50 p-6 flex items-center justify-center">
       <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-8">
-        {/* 标题 */}
+        {/* 标题 - 简化版 */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-full mx-auto mb-4 flex items-center justify-center">
-            <User className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">欢迎使用</h1>
-          <p className="text-gray-600">ASD 儿童地板时光助手</p>
-          
           {/* 步骤指示器 */}
-          <div className="flex items-center justify-center mt-6 space-x-2">
+          <div className="flex items-center justify-center space-x-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${step === 1 ? 'bg-primary text-white' : 'bg-green-500 text-white'}`}>
               {step > 1 ? <CheckCircle2 className="w-5 h-5" /> : '1'}
             </div>
@@ -482,7 +454,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                   </>
                 )}
 
-                {/* 分析结果展示 - 三栏布局 */}
+                {/* 分析结果展示 - 竖向排列 */}
                 {reportFile && (ocrResult || childDiagnosis) && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -492,6 +464,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                           setReportFile(null);
                           setReportImageUrl('');
                           setOcrResult('');
+                          setReportSummary('');
                           setChildDiagnosis('');
                         }}
                         className="text-sm text-red-500 hover:text-red-700 flex items-center"
@@ -501,7 +474,20 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-4">
+                      {/* 报告摘要 */}
+                      {reportSummary && (
+                        <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                          <h5 className="text-sm font-bold text-purple-700 mb-3 flex items-center">
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            报告摘要
+                          </h5>
+                          <div className="bg-white rounded-lg p-3 text-sm text-gray-700 leading-relaxed">
+                            {reportSummary}
+                          </div>
+                        </div>
+                      )}
+
                       {/* 报告原图 */}
                       <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                         <h5 className="text-sm font-bold text-gray-700 mb-3 flex items-center">
@@ -533,10 +519,10 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                       {/* 孩子画像 */}
                       <div className="bg-green-50 rounded-xl p-4 border border-green-200">
                         <h5 className="text-sm font-bold text-green-700 mb-3 flex items-center">
-                          <Sparkles className="w-4 h-4 mr-2" />
+                          <User className="w-4 h-4 mr-2" />
                           {name}的画像
                         </h5>
-                        <div className="bg-white rounded-lg p-3 max-h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                        <div className="bg-white rounded-lg p-3 text-sm text-gray-700 leading-relaxed">
                           {childDiagnosis || '生成中...'}
                         </div>
                       </div>
@@ -1079,6 +1065,14 @@ const PageCalendar = ({ navigateTo, onStartGame }: { navigateTo: (p: Page) => vo
 
 const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportReport, onExportReport, childProfile, calculateAge }: { trendData: any[], interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void, childProfile: ChildProfile | null, calculateAge: (birthDate: string) => number }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showReportList, setShowReportList] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null);
+  const [reports, setReports] = useState<MedicalReport[]>([]);
+  
+  // 加载报告列表
+  useEffect(() => {
+    setReports(reportStorageService.getAllReports());
+  }, [showReportList]);
   
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1087,32 +1081,219 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
-  
-  const getLevel = (score: number) => Math.min(5, Math.max(1, Math.floor(score / 5) + 1));
-  const radarChartData = Object.entries(abilityProfile).map(([subject, score]) => ({ subject, A: Math.min(100, score), fullMark: 100 }));
-  const categories = [
-    { name: "感官偏好", dims: ['Visual', 'Auditory', 'Tactile', 'Motor'] as InterestDimensionType[] },
-    { name: "认知与探索", dims: ['Construction', 'Order', 'Cognitive'] as InterestDimensionType[] },
-    { name: "社交互动", dims: ['Social'] as InterestDimensionType[] }
-  ];
 
   const age = childProfile ? calculateAge(childProfile.birthDate) : 0;
+  const latestReport = reportStorageService.getLatestReport();
 
+  // 报告详情弹窗
+  const ReportDetailModal = ({ report, onClose }: { report: MedicalReport, onClose: () => void }) => (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+          <h3 className="font-bold text-gray-800">报告详情</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          {/* 报告摘要 */}
+          <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+            <h5 className="text-sm font-bold text-purple-700 mb-2 flex items-center">
+              <Sparkles className="w-4 h-4 mr-2" />
+              报告摘要
+            </h5>
+            <p className="text-sm text-gray-700">{report.summary}</p>
+          </div>
+
+          {/* 报告原图 */}
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <h5 className="text-sm font-bold text-gray-700 mb-3 flex items-center">
+              <FileText className="w-4 h-4 mr-2 text-blue-600" />
+              报告原图
+            </h5>
+            <img 
+              src={`data:image/jpeg;base64,${report.imageUrl}`} 
+              alt="报告原图" 
+              className="w-full rounded-lg border border-gray-300"
+            />
+          </div>
+
+          {/* OCR 提取结果 */}
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <h5 className="text-sm font-bold text-blue-700 mb-3 flex items-center">
+              <Eye className="w-4 h-4 mr-2" />
+              文字提取
+            </h5>
+            <div className="bg-white rounded-lg p-3 max-h-60 overflow-y-auto text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+              {report.ocrResult}
+            </div>
+          </div>
+
+          {/* 孩子画像 */}
+          <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+            <h5 className="text-sm font-bold text-green-700 mb-3 flex items-center">
+              <User className="w-4 h-4 mr-2" />
+              孩子画像
+            </h5>
+            <div className="bg-white rounded-lg p-3 text-sm text-gray-700 leading-relaxed">
+              {report.diagnosis}
+            </div>
+          </div>
+
+          {/* 报告信息 */}
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">报告日期：</span>
+                <span className="font-medium text-gray-700">{report.date}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">报告类型：</span>
+                <span className="font-medium text-gray-700">
+                  {report.type === 'hospital' ? '医院报告' : 
+                   report.type === 'ai_generated' ? 'AI生成' : 
+                   report.type === 'assessment' ? '评估报告' : '其他'}
+                </span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-500">导入时间：</span>
+                <span className="font-medium text-gray-700">
+                  {new Date(report.createdAt).toLocaleString('zh-CN')}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 报告列表页面
+  if (showReportList) {
+    return (
+      <div className="p-4 space-y-4 h-full overflow-y-auto bg-background">
+        <div className="flex items-center justify-between">
+          <button 
+            onClick={() => setShowReportList(false)}
+            className="flex items-center text-gray-600 hover:text-gray-800"
+          >
+            <ChevronLeft className="w-5 h-5 mr-1" />
+            返回档案
+          </button>
+          <h2 className="font-bold text-gray-800">报告历史</h2>
+          <div className="w-20"></div>
+        </div>
+
+        {reports.length === 0 ? (
+          <div className="text-center py-20 text-gray-400">
+            <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+            <p>暂无报告记录</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {reports.map((report) => (
+              <div 
+                key={report.id}
+                onClick={() => setSelectedReport(report)}
+                className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-primary/30 transition"
+              >
+                <div className="flex items-start space-x-3">
+                  <img 
+                    src={`data:image/jpeg;base64,${report.imageUrl}`} 
+                    alt="报告缩略图" 
+                    className="w-16 h-16 rounded-lg object-cover border border-gray-200"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-800 truncate">{report.summary}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {report.date} · {report.type === 'hospital' ? '医院报告' : 'AI生成'}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{report.diagnosis}</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {selectedReport && (
+          <ReportDetailModal 
+            report={selectedReport} 
+            onClose={() => setSelectedReport(null)} 
+          />
+        )}
+      </div>
+    );
+  }
+
+  // 档案主页
   return (
     <div className="p-4 space-y-6 h-full overflow-y-auto bg-background">
-      <div className="flex items-center space-x-4 bg-white p-5 rounded-2xl shadow-sm"><img src={childProfile?.avatar || 'https://ui-avatars.com/api/?name=User&background=random&size=200'} className="w-16 h-16 rounded-full border-2 border-white shadow" alt={childProfile?.name || '孩子'} /><div><h2 className="text-2xl font-bold text-gray-800">{childProfile?.name || '未设置'}, {age}岁</h2><p className="text-gray-500 font-medium">{childProfile?.diagnosis || '暂无评估信息'}</p></div></div>
-      <div className="bg-white p-4 rounded-2xl shadow-sm"><h3 className="font-bold text-gray-700 mb-4 flex items-center"><Activity className="w-4 h-4 mr-2 text-primary"/> DIR 六大能力维度 (实时)</h3><div className="h-64 w-full"><ResponsiveContainer width="100%" height="100%"><RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarChartData}><PolarGrid stroke="#e5e7eb" /><PolarAngleAxis dataKey="subject" tick={{ fill: '#4b5563', fontSize: 11, fontWeight: 500 }} /><PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} /><Radar name="乐乐" dataKey="A" stroke="#10B981" fill="#10B981" fillOpacity={0.4} /></RadarChart></ResponsiveContainer></div></div>
-       <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100"><div className="flex justify-between items-center mb-4"><h3 className="font-bold text-gray-700 flex items-center"><Flame className="w-4 h-4 mr-2 text-accent"/> 兴趣热力图 (实时分析)</h3><span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-full">强度 1-5</span></div><div className="space-y-5">{categories.map((cat, idx) => (<div key={idx}><div className="flex items-center mb-2"><div className="w-2 h-2 rounded-full bg-gray-300 mr-2"></div><h4 className="text-xs font-bold text-gray-500">{cat.name}</h4></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{cat.dims.map((dim, i) => { const rawScore = interestProfile[dim] || 0; const level = getLevel(rawScore); const config = getDimensionConfig(dim); let colorClass = 'bg-gray-50 text-gray-400'; if (level >= 5) colorClass = 'bg-orange-500 text-white shadow-md shadow-orange-200'; else if (level >= 4) colorClass = 'bg-orange-400 text-white'; else if (level >= 3) colorClass = 'bg-orange-300 text-white'; else if (level >= 2) colorClass = 'bg-orange-100 text-orange-800'; return (<div key={i} className={`${colorClass} rounded-xl p-2 flex flex-col items-center justify-center text-center h-20 transition hover:scale-105`}><div className="flex items-center space-x-1 mb-1"><config.icon className="w-3 h-3" /><span className="text-xs font-bold leading-tight">{config.label}</span></div><div className="flex space-x-0.5">{[...Array(level)].map((_, starI) => (<div key={starI} className={`w-1 h-1 rounded-full ${level >= 3 ? 'bg-white/70' : 'bg-orange-500/40'}`}></div>))}</div></div>); })}</div></div>))}</div></div>
-      <div className="bg-white p-4 rounded-2xl shadow-sm"><h3 className="font-bold text-gray-700 mb-4 flex items-center"><TrendingUp className="w-4 h-4 mr-2 text-secondary"/> 互动参与度趋势</h3><div className="h-48 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" /><XAxis dataKey="name" tick={{fontSize: 10, fill: '#9ca3af'}} axisLine={false} tickLine={false} /><YAxis hide domain={[0, 100]} /><Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} /><Line type="monotone" dataKey="engagement" stroke="#3B82F6" strokeWidth={3} dot={{r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff'}} animationDuration={1500} /></LineChart></ResponsiveContainer></div></div>
-      
+      {/* 头像和基本信息 */}
+      <div className="flex flex-col items-center space-y-4 bg-white p-6 rounded-2xl shadow-sm">
+        <img 
+          src={childProfile?.avatar || 'https://ui-avatars.com/api/?name=User&background=random&size=200'} 
+          className="w-24 h-24 rounded-full border-4 border-white shadow-lg" 
+          alt={childProfile?.name || '孩子'} 
+        />
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-800">{childProfile?.name || '未设置'}, {age}岁</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {childProfile?.gender === 'male' ? '男孩' : childProfile?.gender === 'female' ? '女孩' : ''}
+          </p>
+        </div>
+      </div>
+
+      {/* 最新画像 */}
+      <div className="bg-gradient-to-br from-green-50 to-blue-50 p-5 rounded-2xl shadow-sm border border-green-100">
+        <h3 className="font-bold text-gray-700 mb-3 flex items-center">
+          <Sparkles className="w-5 h-5 mr-2 text-green-600" />
+          最新画像
+        </h3>
+        <p className="text-sm text-gray-700 leading-relaxed">
+          {latestReport?.diagnosis || childProfile?.diagnosis || '暂无评估信息，请导入报告或完成评估'}
+        </p>
+        {latestReport && (
+          <p className="text-xs text-gray-400 mt-3">
+            更新于 {new Date(latestReport.createdAt).toLocaleDateString('zh-CN')}
+          </p>
+        )}
+      </div>
+
       {/* 底部按钮 */}
-      <div className="flex gap-3 pb-4">
-        <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp" />
-        <button onClick={() => fileInputRef.current?.click()} className="flex-1 bg-primary text-white py-3 rounded-xl font-bold flex items-center justify-center hover:bg-green-600 transition shadow-md">
-          <Upload className="w-5 h-5 mr-2" /> 导入报告
+      <div className="space-y-3 pb-4">
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileSelect} 
+          className="hidden" 
+          accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp" 
+        />
+        
+        <button 
+          onClick={() => setShowReportList(true)}
+          className="w-full bg-white text-gray-700 py-3 rounded-xl font-bold flex items-center justify-center hover:bg-gray-50 transition shadow-sm border border-gray-200"
+        >
+          <FileText className="w-5 h-5 mr-2" /> 
+          查看报告列表 ({reports.length})
         </button>
-        <button onClick={onExportReport} className="flex-1 bg-blue-500 text-white py-3 rounded-xl font-bold flex items-center justify-center hover:bg-blue-600 transition shadow-md">
-          <FileText className="w-5 h-5 mr-2" /> 导出报告
+        
+        <button 
+          onClick={() => fileInputRef.current?.click()} 
+          className="w-full bg-primary text-white py-3 rounded-xl font-bold flex items-center justify-center hover:bg-green-600 transition shadow-md"
+        >
+          <Upload className="w-5 h-5 mr-2" /> 
+          导入报告
+        </button>
+        
+        <button 
+          onClick={onExportReport} 
+          className="w-full bg-blue-500 text-white py-3 rounded-xl font-bold flex items-center justify-center hover:bg-blue-600 transition shadow-md"
+        >
+          <FileText className="w-5 h-5 mr-2" /> 
+          导出报告
         </button>
       </div>
     </div>
@@ -1287,17 +1468,6 @@ const PageGames = ({
 };
 
 // --- App Root ---
-
-const INITIAL_TREND_DATA = [
-  { name: '第1周', engagement: 30 },
-  { name: '第2周', engagement: 45 },
-  { name: '第3周', engagement: 40 },
-  { name: '第4周', engagement: 60 },
-  { name: '第5周', engagement: 75 },
-];
-
-const INITIAL_INTEREST_SCORES: UserInterestProfile = { Visual: 5, Auditory: 2, Tactile: 3, Motor: 8, Construction: 6, Order: 1, Cognitive: 4, Social: 7 };
-const INITIAL_ABILITY_SCORES: UserAbilityProfile = { '自我调节': 80, '亲密感': 90, '双向沟通': 60, '复杂沟通': 50, '情绪思考': 70, '逻辑思维': 40 };
 
 export default function App() {
   // 检查是否首次进入（通过 localStorage 判断）

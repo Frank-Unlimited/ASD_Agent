@@ -1,6 +1,7 @@
 
 import { ChildProfile, Game, CalendarEvent, InterestCategory, ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate } from '../types';
 import { sendGeminiMessage, evaluateSession, analyzeReport, recommendGame } from './geminiService';
+import { MEDICAL_REPORT_ANALYSIS_PROMPT, VERBAL_DESCRIPTION_ANALYSIS_PROMPT } from '../prompts/diagnosis-analysis';
 
 // --- Configuration ---
 export const USE_REAL_API = true;
@@ -121,22 +122,8 @@ export const api = {
   analyzeReportForDiagnosis: async (reportText: string): Promise<string> => {
       if (USE_REAL_API) {
           try {
-              const response = await sendGeminiMessage(
-                  `请作为专业的ASD孤独症诊断专家，分析以下医疗报告或评估报告。请提取关键信息并给出孩子的整体画像，包括：
-1. 核心症状表现
-2. 社交沟通能力
-3. 重复刻板行为
-4. 感觉处理特点
-5. 认知发展水平
-6. 优势和挑战领域
-
-请用简洁专业的语言描述，字数控制在300字以内。
-
-报告内容：
-${reportText}`,
-                  [],
-                  ''
-              );
+              const prompt = MEDICAL_REPORT_ANALYSIS_PROMPT.replace('{reportContent}', reportText);
+              const response = await sendGeminiMessage(prompt, [], '');
               return response;
           } catch(err) {
               console.warn("Gemini Diagnosis Analysis failed.");
@@ -150,24 +137,8 @@ ${reportText}`,
   analyzeVerbalInput: async (verbalInput: string): Promise<string> => {
       if (USE_REAL_API) {
           try {
-              const response = await sendGeminiMessage(
-                  `请作为专业的ASD孤独症诊断专家，根据家长的描述，分析孩子的情况并给出专业的画像评估。
-
-请从以下维度进行分析：
-1. 社交互动特点
-2. 沟通表达能力
-3. 行为模式和兴趣
-4. 感觉处理特点
-5. 认知发展水平
-6. 优势领域和需要支持的方面
-
-请用温和、专业的语言描述，让家长能够理解，字数控制在300字以内。
-
-家长描述：
-${verbalInput}`,
-                  [],
-                  ''
-              );
+              const prompt = VERBAL_DESCRIPTION_ANALYSIS_PROMPT.replace('{verbalDescription}', verbalInput);
+              const response = await sendGeminiMessage(prompt, [], '');
               return response;
           } catch(err) {
               console.warn("Gemini Verbal Analysis failed.");

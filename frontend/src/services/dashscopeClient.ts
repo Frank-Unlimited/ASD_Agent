@@ -19,6 +19,9 @@ interface DashScopeRequest {
   messages: DashScopeMessage[];
   temperature?: number;
   max_tokens?: number;
+  response_format?: {
+    type: 'json_object' | 'text';
+  };
 }
 
 interface DashScopeResponse {
@@ -85,7 +88,11 @@ class DashScopeClient {
   /**
    * 分析图片
    */
-  async analyzeImage(base64Image: string, prompt: string = '请详细分析这张图片'): Promise<string> {
+  async analyzeImage(
+    base64Image: string, 
+    prompt: string = '请详细分析这张图片',
+    useJsonFormat: boolean = false
+  ): Promise<string> {
     const request: DashScopeRequest = {
       model: this.model,
       messages: [{
@@ -106,6 +113,13 @@ class DashScopeClient {
       temperature: 0.7,
       max_tokens: 2000
     };
+
+    // 如果需要 JSON 格式输出，添加 response_format
+    if (useJsonFormat) {
+      request.response_format = {
+        type: 'json_object'
+      };
+    }
 
     return await this.callAPI(request);
   }
