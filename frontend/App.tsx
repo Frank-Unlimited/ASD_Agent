@@ -566,9 +566,6 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
             </div>
           </div>
         )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1361,28 +1358,6 @@ export default function App() {
     
     // 标记不再是首次使用
     setIsFirstTime(false);
-    setCurrentPage(Page.CHAT);
-  };
-      // await api.saveReportToSQLite(childInfo.reportAnalysis);
-      
-      // 如果是文档类型，可以进一步分析并更新档案
-      if (childInfo.reportFile) {
-        const category = fileUploadService.categorizeFile(childInfo.reportFile);
-        if (category === 'document') {
-          try {
-            const analysis = await api.analyzeReport(childInfo.reportAnalysis);
-            handleProfileUpdate(analysis);
-          } catch (error) {
-            console.error('档案更新失败:', error);
-          }
-        }
-      }
-    }
-    
-    // 标记不再是首次进入
-    setIsFirstTime(false);
-    
-    // 跳转到聊天页面
     setCurrentPage(Page.CHAT);
   };
   
