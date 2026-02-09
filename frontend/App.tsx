@@ -65,6 +65,7 @@ import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
 import { speechService } from './services/speechService';
+import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts/asd-report-analysis';
 
 // --- Mock Data ---
 const MOCK_GAMES: Game[] = [
@@ -192,162 +193,6 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen:
 
 // --- Page Components ---
 
-// 专业的 ASD 报告分析 Prompt
-const ASD_REPORT_ANALYSIS_PROMPT = `你是一位经验丰富的儿童发展与孤独症谱系障碍（ASD）诊断专家。现在需要你分析一份医疗评估报告图片。
-
-**任务要求：**
-
-1. **文字提取**：仔细识别并提取报告中的所有关键文字信息，包括但不限于：
-   - 诊断结论
-   - 评估量表名称和得分（如 CARS、ABC、ADOS、ADI-R 等）
-   - 行为观察记录
-   - 发展里程碑评估
-   - 医生建议和备注
-
-2. **专业分析**：站在孤独症诊断的角度，综合分析报告内容，生成孩子的整体画像。
-
-**画像内容应包含以下维度：**
-
-### 一、核心症状表现
-- 社交互动障碍的具体表现（眼神接触、共同注意、社交主动性等）
-- 沟通交流障碍的具体表现（语言发展、非语言沟通、对话能力等）
-- 重复刻板行为的具体表现（刻板动作、固定兴趣、仪式化行为等）
-
-### 二、感觉处理特点
-- 感觉敏感性（听觉、视觉、触觉、前庭觉等）
-- 感觉寻求或回避行为
-- 感觉调节能力
-
-### 三、认知与学习能力
-- 认知发展水平
-- 学习特点和优势领域
-- 注意力和执行功能
-
-### 四、情绪与行为调节
-- 情绪表达和识别能力
-- 自我调节能力
-- 问题行为及其触发因素
-
-### 五、优势与潜能
-- 孩子的特殊才能或兴趣
-- 相对优势的发展领域
-- 可以利用的学习动机
-
-### 六、支持需求
-- 当前最需要支持的领域
-- 建议的干预重点
-- 家庭可以关注的方向
-
-**输出格式要求：**
-- 使用温和、专业且易于家长理解的语言
-- 避免过度医学化的术语，必要时提供简单解释
-- 突出孩子的优势和潜能，而不仅仅是困难
-- 字数控制在 400-600 字
-- 使用清晰的段落结构，便于阅读
-
-**重要提示：**
-- 如果报告图片模糊或信息不完整，请说明哪些信息无法准确提取
-- 基于报告内容进行分析，不要臆测或添加报告中没有的信息
-- 保持客观、专业、富有同理心的态度`;
-
-// 档案页面的报告分析 Prompt（更侧重结构化数据提取）
-const ASD_REPORT_STRUCTURED_ANALYSIS_PROMPT = `你是一位经验丰富的儿童发展与孤独症谱系障碍（ASD）诊断专家。现在需要你分析一份医疗评估报告图片，并提取结构化信息。
-
-**第一步：文字识别与提取**
-
-请仔细识别报告中的所有文字，特别关注：
-
-1. **基本信息**
-   - 儿童姓名、性别、年龄/出生日期
-   - 评估日期、评估机构
-   - 主诊医生/评估师
-
-2. **诊断信息**
-   - 明确的诊断结论（如：孤独症谱系障碍、发育迟缓等）
-   - 诊断依据（DSM-5、ICD-11 等标准）
-   - 严重程度分级（如需支持级别）
-
-3. **评估量表数据**
-   - 量表名称（CARS、ABC、ADOS、ADI-R、Gesell、韦氏智力量表等）
-   - 各项得分和总分
-   - 百分位数或标准分
-   - 临界值说明
-
-4. **行为观察记录**
-   - 社交互动表现
-   - 语言沟通能力
-   - 重复刻板行为
-   - 感觉处理特点
-   - 情绪调节能力
-   - 认知表现
-
-5. **发展评估**
-   - 大运动发展
-   - 精细动作发展
-   - 语言发展（理解和表达）
-   - 认知发展
-   - 社会适应能力
-   - 自理能力
-
-6. **医生建议**
-   - 干预建议
-   - 复查时间
-   - 注意事项
-
-**第二步：综合分析与画像生成**
-
-基于提取的信息，生成孩子的发展画像，包括：
-
-### 核心特征
-- 主要诊断和症状表现
-- 功能水平评估
-
-### 发展优势
-- 相对优势的领域
-- 特殊兴趣或才能
-- 可利用的学习动机
-
-### 发展挑战
-- 需要重点支持的领域
-- 主要困难和障碍
-- 问题行为及触发因素
-
-### 感觉特点
-- 感觉敏感性分析
-- 感觉寻求/回避模式
-
-### 干预建议
-- 优先干预目标
-- 适合的干预方法
-- 家庭支持策略
-
-**输出格式：**
-
-请按以下结构输出：
-
----
-【报告基本信息】
-（提取的基本信息）
-
-【诊断结论】
-（明确的诊断）
-
-【评估数据】
-（量表得分等数据）
-
-【发展画像】
-（综合分析，400-500字，使用温和、专业的语言）
-
-【关键建议】
-（3-5条核心建议）
----
-
-**注意事项：**
-- 如果某些信息在报告中缺失，请标注"未提及"
-- 保持客观，不添加报告中没有的内容
-- 使用家长易懂的语言，避免过度专业术语
-- 突出孩子的优势和潜能`;
-
 const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) => {
   const [step, setStep] = useState(1); // 1: 基本信息, 2: 孩子情况了解
   const [name, setName] = useState('');
@@ -357,8 +202,10 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
   // 第二步：导入报告或口述
   const [inputMode, setInputMode] = useState<'none' | 'report' | 'verbal'>('none');
   const [reportFile, setReportFile] = useState<File | null>(null);
+  const [reportImageUrl, setReportImageUrl] = useState<string>(''); // 报告图片预览
   const [verbalInput, setVerbalInput] = useState('');
-  const [childDiagnosis, setChildDiagnosis] = useState<string>('');
+  const [ocrResult, setOcrResult] = useState<string>(''); // OCR 提取结果
+  const [childDiagnosis, setChildDiagnosis] = useState<string>(''); // 孩子画像
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -388,7 +235,12 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
 
     setReportFile(file);
     setIsAnalyzing(true);
+    setOcrResult('');
     setChildDiagnosis('');
+    
+    // 创建图片预览 URL
+    const imageUrl = URL.createObjectURL(file);
+    setReportImageUrl(imageUrl);
 
     try {
       const category = fileUploadService.categorizeFile(file);
@@ -398,23 +250,45 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
           file, 
           ASD_REPORT_ANALYSIS_PROMPT
         );
+        
         if (result.success) {
-          setChildDiagnosis(result.content);
+          // 尝试解析 JSON 格式的结果
+          try {
+            // 提取 JSON 内容（可能被包裹在 ```json ``` 中）
+            let jsonContent = result.content;
+            const jsonMatch = result.content.match(/```json\s*([\s\S]*?)\s*```/);
+            if (jsonMatch) {
+              jsonContent = jsonMatch[1];
+            }
+            
+            const parsed = JSON.parse(jsonContent);
+            setOcrResult(parsed.ocr || '');
+            setChildDiagnosis(parsed.profile || '');
+          } catch (parseError) {
+            // 如果不是 JSON 格式，将整个内容作为画像
+            console.warn('无法解析 JSON 格式，使用原始内容');
+            setChildDiagnosis(result.content);
+            setOcrResult('（OCR 提取失败，请查看画像内容）');
+          }
         } else {
           alert('报告分析失败：' + result.error);
           setReportFile(null);
+          setReportImageUrl('');
         }
       } else if (category === 'document') {
         const textContent = file.type === "text/plain" ? await file.text() : `文件名: ${file.name}`;
         const analysis = await api.analyzeReportForDiagnosis(textContent);
         setChildDiagnosis(analysis);
+        setOcrResult(textContent);
       } else {
         alert('不支持的文件类型，请上传图片（JPG/PNG）或文档（TXT/PDF）');
         setReportFile(null);
+        setReportImageUrl('');
       }
     } catch (error) {
       alert('报告分析失败：' + (error instanceof Error ? error.message : '未知错误'));
       setReportFile(null);
+      setReportImageUrl('');
     } finally {
       setIsAnalyzing(false);
     }
@@ -1467,10 +1341,21 @@ export default function App() {
     
     try {
       if (category === 'image') {
-        // 分析图片 - 使用结构化分析 prompt
-        const result = await multimodalService.parseImage(file, ASD_REPORT_STRUCTURED_ANALYSIS_PROMPT);
+        // 分析图片 - 使用统一的分析 prompt
+        const result = await multimodalService.parseImage(file, ASD_REPORT_ANALYSIS_PROMPT);
         if (result.success) {
-          alert('报告分析完成！\n\n' + result.content.substring(0, 200) + '...\n\n（数据将保存到 SQLite，功能待实现）');
+          // 尝试解析 JSON 格式
+          try {
+            let jsonContent = result.content;
+            const jsonMatch = result.content.match(/```json\s*([\s\S]*?)\s*```/);
+            if (jsonMatch) {
+              jsonContent = jsonMatch[1];
+            }
+            const parsed = JSON.parse(jsonContent);
+            alert('报告分析完成！\n\nOCR提取：\n' + (parsed.ocr || '').substring(0, 100) + '...\n\n孩子画像：\n' + (parsed.profile || '').substring(0, 100) + '...\n\n（数据将保存到 SQLite，功能待实现）');
+          } catch {
+            alert('报告分析完成！\n\n' + result.content.substring(0, 200) + '...\n\n（数据将保存到 SQLite，功能待实现）');
+          }
           // TODO: 调用后端 SQLite API 保存数据
           // await api.saveReportToSQLite(result.content);
         } else {
