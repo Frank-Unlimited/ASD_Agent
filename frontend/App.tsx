@@ -433,62 +433,113 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
             {/* 上传报告模式 */}
             {inputMode === 'report' && (
               <div className="space-y-4 animate-in fade-in">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-gray-800">上传医疗报告</h4>
-                  <button
-                    onClick={() => {
-                      setInputMode('none');
-                      setReportFile(null);
-                      setChildDiagnosis('');
-                    }}
-                    className="text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
+                {!reportFile && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-gray-800">上传医疗报告</h4>
+                      <button
+                        onClick={() => {
+                          setInputMode('none');
+                          setReportFile(null);
+                          setReportImageUrl('');
+                          setOcrResult('');
+                          setChildDiagnosis('');
+                        }}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
 
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt"
-                />
-                
-                <div
-                  onClick={() => !isAnalyzing && fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-8 text-center transition ${
-                    isAnalyzing ? 'border-gray-300 bg-gray-50 cursor-not-allowed' : 'border-gray-300 hover:border-primary hover:bg-primary/5 cursor-pointer'
-                  }`}
-                >
-                  {isAnalyzing ? (
-                    <div className="flex flex-col items-center">
-                      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
-                      <p className="text-gray-600 font-medium">AI 正在分析报告...</p>
-                      <p className="text-xs text-gray-400 mt-1">这可能需要几秒钟</p>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt"
+                    />
+                    
+                    <div
+                      onClick={() => !isAnalyzing && fileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-xl p-8 text-center transition ${
+                        isAnalyzing ? 'border-gray-300 bg-gray-50 cursor-not-allowed' : 'border-gray-300 hover:border-primary hover:bg-primary/5 cursor-pointer'
+                      }`}
+                    >
+                      {isAnalyzing ? (
+                        <div className="flex flex-col items-center">
+                          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+                          <p className="text-gray-600 font-medium">AI 正在分析报告...</p>
+                          <p className="text-xs text-gray-400 mt-1">正在提取文字并生成画像</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                          <p className="text-gray-700 font-medium mb-1">点击上传报告图片</p>
+                          <p className="text-xs text-gray-400">支持 JPG、PNG 格式</p>
+                        </div>
+                      )}
                     </div>
-                  ) : reportFile ? (
-                    <div className="flex items-center justify-center space-x-3">
-                      <CheckCircle2 className="w-6 h-6 text-green-600" />
-                      <span className="text-gray-700 font-medium">{reportFile.name}</span>
-                    </div>
-                  ) : (
-                    <div>
-                      <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-700 font-medium mb-1">点击上传报告图片或文档</p>
-                      <p className="text-xs text-gray-400">支持 JPG、PNG、PDF、TXT 格式</p>
-                    </div>
-                  )}
-                </div>
+                  </>
+                )}
 
-                {childDiagnosis && (
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 animate-in fade-in">
-                    <div className="flex items-center mb-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-600 mr-2" />
-                      <span className="font-bold text-green-800">AI 分析结果 - {name}的画像</span>
+                {/* 分析结果展示 - 三栏布局 */}
+                {reportFile && (ocrResult || childDiagnosis) && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-gray-800">分析结果</h4>
+                      <button
+                        onClick={() => {
+                          setReportFile(null);
+                          setReportImageUrl('');
+                          setOcrResult('');
+                          setChildDiagnosis('');
+                        }}
+                        className="text-sm text-red-500 hover:text-red-700 flex items-center"
+                      >
+                        <X className="w-4 h-4 mr-1" />
+                        重新上传
+                      </button>
                     </div>
-                    <div className="bg-white rounded-lg p-4 max-h-64 overflow-y-auto text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                      {childDiagnosis}
+
+                    <div className="grid grid-cols-3 gap-4">
+                      {/* 报告原图 */}
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <h5 className="text-sm font-bold text-gray-700 mb-3 flex items-center">
+                          <FileText className="w-4 h-4 mr-2 text-blue-600" />
+                          报告原图
+                        </h5>
+                        {reportImageUrl && (
+                          <img 
+                            src={reportImageUrl} 
+                            alt="报告原图" 
+                            className="w-full rounded-lg border border-gray-300 cursor-pointer hover:opacity-90 transition"
+                            onClick={() => window.open(reportImageUrl, '_blank')}
+                          />
+                        )}
+                        <p className="text-xs text-gray-400 mt-2 text-center">点击查看大图</p>
+                      </div>
+
+                      {/* OCR 提取结果 */}
+                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                        <h5 className="text-sm font-bold text-blue-700 mb-3 flex items-center">
+                          <Eye className="w-4 h-4 mr-2" />
+                          文字提取
+                        </h5>
+                        <div className="bg-white rounded-lg p-3 max-h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                          {ocrResult || '提取中...'}
+                        </div>
+                      </div>
+
+                      {/* 孩子画像 */}
+                      <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                        <h5 className="text-sm font-bold text-green-700 mb-3 flex items-center">
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          {name}的画像
+                        </h5>
+                        <div className="bg-white rounded-lg p-3 max-h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                          {childDiagnosis || '生成中...'}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
