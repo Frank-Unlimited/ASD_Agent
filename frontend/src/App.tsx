@@ -740,13 +740,20 @@ const PageAIChat = ({
     setRecognizing(false);
   };
 
-  const startCheckInFlow = (gameId: string, gameTitle: string) => {
-      setTargetGameId(gameId);
+  const startCheckInFlow = (game: Game) => {
+      console.log('[Check-In Flow] 开始游戏流程:', game);
+      console.log('[Check-In Flow] 游戏步骤数:', game.steps?.length);
+      
+      setTargetGameId(game.id);
+      // 将完整的游戏对象存储到 localStorage，供游戏页面使用
+      localStorage.setItem('pending_game', JSON.stringify(game));
+      console.log('[Check-In Flow] 已保存到 localStorage');
+      
       setCheckInStep(1);
       setMessages(prev => [...prev, {
           id: Date.now().toString(),
           role: 'model',
-          text: `太棒了！我们准备开始玩 **${gameTitle}**。在此之前，为了确保互动效果，请先确认一下：\n\n**1. 孩子现在的情绪怎么样？**`,
+          text: `太棒了！我们准备开始玩 **${game.title}**。在此之前，为了确保互动效果，请先确认一下：\n\n**1. 孩子现在的情绪怎么样？**`,
           timestamp: new Date(),
           options: ["开心/兴奋", "平静/专注", "烦躁/低落"]
       }]);
@@ -778,7 +785,12 @@ const PageAIChat = ({
             setTimeout(() => {
                 setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "收到，状态确认完毕！正在为您进入游戏页面...", timestamp: new Date() }]);
                 setTimeout(() => {
-                    if (targetGameId) onStartGame(targetGameId);
+                    console.log('[Check-In Flow] 准备跳转到游戏页面，gameId:', targetGameId);
+                    if (targetGameId) {
+                        onStartGame(targetGameId);
+                    } else {
+                        console.error('[Check-In Flow] targetGameId 为空！');
+                    }
                     setCheckInStep(0);
                     setTargetGameId(null);
                 }, 1500);
@@ -826,15 +838,57 @@ const PageAIChat = ({
             
             switch (toolCall.function.name) {
               case 'recommend_game':
-                // 添加游戏推荐卡片到响应中
-                fullResponse += `\n\n:::GAME_RECOMMENDATION:${JSON.stringify(args)}:::`;
-                setMessages(prev => 
-                  prev.map(msg => 
-                    msg.id === tempMsgId 
-                      ? { ...msg, text: fullResponse }
-                      : msg
-                  )
-                );
+                // 使用联网搜索推荐游戏
+                (async () => {
+                  try {
+                    console.log('[Tool Call] 开始联网搜索推荐游戏...');
+                    
+                    // 添加加载提示
+                    fullResponse += `\n\n🔍 正在联网搜索适合的游戏...`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                    
+                    // 调用联网搜索推荐
+                    const { recommendGame } = await import('./services/qwenService');
+                    const recommendation = await recommendGame(profileContext);
+                    
+                    if (recommendation) {
+                      console.log('[Tool Call] 推荐成功:', recommendation);
+                      
+                      // 移除加载提示，添加推荐卡片
+                      fullResponse = fullResponse.replace('🔍 正在联网搜索适合的游戏...', '');
+                      fullResponse += `\n\n:::GAME_RECOMMENDATION:${JSON.stringify(recommendation)}:::`;
+                    } else {
+                      console.warn('[Tool Call] 推荐失败，未找到合适的游戏');
+                      fullResponse = fullResponse.replace('🔍 正在联网搜索适合的游戏...', '');
+                      fullResponse += `\n\n抱歉，暂时没有找到合适的游戏推荐。`;
+                    }
+                    
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  } catch (error) {
+                    console.error('[Tool Call] 推荐游戏失败:', error);
+                    fullResponse = fullResponse.replace('🔍 正在联网搜索适合的游戏...', '');
+                    fullResponse += `\n\n推荐游戏时出现错误，请稍后重试。`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  }
+                })();
                 break;
                 
               case 'log_behavior':
@@ -1176,7 +1230,7 @@ const PageAIChat = ({
                    <div className="flex items-center space-x-2 mb-2"><Sparkles className="w-4 h-4 text-secondary" /><span className="text-xs font-bold text-secondary uppercase">推荐游戏 (基于分析)</span></div>
                    <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
-                   <button onClick={() => startCheckInFlow(card.id, card.title)} className="w-full bg-secondary text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-blue-600 transition"><Play className="w-4 h-4 mr-2" /> 开始游戏</button>
+                   <button onClick={() => startCheckInFlow(card)} className="w-full bg-secondary text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-blue-600 transition"><Play className="w-4 h-4 mr-2" /> 开始游戏</button>
                 </div>
               )}
               {card && card.type === 'NAV' && (
@@ -2049,8 +2103,7 @@ const PageGames = ({
   const [internalActiveGame, setInternalActiveGame] = useState<Game | undefined>(
       activeGame || (initialGameId ? MOCK_GAMES.find(g => g.id === initialGameId) : undefined)
   );
-  useEffect(() => { if (initialGameId && !internalActiveGame) setInternalActiveGame(MOCK_GAMES.find(g => g.id === initialGameId)); }, [initialGameId]);
-
+  
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [timer, setTimer] = useState(0);
   const [currentStepIndex, setCurrentStepIndex] = useState(0); 
@@ -2062,16 +2115,50 @@ const PageGames = ({
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('全部');
   const FILTERS = ['全部', '共同注意', '自我调节', '亲密感', '双向沟通', '情绪思考', '创造力'];
-
+  
   useEffect(() => {
-    if (initialGameId && gameState !== GameState.PLAYING) {
+    if (initialGameId && !internalActiveGame) {
+        console.log('[Game Page] 初始化游戏，ID:', initialGameId);
+        
+        // 先尝试从 localStorage 获取待开始的游戏（来自聊天推荐）
+        const pendingGameStr = localStorage.getItem('pending_game');
+        console.log('[Game Page] pending_game 内容:', pendingGameStr ? '存在' : '不存在');
+        
+        if (pendingGameStr) {
+          try {
+            const pendingGame = JSON.parse(pendingGameStr);
+            console.log('[Game Page] 解析的游戏:', pendingGame);
+            console.log('[Game Page] 游戏步骤数:', pendingGame.steps?.length);
+            
+            if (pendingGame.id === initialGameId) {
+              console.log('[Game Page] ✅ 加载推荐的游戏:', pendingGame.title);
+              setInternalActiveGame(pendingGame);
+              setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false);
+              // 不要立即删除，等组件稳定后再删除（避免 React Strict Mode 重复执行）
+              setTimeout(() => {
+                localStorage.removeItem('pending_game');
+                console.log('[Game Page] 已清除 pending_game');
+              }, 100);
+              return;
+            } else {
+              console.log('[Game Page] ⚠️  游戏ID不匹配:', pendingGame.id, '!=', initialGameId);
+            }
+          } catch (e) {
+            console.error('[Game Page] ❌ 解析待开始游戏失败:', e);
+          }
+        }
+        
+        // 如果没有待开始的游戏，从游戏库中查找
         const game = MOCK_GAMES.find(g => g.id === initialGameId);
         if (game) {
+            console.log('[Game Page] 从游戏库加载游戏:', game.title);
             setInternalActiveGame(game);
             setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false);
+        } else {
+            console.warn('[Game Page] ❌ 未找到游戏:', initialGameId);
         }
     }
-  }, [initialGameId]);
+  }, [initialGameId, internalActiveGame]);
 
   useEffect(() => {
     if (gameState === GameState.PLAYING) { timerRef.current = setInterval(() => setTimer(t => t + 1), 1000); } 
@@ -2281,7 +2368,13 @@ export default function App() {
   };
 
   const handleNavigate = (page: Page) => { setCurrentPage(page); setActiveGameId(undefined); setGameMode(GameState.LIST); };
-  const handleStartGame = (gameId: string) => { setActiveGameId(gameId); setGameMode(GameState.PLAYING); setCurrentPage(Page.GAMES); };
+  const handleStartGame = (gameId: string) => { 
+    console.log('[App] handleStartGame 被调用，gameId:', gameId);
+    setActiveGameId(gameId); 
+    setGameMode(GameState.PLAYING); 
+    setCurrentPage(Page.GAMES);
+    console.log('[App] 已设置 activeGameId:', gameId, 'gameMode: PLAYING, currentPage: GAMES');
+  };
   const handleUpdateTrend = (newScore: number) => { setTrendData(prev => [...prev, { name: '本次', engagement: newScore }]); };
   
   // 计算年龄的辅助函数

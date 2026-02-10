@@ -77,6 +77,35 @@ export const generateComprehensiveAssessment = async (
       data = data[0];
     }
     
+    // 检查是否返回了 Schema 定义而不是实际数据
+    // Schema 定义会有 "type", "properties", "required" 等字段
+    if (data.type === 'object' && data.properties && !data.currentProfile) {
+      console.error('[Assessment Agent] ❌ LLM 返回了 Schema 定义而不是数据！');
+      console.log('[Assessment Agent] Schema properties:', Object.keys(data.properties));
+      
+      // 尝试从 properties 中提取实际数据（如果有的话）
+      if (data.properties.currentProfile && typeof data.properties.currentProfile === 'object') {
+        // 有些情况下，数据可能在 properties 的子对象中
+        const extractedData: any = {};
+        for (const key of Object.keys(data.properties)) {
+          if (data.properties[key].value) {
+            extractedData[key] = data.properties[key].value;
+          } else if (typeof data.properties[key] === 'string') {
+            extractedData[key] = data.properties[key];
+          }
+        }
+        
+        if (Object.keys(extractedData).length > 0) {
+          console.log('[Assessment Agent] 从 properties 中提取到数据');
+          data = extractedData;
+        } else {
+          throw new Error('LLM 返回了 Schema 定义而不是实际数据，请重试');
+        }
+      } else {
+        throw new Error('LLM 返回了 Schema 定义而不是实际数据，请重试');
+      }
+    }
+    
     console.log('[Assessment Agent] Parsed data:', data);
     
     const assessment: ComprehensiveAssessment = {
