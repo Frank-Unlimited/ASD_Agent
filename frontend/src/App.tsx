@@ -1,6 +1,10 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { sendQwenMessage } from './services/qwenService';
+import { clearAllCache } from './utils/clearCache'; // 导入清空缓存功能
+import { generateComprehensiveAssessment } from './services/assessmentAgent';
+import { collectHistoricalData } from './services/historicalDataHelper';
+import { saveAssessment } from './services/assessmentStorage';
 import { 
   MessageCircle, 
   Calendar as CalendarIcon, 
@@ -70,7 +74,8 @@ import { reportStorageService } from './services/reportStorage';
 import { behaviorStorageService } from './services/behaviorStorage';
 import { chatStorageService } from './services/chatStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
-import { MOCK_GAMES, WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
+import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
+import { getAllGames } from './services/ragService';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
 
 // --- Helper Components ---
@@ -908,6 +913,70 @@ const PageAIChat = ({
                   )
                 );
                 break;
+                
+              case 'generate_assessment':
+                // 调用综合评估Agent
+                (async () => {
+                  try {
+                    console.log('[综合评估] 开始生成评估报告...');
+                    
+                    // 添加加载提示
+                    fullResponse += `\n\n🔄 正在生成综合评估报告，请稍候...`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                    
+                    // 获取历史数据
+                    const historicalData = collectHistoricalData();
+                    
+                    // 获取当前孩子档案（从父组件传递的profileContext中提取）
+                    // 这里需要从localStorage获取完整的childProfile
+                    const storedProfile = localStorage.getItem('asd_floortime_child_profile');
+                    if (!storedProfile) {
+                      throw new Error('未找到孩子档案，请先完成初始设置');
+                    }
+                    const currentChildProfile = JSON.parse(storedProfile);
+                    
+                    // 调用综合评估Agent
+                    const assessment = await generateComprehensiveAssessment(
+                      currentChildProfile,
+                      historicalData
+                    );
+                    
+                    console.log('[综合评估] 评估完成:', assessment);
+                    
+                    // 保存评估结果
+                    saveAssessment(assessment);
+                    
+                    // 移除加载提示，添加评估结果卡片
+                    fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
+                    fullResponse += `\n\n:::ASSESSMENT_CARD:${JSON.stringify(assessment)}:::`;
+                    
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  } catch (error) {
+                    console.error('[综合评估] 生成失败:', error);
+                    fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
+                    fullResponse += `\n\n❌ 评估报告生成失败：${error instanceof Error ? error.message : '未知错误'}`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  }
+                })();
+                break;
             }
           } catch (e) {
             console.error('Failed to parse tool arguments:', e);
@@ -1024,6 +1093,7 @@ const PageAIChat = ({
     const navRegex = /:::NAVIGATION_CARD:\s*([\s\S]*?)\s*:::/;
     const behaviorRegex = /:::BEHAVIOR_LOG_CARD:\s*([\s\S]*?)\s*:::/;
     const weeklyRegex = /:::WEEKLY_PLAN_CARD:\s*([\s\S]*?)\s*:::/;
+    const assessmentRegex = /:::ASSESSMENT_CARD:\s*([\s\S]*?)\s*:::/;
     
     let cleanText = text;
     let card: any = null;
@@ -1041,11 +1111,15 @@ const PageAIChat = ({
     const weeklyMatch = text.match(weeklyRegex);
     if (weeklyMatch?.[1] && !card) { try { card = { ...JSON.parse(weeklyMatch[1]), type: 'WEEKLY' }; } catch (e) {} }
 
+    const assessmentMatch = text.match(assessmentRegex);
+    if (assessmentMatch?.[1] && !card) { try { card = { ...JSON.parse(assessmentMatch[1]), type: 'ASSESSMENT' }; } catch (e) {} }
+
     cleanText = cleanText
         .replace(gameRegex, '')
         .replace(navRegex, '')
         .replace(behaviorRegex, '')
         .replace(weeklyRegex, '')
+        .replace(assessmentRegex, '')
         .trim();
         
     return { cleanText, card };
@@ -1176,6 +1250,106 @@ const PageAIChat = ({
                     </div>
                     <button onClick={() => navigateTo(Page.CALENDAR)} className="w-full mt-3 text-xs font-bold text-gray-400 hover:text-accent transition flex items-center justify-center py-2">查看完整日历 <ChevronRight className="w-3 h-3 ml-1" /></button>
                  </div>
+              )}
+              {card && card.type === 'ASSESSMENT' && (
+                <div className="mt-2 w-full max-w-[95%] bg-gradient-to-br from-purple-50 to-blue-50 p-5 rounded-2xl border border-purple-200 shadow-lg animate-in fade-in">
+                  {/* 标题 */}
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-purple-200">
+                    <div className="flex items-center space-x-2">
+                      <div className="bg-purple-500 p-2 rounded-full">
+                        <Award className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="font-bold text-gray-800 text-lg">综合评估报告</span>
+                    </div>
+                    <span className="text-xs bg-purple-500 text-white px-3 py-1 rounded-full font-bold">
+                      {new Date(card.timestamp).toLocaleDateString('zh-CN')}
+                    </span>
+                  </div>
+
+                  {/* 当前画像 */}
+                  <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
+                    <div className="flex items-center mb-2">
+                      <User className="w-4 h-4 text-purple-600 mr-2" />
+                      <h4 className="font-bold text-gray-800">当前画像</h4>
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed">{card.currentProfile}</p>
+                  </div>
+
+                  {/* 关键发现 */}
+                  {card.keyFindings && card.keyFindings.length > 0 && (
+                    <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
+                      <div className="flex items-center mb-2">
+                        <Lightbulb className="w-4 h-4 text-yellow-600 mr-2" />
+                        <h4 className="font-bold text-gray-800">关键发现</h4>
+                      </div>
+                      <ul className="space-y-1.5">
+                        {card.keyFindings.map((finding: string, i: number) => (
+                          <li key={i} className="text-sm text-gray-700 flex items-start">
+                            <span className="text-yellow-500 mr-2">•</span>
+                            <span>{finding}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* 优势与关注点 */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {/* 优势 */}
+                    {card.strengths && card.strengths.length > 0 && (
+                      <div className="bg-green-50 rounded-xl p-3 border border-green-200">
+                        <div className="flex items-center mb-2">
+                          <Smile className="w-4 h-4 text-green-600 mr-1" />
+                          <h5 className="font-bold text-green-800 text-xs">优势</h5>
+                        </div>
+                        <ul className="space-y-1">
+                          {card.strengths.map((strength: string, i: number) => (
+                            <li key={i} className="text-xs text-gray-700 flex items-start">
+                              <span className="text-green-500 mr-1">✓</span>
+                              <span>{strength}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* 关注点 */}
+                    {card.concerns && card.concerns.length > 0 && (
+                      <div className="bg-orange-50 rounded-xl p-3 border border-orange-200">
+                        <div className="flex items-center mb-2">
+                          <Eye className="w-4 h-4 text-orange-600 mr-1" />
+                          <h5 className="font-bold text-orange-800 text-xs">关注点</h5>
+                        </div>
+                        <ul className="space-y-1">
+                          {card.concerns.map((concern: string, i: number) => (
+                            <li key={i} className="text-xs text-gray-700 flex items-start">
+                              <span className="text-orange-500 mr-1">!</span>
+                              <span>{concern}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 下一步建议 */}
+                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                    <div className="flex items-center mb-2">
+                      <ArrowRight className="w-4 h-4 text-blue-600 mr-2" />
+                      <h4 className="font-bold text-blue-800">下一步建议</h4>
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed">{card.nextStepSuggestion}</p>
+                  </div>
+
+                  {/* 查看详情按钮 */}
+                  <button 
+                    onClick={() => navigateTo(Page.PROFILE)}
+                    className="w-full mt-4 bg-purple-500 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center hover:bg-purple-600 transition shadow-md"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    查看完整档案
+                  </button>
+                </div>
               )}
             </div>
           );
@@ -1346,7 +1520,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
                 const config = getDimensionConfig(match.dimension);
                 const weightPercentage = (match.weight * 100).toFixed(0);
                 const intensity = match.intensity !== undefined ? match.intensity : 0;
-                const intensityPercentage = Math.abs(intensity * 100).toFixed(0);
+                const intensityPercentage = Math.abs(intensity * 100);
                 const isPositive = intensity >= 0;
                 
                 return (
@@ -1870,6 +2044,8 @@ const PageGames = ({
   onProfileUpdate: (u: ProfileUpdate) => void,
   activeGame?: Game
 }) => {
+  const MOCK_GAMES = getAllGames(); // 使用 RAG 服务的游戏库
+  
   const [internalActiveGame, setInternalActiveGame] = useState<Game | undefined>(
       activeGame || (initialGameId ? MOCK_GAMES.find(g => g.id === initialGameId) : undefined)
   );

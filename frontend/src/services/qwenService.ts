@@ -12,13 +12,18 @@ import {
   ChatTools
 } from './qwenSchemas';
 import { ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate } from '../types';
+import { getAllGames } from './ragService';
 
-const GAMES_LIBRARY = `
+// 动态生成游戏库描述
+const getGamesLibraryDescription = () => {
+  const games = getAllGames();
+  return `
 现有游戏库（ID - 名称 - 目标 - 适合特征）：
-1 - 积木高塔轮流堆 - 共同注意 - 适合视觉关注强、需要建立轮流规则的孩子。
-2 - 感官泡泡追逐战 - 自我调节 - 适合需要调节兴奋度、喜欢动态视觉追踪的孩子。
-3 - VR 奇幻森林绘画 - 创造力 - 适合喜欢视觉刺激、空间探索，需要提升手眼协调的孩子。
+${games.map(g => `${g.id} - ${g.title} - ${g.target} - ${g.reason}`).join('\n')}
 `;
+};
+
+const GAMES_LIBRARY = getGamesLibraryDescription();
 
 const SYSTEM_INSTRUCTION_BASE = `
 你是一位温暖、专业且充满鼓励的 DIR/Floortime（地板时光）疗法助手。
@@ -53,7 +58,15 @@ ${GAMES_LIBRARY}
 
 4. **本周计划概览**：当家长询问"这周练什么"或"查看计划"时，请调用 create_weekly_plan 工具。
 
-5. **页面跳转**：需要更新档案或查看完整日历时，请调用 navigate_page 工具。
+5. **综合评估报告（重要）**：当家长询问以下内容时，你必须立即调用 generate_assessment 工具：
+   - "孩子的评估报告"、"评估报告"、"生成评估"
+   - "孩子的发展情况"、"发展情况怎么样"
+   - "孩子的当前状态"、"现在什么水平"
+   - "孩子的进步情况"、"有什么进步"
+   - "综合评估"、"查看评估"
+   这个工具会基于历史数据生成正式的、结构化的评估报告，不要自己总结，必须调用工具。
+
+6. **页面跳转**：需要更新档案或查看完整日历时，请调用 navigate_page 工具。
 
 请始终使用**中文**回答。
 `;
@@ -76,10 +89,13 @@ export const recommendGame = async (
   profileContext: string
 ): Promise<{ id: string; title: string; reason: string } | null> => {
   try {
+    // 重新生成游戏库描述（确保使用最新的游戏）
+    const gamesLibrary = getGamesLibraryDescription();
+    
     const prompt = `
 作为推荐 Agent，请分析以下儿童档案，从游戏库中选择一个最适合当前发展需求的游戏。
 
-${GAMES_LIBRARY}
+${gamesLibrary}
 
 ${profileContext}
 

@@ -138,7 +138,54 @@ export interface AbilityUpdate {
 
 // The unified payload for updating the profile module
 export interface ProfileUpdate {
-  source: 'GAME' | 'REPORT';
+  source: 'GAME' | 'REPORT' | 'CHAT';
   interestUpdates: BehaviorAnalysis[];
   abilityUpdates: AbilityUpdate[];
+}
+
+// --- Comprehensive Assessment Types ---
+
+// 综合评估结果
+export interface ComprehensiveAssessment {
+  id: string; // 唯一ID
+  timestamp: string; // 评估时间
+  currentProfile: string; // 当前孩子画像（详细描述）
+  nextStepSuggestion: string; // 下一步干预建议
+  interestSummary: string; // 兴趣维度总结
+  abilitySummary: string; // 能力维度总结
+  keyFindings: string[]; // 关键发现（数组）
+  concerns: string[]; // 需要关注的点
+  strengths: string[]; // 优势点
+}
+
+// 游戏推荐结果
+export interface GameRecommendation {
+  id: string; // 推荐ID
+  timestamp: string; // 推荐时间
+  assessmentId: string; // 关联的评估ID
+  game: Game;
+  reason: string; // 推荐理由（详细）
+  expectedOutcome: string; // 预期效果
+  parentGuidance: string; // 家长指导要点
+  adaptationSuggestions: string[]; // 适应性调整建议
+}
+
+// 家长偏好
+export interface ParentPreference {
+  duration: 'short' | 'medium' | 'long'; // 游戏时长偏好
+  difficulty: 'easy' | 'moderate' | 'challenging'; // 难度偏好
+  environment: 'indoor' | 'outdoor' | 'both'; // 环境偏好
+  focus: AbilityDimensionType[]; // 希望重点训练的能力
+  avoidTopics?: string[]; // 需要避免的主题
+  notes?: string; // 其他备注
+}
+
+// 历史数据摘要（用于Agent输入）
+export interface HistoricalDataSummary {
+  recentAssessments: ComprehensiveAssessment[]; // 最近3次评估
+  recentReports: MedicalReport[]; // 最近3份报告
+  recentBehaviors: BehaviorAnalysis[]; // 最近10条行为记录
+  recentGames: EvaluationResult[]; // 最近5次游戏评估
+  interestTrends: Record<InterestDimensionType, number>; // 兴趣趋势
+  abilityTrends: Record<AbilityDimensionType, number>; // 能力趋势
 }
