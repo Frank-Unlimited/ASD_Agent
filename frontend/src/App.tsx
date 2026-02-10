@@ -67,6 +67,8 @@ import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
 import { speechService } from './services/speechService';
 import { reportStorageService } from './services/reportStorage';
+import { behaviorStorageService } from './services/behaviorStorage';
+import { chatStorageService } from './services/chatStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { MOCK_GAMES, WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
@@ -89,6 +91,7 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen:
           <button onClick={() => { setPage(Page.CALENDAR); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><CalendarIcon className="w-5 h-5 text-primary" /><span>成长日历</span></button>
           <button onClick={() => { setPage(Page.PROFILE); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><User className="w-5 h-5 text-primary" /><span>孩子档案</span></button>
           <button onClick={() => { setPage(Page.GAMES); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Gamepad2 className="w-5 h-5 text-primary" /><span>地板游戏库</span></button>
+          <button onClick={() => { setPage(Page.BEHAVIORS); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Activity className="w-5 h-5 text-primary" /><span>行为数据</span></button>
         </nav>
         <div className="mt-auto pt-6 border-t border-gray-100 relative">
           <div 
@@ -654,15 +657,11 @@ const PageAIChat = ({
   onProfileUpdate: (u: ProfileUpdate) => void,
   profileContext: string // Passed from App parent
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { 
-      id: '1', 
-      role: 'model', 
-      text: "**你好！我是乐乐的地板时光助手。** 👋 \n\n我已读取了乐乐的最新档案。今天我们重点关注什么？", 
-      timestamp: new Date(),
-      options: ["🎮 推荐今日游戏", "📝 记录刚才的互动", "🤔 咨询孩子行为问题", "📅 查看本周计划"] 
-    }
-  ]);
+  // 从 localStorage 加载聊天历史
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    return chatStorageService.getChatHistory();
+  });
+  
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -675,6 +674,11 @@ const PageAIChat = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 保存聊天历史到 localStorage
+  useEffect(() => {
+    chatStorageService.saveChatHistory(messages);
+  }, [messages]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
@@ -829,8 +833,49 @@ const PageAIChat = ({
                 break;
                 
               case 'log_behavior':
-                // 添加行为记录卡片
-                fullResponse += `\n\n:::BEHAVIOR_LOG_CARD:${JSON.stringify(args)}:::`;
+                // 将 dimensions 转换为 matches 格式，并通过 ProfileUpdate 统一处理
+                try {
+                  // 新格式：dimensions 已经包含 weight, intensity 和 reasoning
+                  const matches = (args.dimensions || []).map((dim: any) => ({
+                    dimension: dim.dimension,
+                    weight: dim.weight || 0.8,
+                    intensity: dim.intensity !== undefined ? dim.intensity : 0.5, // 默认为正向喜欢
+                    reasoning: dim.reasoning || ''
+                  }));
+                  
+                  const behaviorData: BehaviorAnalysis = {
+                    behavior: args.behavior,
+                    matches: matches
+                  };
+                  
+                  // 通过 ProfileUpdate 统一处理（会自动保存到数据库并更新档案）
+                  onProfileUpdate({
+                    source: 'CHAT',
+                    interestUpdates: [behaviorData],
+                    abilityUpdates: []
+                  });
+                  
+                  console.log('行为记录已处理:', behaviorData);
+                  
+                  // 获取最新保存的行为ID（最后一条记录）
+                  const allBehaviors = behaviorStorageService.getAllBehaviors();
+                  const latestBehaviorId = allBehaviors.length > 0 ? allBehaviors[0].id : null;
+                  
+                  // 为了兼容旧的卡片格式，构造 tags 数组
+                  const tags = matches.map((m: any) => m.dimension);
+                  const cardData = {
+                    behavior: args.behavior,
+                    tags: tags,
+                    analysis: args.analysis,
+                    behaviorId: latestBehaviorId // 添加行为ID用于跳转
+                  };
+                  
+                  // 添加行为记录卡片
+                  fullResponse += `\n\n:::BEHAVIOR_LOG_CARD:${JSON.stringify(cardData)}:::`;
+                } catch (saveError) {
+                  console.error('处理行为数据失败:', saveError);
+                }
+                
                 setMessages(prev => 
                   prev.map(msg => 
                     msg.id === tempMsgId 
@@ -1017,6 +1062,25 @@ const PageAIChat = ({
          </div>
        )}
        
+       {/* 清空历史按钮 */}
+       {messages.length > 1 && (
+         <div className="absolute top-2 right-2 z-10">
+           <button
+             onClick={() => {
+               if (confirm('确定要清空所有聊天记录吗？')) {
+                 chatStorageService.resetToDefault();
+                 setMessages(chatStorageService.getChatHistory());
+               }
+             }}
+             className="bg-white/90 backdrop-blur-sm text-gray-600 hover:text-red-600 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm border border-gray-200 hover:border-red-300 transition flex items-center"
+             title="清空聊天历史"
+           >
+             <RefreshCw className="w-3 h-3 mr-1" />
+             清空
+           </button>
+         </div>
+       )}
+       
        <div className="flex-1 overflow-y-auto p-4 space-y-5 pb-32">
         {messages.map((msg) => {
           const { cleanText, card } = parseMessageContent(msg.text);
@@ -1050,24 +1114,49 @@ const PageAIChat = ({
                 </div>
               )}
               {card && card.type === 'BEHAVIOR' && (
-                <div className="mt-2 max-w-[85%] bg-white p-4 rounded-xl border border-emerald-100 shadow-md animate-in fade-in">
-                   <div className="flex items-center space-x-2 mb-3 pb-2 border-b border-gray-100">
-                     <div className="bg-emerald-100 p-1.5 rounded-full"><ClipboardCheck className="w-4 h-4 text-emerald-600" /></div>
-                     <span className="text-xs font-bold text-emerald-700 uppercase">行为已记录</span>
+                <div 
+                  onClick={() => {
+                    if (card.behaviorId) {
+                      // 跳转到行为页面
+                      navigateTo(Page.BEHAVIORS);
+                      // 使用 setTimeout 确保页面已切换，然后触发详情显示
+                      setTimeout(() => {
+                        const behavior = behaviorStorageService.getAllBehaviors().find(b => b.id === card.behaviorId);
+                        if (behavior) {
+                          // 触发一个自定义事件来显示详情
+                          window.dispatchEvent(new CustomEvent('showBehaviorDetail', { detail: behavior }));
+                        }
+                      }, 100);
+                    }
+                  }}
+                  className="mt-2 max-w-[85%] bg-white p-4 rounded-xl border border-emerald-100 shadow-md animate-in fade-in cursor-pointer hover:border-emerald-300 hover:shadow-lg transition-all active:scale-98"
+                >
+                   <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                     <div className="flex items-center space-x-2">
+                       <div className="bg-emerald-100 p-1.5 rounded-full"><ClipboardCheck className="w-4 h-4 text-emerald-600" /></div>
+                       <span className="text-xs font-bold text-emerald-700 uppercase">行为已记录</span>
+                     </div>
+                     <ArrowUpRight className="w-4 h-4 text-emerald-500" />
                    </div>
                    <div className="mb-3">
                      <p className="text-gray-800 font-bold text-base mb-1">"{card.behavior}"</p>
                      <p className="text-xs text-gray-500">{card.analysis}</p>
                    </div>
                    {card.tags && (
-                     <div className="flex flex-wrap gap-1">
-                       {card.tags.map((t: string, i: number) => (
-                         <span key={i} className="flex items-center bg-gray-100 text-gray-500 text-[10px] px-2 py-1 rounded-full font-medium">
-                           <Tag className="w-3 h-3 mr-1" /> {t}
-                         </span>
-                       ))}
+                     <div className="flex flex-wrap gap-1.5">
+                       {card.tags.map((t: string, i: number) => {
+                         const config = getDimensionConfig(t as InterestDimensionType);
+                         return (
+                           <span key={i} className={`flex items-center text-[10px] px-2 py-1 rounded-full font-medium ${config.color}`}>
+                             <config.icon className="w-3 h-3 mr-1" /> {config.label}
+                           </span>
+                         );
+                       })}
                      </div>
                    )}
+                   <div className="mt-3 pt-2 border-t border-gray-100">
+                     <p className="text-xs text-gray-400 text-center">点击查看详情</p>
+                   </div>
                 </div>
               )}
               {card && card.type === 'WEEKLY' && (
@@ -1164,6 +1253,363 @@ const PageCalendar = ({ navigateTo, onStartGame }: { navigateTo: (p: Page) => vo
         </div>
       </div>
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"><div className="flex justify-between items-start mb-4"><div><span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium">今日, 10:00</span><h3 className="text-lg font-bold text-gray-800 mt-2">感官泡泡追逐战</h3><p className="text-sm text-gray-500">目标: 自我调节</p></div><button onClick={() => onStartGame('2')} className="w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-lg text-white hover:bg-green-600 transition animate-pulse"><Play className="w-6 h-6 ml-1" /></button></div></div>
+    </div>
+  );
+};
+
+const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) => {
+  const [behaviors, setBehaviors] = useState<BehaviorAnalysis[]>([]);
+  const [filterDimension, setFilterDimension] = useState<string>('全部');
+  const [filterSource, setFilterSource] = useState<string>('全部');
+  const [stats, setStats] = useState<any>(null);
+  const [selectedBehavior, setSelectedBehavior] = useState<BehaviorAnalysis | null>(null);
+
+  // 加载行为数据
+  useEffect(() => {
+    loadBehaviors();
+  }, [filterDimension, filterSource]);
+
+  // 监听从聊天页面跳转过来的事件
+  useEffect(() => {
+    const handleShowDetail = (event: any) => {
+      const behavior = event.detail;
+      if (behavior) {
+        setSelectedBehavior(behavior);
+      }
+    };
+
+    window.addEventListener('showBehaviorDetail', handleShowDetail);
+    return () => {
+      window.removeEventListener('showBehaviorDetail', handleShowDetail);
+    };
+  }, []);
+
+  const loadBehaviors = () => {
+    let allBehaviors = behaviorStorageService.getAllBehaviors();
+    
+    // 按维度筛选
+    if (filterDimension !== '全部') {
+      allBehaviors = allBehaviors.filter(b => 
+        b.matches.some(m => m.dimension === filterDimension)
+      );
+    }
+    
+    // 按来源筛选
+    if (filterSource !== '全部') {
+      allBehaviors = allBehaviors.filter(b => b.source === filterSource);
+    }
+    
+    setBehaviors(allBehaviors);
+    setStats(behaviorStorageService.getStatistics());
+  };
+
+  const handleDeleteBehavior = (id: string) => {
+    if (confirm('确定要删除这条行为记录吗？')) {
+      behaviorStorageService.deleteBehavior(id);
+      loadBehaviors();
+    }
+  };
+
+  const dimensions: InterestDimensionType[] = ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social'];
+  const sources = ['全部', 'GAME', 'REPORT', 'CHAT'];
+  const dimensionFilters = ['全部', ...dimensions];
+
+  // 行为详情弹窗
+  const BehaviorDetailModal = ({ behavior, onClose }: { behavior: BehaviorAnalysis, onClose: () => void }) => (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between rounded-t-2xl">
+          <h3 className="font-bold text-gray-800">行为详情</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          {/* 行为描述 */}
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <h5 className="text-sm font-bold text-blue-700 mb-2 flex items-center">
+              <Activity className="w-4 h-4 mr-2" />
+              行为描述
+            </h5>
+            <p className="text-sm text-gray-800 leading-relaxed">{behavior.behavior}</p>
+          </div>
+
+          {/* 兴趣关联 */}
+          <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+            <h5 className="text-sm font-bold text-green-700 mb-3 flex items-center">
+              <Dna className="w-4 h-4 mr-2" />
+              兴趣维度分析
+            </h5>
+            <div className="space-y-3">
+              {behavior.matches.map((match, idx) => {
+                const config = getDimensionConfig(match.dimension);
+                const weightPercentage = (match.weight * 100).toFixed(0);
+                const intensity = match.intensity !== undefined ? match.intensity : 0;
+                const intensityPercentage = Math.abs(intensity * 100).toFixed(0);
+                const isPositive = intensity >= 0;
+                
+                return (
+                  <div key={idx} className="bg-white rounded-lg p-3 border border-gray-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={`flex items-center px-2 py-1 rounded-md text-xs font-bold ${config.color}`}>
+                        <config.icon className="w-3 h-3 mr-1" />
+                        {config.label}
+                      </div>
+                    </div>
+                    
+                    {/* 关联度 */}
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-600 font-medium">关联度</span>
+                        <span className="text-sm font-bold text-gray-800">{weightPercentage}%</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${config.color.split(' ')[0].replace('text', 'bg')} transition-all duration-500`}
+                          style={{ width: `${weightPercentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    {/* 强度 */}
+                    <div className="mb-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-600 font-medium">喜好强度</span>
+                        <div className="flex items-center">
+                          {isPositive ? (
+                            <Smile className="w-3 h-3 text-green-600 mr-1" />
+                          ) : (
+                            <Frown className="w-3 h-3 text-red-600 mr-1" />
+                          )}
+                          <span className={`text-sm font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                            {isPositive ? '+' : ''}{(intensity * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden relative">
+                        {/* 中心线 */}
+                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-300"></div>
+                        {/* 强度条 */}
+                        {isPositive ? (
+                          <div 
+                            className="h-full bg-green-500 transition-all duration-500 absolute left-1/2"
+                            style={{ width: `${intensityPercentage / 2}%` }}
+                          ></div>
+                        ) : (
+                          <div 
+                            className="h-full bg-red-500 transition-all duration-500 absolute right-1/2"
+                            style={{ width: `${intensityPercentage / 2}%` }}
+                          ></div>
+                        )}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                        <span>讨厌</span>
+                        <span>中性</span>
+                        <span>喜欢</span>
+                      </div>
+                    </div>
+                    
+                    {match.reasoning && (
+                      <p className="text-xs text-gray-500 mt-2 italic border-t border-gray-200 pt-2">💡 {match.reasoning}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 元数据 */}
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">记录时间：</span>
+                <span className="font-medium text-gray-700 block mt-1">
+                  {behavior.timestamp ? new Date(behavior.timestamp).toLocaleString('zh-CN') : '未知'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">数据来源：</span>
+                <span className="font-medium text-gray-700 block mt-1">
+                  {behavior.source === 'GAME' ? '游戏互动' : 
+                   behavior.source === 'REPORT' ? '报告分析' : 
+                   behavior.source === 'CHAT' ? 'AI对话' : '未知'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 删除按钮 */}
+          <button
+            onClick={() => {
+              if (behavior.id) {
+                handleDeleteBehavior(behavior.id);
+                onClose();
+              }
+            }}
+            className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition flex items-center justify-center"
+          >
+            <X className="w-4 h-4 mr-2" />
+            删除此记录
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="p-4 space-y-4 h-full overflow-y-auto bg-background">
+      {/* 统计卡片 */}
+      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-lg">行为数据统计</h3>
+          <Activity className="w-6 h-6" />
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
+            <p className="text-xs text-purple-100 mb-1">总记录数</p>
+            <p className="text-2xl font-bold">{stats?.total || 0}</p>
+          </div>
+          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
+            <p className="text-xs text-purple-100 mb-1">游戏记录</p>
+            <p className="text-2xl font-bold">{stats?.sourceCounts?.GAME || 0}</p>
+          </div>
+          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
+            <p className="text-xs text-purple-100 mb-1">报告记录</p>
+            <p className="text-2xl font-bold">{stats?.sourceCounts?.REPORT || 0}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 筛选器 */}
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <h4 className="text-sm font-bold text-gray-700 mb-3">筛选条件</h4>
+        
+        {/* 按兴趣维度筛选 */}
+        <div className="mb-3">
+          <p className="text-xs text-gray-500 mb-2">兴趣维度</p>
+          <div className="flex flex-wrap gap-2">
+            {dimensionFilters.map(dim => (
+              <button
+                key={dim}
+                onClick={() => setFilterDimension(dim)}
+                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${
+                  filterDimension === dim
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {dim === '全部' ? dim : getDimensionConfig(dim as InterestDimensionType).label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 按来源筛选 */}
+        <div>
+          <p className="text-xs text-gray-500 mb-2">数据来源</p>
+          <div className="flex gap-2">
+            {sources.map(source => (
+              <button
+                key={source}
+                onClick={() => setFilterSource(source)}
+                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${
+                  filterSource === source
+                    ? 'bg-secondary text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {source === '全部' ? '全部' :
+                 source === 'GAME' ? '游戏' :
+                 source === 'REPORT' ? '报告' : '对话'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 行为列表 */}
+      <div className="space-y-3 pb-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-bold text-gray-700">
+            行为记录 ({behaviors.length})
+          </h4>
+          {behaviors.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm('确定要清空所有行为记录吗？此操作不可恢复！')) {
+                  behaviorStorageService.clearAllBehaviors();
+                  loadBehaviors();
+                }
+              }}
+              className="text-xs text-red-500 hover:text-red-700 font-medium"
+            >
+              清空全部
+            </button>
+          )}
+        </div>
+
+        {behaviors.length === 0 ? (
+          <div className="text-center py-20 text-gray-400">
+            <Activity className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+            <p>暂无行为记录</p>
+            <p className="text-xs mt-2">完成游戏或导入报告后会自动记录</p>
+          </div>
+        ) : (
+          behaviors.map((behavior) => (
+            <div
+              key={behavior.id}
+              onClick={() => setSelectedBehavior(behavior)}
+              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-primary/30 transition"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <p className="text-sm font-bold text-gray-800 flex-1 line-clamp-2">
+                  {behavior.behavior}
+                </p>
+                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-2" />
+              </div>
+              
+              {/* 兴趣标签 */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {behavior.matches.slice(0, 3).map((match, idx) => {
+                  const config = getDimensionConfig(match.dimension);
+                  return (
+                    <div key={idx} className={`flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${config.color}`}>
+                      <config.icon className="w-3 h-3 mr-1" />
+                      {config.label} {(match.weight * 100).toFixed(0)}%
+                    </div>
+                  );
+                })}
+                {behavior.matches.length > 3 && (
+                  <span className="text-[10px] text-gray-400 px-2 py-0.5">
+                    +{behavior.matches.length - 3}
+                  </span>
+                )}
+              </div>
+
+              {/* 元信息 */}
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>
+                  {behavior.source === 'GAME' ? '🎮 游戏' : 
+                   behavior.source === 'REPORT' ? '📄 报告' : 
+                   behavior.source === 'CHAT' ? '💬 对话' : '❓'}
+                </span>
+                <span>
+                  {behavior.timestamp ? new Date(behavior.timestamp).toLocaleDateString('zh-CN') : ''}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 详情弹窗 */}
+      {selectedBehavior && (
+        <BehaviorDetailModal
+          behavior={selectedBehavior}
+          onClose={() => setSelectedBehavior(null)}
+        />
+      )}
     </div>
   );
 };
@@ -1629,13 +2075,26 @@ export default function App() {
   useEffect(() => { localStorage.setItem('asd_floortime_abilities_v1', JSON.stringify(abilityProfile)); }, [abilityProfile]);
 
   const handleProfileUpdate = (update: ProfileUpdate) => {
+    // 保存行为数据到存储
     if (update.interestUpdates?.length > 0) {
+      update.interestUpdates.forEach(behaviorAnalysis => {
+        const behaviorWithMeta: BehaviorAnalysis = {
+          ...behaviorAnalysis,
+          source: update.source,
+          timestamp: new Date().toISOString(),
+          id: behaviorStorageService.generateBehaviorId()
+        };
+        behaviorStorageService.saveBehavior(behaviorWithMeta);
+      });
+      
+      // 更新兴趣档案
       setInterestProfile(prev => {
         const next = { ...prev };
         update.interestUpdates.forEach(item => { item.matches.forEach(match => { next[match.dimension] = (next[match.dimension] || 0) + (match.weight * 5); }); });
         return next;
       });
     }
+    
     if (update.abilityUpdates?.length > 0) {
       setAbilityProfile(prev => {
         const next = { ...prev };
@@ -1760,6 +2219,7 @@ export default function App() {
       case Page.CALENDAR: return "游戏计划"; 
       case Page.PROFILE: return `${childProfile?.name || '孩子'}的档案`; 
       case Page.GAMES: return "游戏库"; 
+      case Page.BEHAVIORS: return "行为数据"; 
       default: return "App"; 
     } 
   };
@@ -1802,6 +2262,7 @@ export default function App() {
         {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} />}
         {currentPage === Page.CALENDAR && <PageCalendar navigateTo={handleNavigate} onStartGame={handleStartGame} />}
         {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} />}
+        {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}
         {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CALENDAR)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} />)}
       </main>
     </div>

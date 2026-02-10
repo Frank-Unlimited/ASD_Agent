@@ -4,7 +4,8 @@ export enum Page {
   CHAT = 'CHAT',
   CALENDAR = 'CALENDAR',
   PROFILE = 'PROFILE',
-  GAMES = 'GAMES'
+  GAMES = 'GAMES',
+  BEHAVIORS = 'BEHAVIORS'
 }
 
 export enum GameState {
@@ -97,13 +98,17 @@ export type UserInterestProfile = Record<InterestDimensionType, number>;
 
 export interface InterestMatch {
   dimension: InterestDimensionType;
-  weight: number; // 0.0 - 1.0
+  weight: number; // 0.0 - 1.0 关联度：行为与该兴趣维度的关联程度
+  intensity: number; // -1.0 - 1.0 强度：孩子对该维度的喜欢/讨厌程度（正值=喜欢，负值=讨厌，0=中性）
   reasoning: string;
 }
 
 export interface BehaviorAnalysis {
   behavior: string; // Extracted behavior description
   matches: InterestMatch[]; // Associated interest dimensions
+  timestamp?: string; // 记录时间
+  source?: 'GAME' | 'REPORT' | 'CHAT'; // 来源
+  id?: string; // 唯一标识
 }
 
 // --- New Types for Ability/Radar Analysis ---
