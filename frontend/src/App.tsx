@@ -831,39 +831,43 @@ const PageAIChat = ({
                 break;
                 
               case 'log_behavior':
-                // 保存行为数据到数据库
+                // 将 dimensions 转换为 matches 格式，并通过 ProfileUpdate 统一处理
                 try {
-                  // 将 tags 转换为 matches 格式
-                  const matches = (args.tags || []).map((tag: string) => ({
-                    dimension: tag,
-                    weight: 0.8, // 默认权重
-                    reasoning: args.analysis || ''
+                  // 新格式：dimensions 已经包含 weight 和 reasoning
+                  const matches = (args.dimensions || []).map((dim: any) => ({
+                    dimension: dim.dimension,
+                    weight: dim.weight || 0.8,
+                    reasoning: dim.reasoning || ''
                   }));
                   
                   const behaviorData: BehaviorAnalysis = {
                     behavior: args.behavior,
-                    matches: matches,
-                    source: 'CHAT',
-                    timestamp: new Date().toISOString(),
-                    id: behaviorStorageService.generateBehaviorId()
+                    matches: matches
                   };
                   
-                  // 保存到数据库
-                  behaviorStorageService.saveBehavior(behaviorData);
-                  console.log('行为已保存到数据库:', behaviorData);
-                  
-                  // 同时更新兴趣档案
+                  // 通过 ProfileUpdate 统一处理（会自动保存到数据库并更新档案）
                   onProfileUpdate({
                     source: 'CHAT',
                     interestUpdates: [behaviorData],
                     abilityUpdates: []
                   });
+                  
+                  console.log('行为记录已处理:', behaviorData);
+                  
+                  // 为了兼容旧的卡片格式，构造 tags 数组
+                  const tags = matches.map((m: any) => m.dimension);
+                  const cardData = {
+                    behavior: args.behavior,
+                    tags: tags,
+                    analysis: args.analysis
+                  };
+                  
+                  // 添加行为记录卡片
+                  fullResponse += `\n\n:::BEHAVIOR_LOG_CARD:${JSON.stringify(cardData)}:::`;
                 } catch (saveError) {
-                  console.error('保存行为数据失败:', saveError);
+                  console.error('处理行为数据失败:', saveError);
                 }
                 
-                // 添加行为记录卡片
-                fullResponse += `\n\n:::BEHAVIOR_LOG_CARD:${JSON.stringify(args)}:::`;
                 setMessages(prev => 
                   prev.map(msg => 
                     msg.id === tempMsgId 

@@ -227,20 +227,37 @@ export const LogBehaviorTool = {
           type: 'string',
           description: '精简的行为描述，例如："正在玩积木"、"盯着旋转物体"、"排列玩具成一排"'
         },
-        tags: {
+        dimensions: {
           type: 'array',
+          description: '相关的兴趣维度及其关联强度。每个维度的 weight 表示该行为与该兴趣维度的关联程度：1.0=强关联（行为直接体现该维度），0.7=中等关联（行为部分体现该维度），0.4=弱关联（行为间接涉及该维度）。例如："玩积木"与 Construction 是 1.0（强关联），与 Visual 是 0.7（需要视觉），与 Motor 是 0.6（需要手部动作）',
           items: {
-            type: 'string',
-            enum: ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social']
-          },
-          description: '相关的兴趣维度标签（可多选）'
+            type: 'object',
+            properties: {
+              dimension: {
+                type: 'string',
+                enum: ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social'],
+                description: '兴趣维度名称'
+              },
+              weight: {
+                type: 'number',
+                description: '关联强度：1.0=强关联，0.7=中等关联，0.4=弱关联',
+                minimum: 0.1,
+                maximum: 1.0
+              },
+              reasoning: {
+                type: 'string',
+                description: '为什么这个行为与该维度相关，例如："需要手眼协调和空间感知"'
+              }
+            },
+            required: ['dimension', 'weight', 'reasoning']
+          }
         },
         analysis: {
           type: 'string',
           description: '一句话分析其发展意义，例如："显示出对建构活动的兴趣，有助于精细动作发展"'
         }
       },
-      required: ['behavior', 'tags', 'analysis']
+      required: ['behavior', 'dimensions', 'analysis']
     }
   }
 };
