@@ -189,6 +189,15 @@ ${ABILITY_DIMENSIONS_DEF}
 报告内容：
 "${reportText}"
 
+重要说明：
+1. 提取报告中描述的具体行为
+2. 为每个行为的兴趣维度指定准确的关联强度（weight）：
+   - 1.0 = 强关联：行为直接体现该维度
+   - 0.7 = 中等关联：行为部分体现该维度
+   - 0.4 = 弱关联：行为间接涉及该维度
+3. 不要给所有维度设置相同的权重
+4. 在 reasoning 中解释关联原因
+
 请严格按照 JSON Schema 返回 ProfileUpdate 结构。
 `;
 
@@ -227,7 +236,16 @@ export const analyzeInterests = async (textInput: string): Promise<BehaviorAnaly
     const prompt = `
 任务：提取行为并映射到八大兴趣维度。
 ${INTEREST_DIMENSIONS_DEF}
+
 文本： "${textInput}"
+
+重要说明：
+1. 为每个兴趣维度指定准确的关联强度（weight）：
+   - 1.0 = 强关联：行为直接体现该维度
+   - 0.7 = 中等关联：行为部分体现该维度
+   - 0.4 = 弱关联：行为间接涉及该维度
+2. 不要给所有维度设置相同的权重，要根据行为的实际特征区分主次
+3. 在 reasoning 中解释为什么这个行为与该维度相关
 
 请严格按照 JSON Schema 返回结果。
 `;
