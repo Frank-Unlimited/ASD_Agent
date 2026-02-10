@@ -219,13 +219,13 @@ export const LogBehaviorTool = {
   type: 'function' as const,
   function: {
     name: 'log_behavior',
-    description: '记录儿童的具体行为并关联兴趣维度',
+    description: '记录儿童的具体行为并关联兴趣维度。当家长描述孩子正在做什么、玩什么、表现出什么行为时，必须立即调用此工具。例如："孩子正在玩积木"、"他一直看着旋转的东西"、"她在排列玩具"等任何行为描述都应该记录。',
     parameters: {
       type: 'object',
       properties: {
         behavior: {
           type: 'string',
-          description: '精简的行为描述'
+          description: '精简的行为描述，例如："正在玩积木"、"盯着旋转物体"、"排列玩具成一排"'
         },
         tags: {
           type: 'array',
@@ -233,11 +233,11 @@ export const LogBehaviorTool = {
             type: 'string',
             enum: ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social']
           },
-          description: '相关的兴趣维度标签'
+          description: '相关的兴趣维度标签（可多选）'
         },
         analysis: {
           type: 'string',
-          description: '一句话分析其发展意义'
+          description: '一句话分析其发展意义，例如："显示出对建构活动的兴趣，有助于精细动作发展"'
         }
       },
       required: ['behavior', 'tags', 'analysis']

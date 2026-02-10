@@ -831,6 +831,37 @@ const PageAIChat = ({
                 break;
                 
               case 'log_behavior':
+                // 保存行为数据到数据库
+                try {
+                  // 将 tags 转换为 matches 格式
+                  const matches = (args.tags || []).map((tag: string) => ({
+                    dimension: tag,
+                    weight: 0.8, // 默认权重
+                    reasoning: args.analysis || ''
+                  }));
+                  
+                  const behaviorData: BehaviorAnalysis = {
+                    behavior: args.behavior,
+                    matches: matches,
+                    source: 'CHAT',
+                    timestamp: new Date().toISOString(),
+                    id: behaviorStorageService.generateBehaviorId()
+                  };
+                  
+                  // 保存到数据库
+                  behaviorStorageService.saveBehavior(behaviorData);
+                  console.log('行为已保存到数据库:', behaviorData);
+                  
+                  // 同时更新兴趣档案
+                  onProfileUpdate({
+                    source: 'CHAT',
+                    interestUpdates: [behaviorData],
+                    abilityUpdates: []
+                  });
+                } catch (saveError) {
+                  console.error('保存行为数据失败:', saveError);
+                }
+                
                 // 添加行为记录卡片
                 fullResponse += `\n\n:::BEHAVIOR_LOG_CARD:${JSON.stringify(args)}:::`;
                 setMessages(prev => 
