@@ -835,10 +835,11 @@ const PageAIChat = ({
               case 'log_behavior':
                 // 将 dimensions 转换为 matches 格式，并通过 ProfileUpdate 统一处理
                 try {
-                  // 新格式：dimensions 已经包含 weight 和 reasoning
+                  // 新格式：dimensions 已经包含 weight, intensity 和 reasoning
                   const matches = (args.dimensions || []).map((dim: any) => ({
                     dimension: dim.dimension,
                     weight: dim.weight || 0.8,
+                    intensity: dim.intensity !== undefined ? dim.intensity : 0.5, // 默认为正向喜欢
                     reasoning: dim.reasoning || ''
                   }));
                   
@@ -1338,12 +1339,16 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
           <div className="bg-green-50 rounded-xl p-4 border border-green-200">
             <h5 className="text-sm font-bold text-green-700 mb-3 flex items-center">
               <Dna className="w-4 h-4 mr-2" />
-              兴趣维度关联
+              兴趣维度分析
             </h5>
             <div className="space-y-3">
               {behavior.matches.map((match, idx) => {
                 const config = getDimensionConfig(match.dimension);
-                const percentage = (match.weight * 100).toFixed(0);
+                const weightPercentage = (match.weight * 100).toFixed(0);
+                const intensity = match.intensity !== undefined ? match.intensity : 0;
+                const intensityPercentage = Math.abs(intensity * 100).toFixed(0);
+                const isPositive = intensity >= 0;
+                
                 return (
                   <div key={idx} className="bg-white rounded-lg p-3 border border-gray-100">
                     <div className="flex items-center justify-between mb-2">
@@ -1351,17 +1356,62 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
                         <config.icon className="w-3 h-3 mr-1" />
                         {config.label}
                       </div>
-                      <span className="text-lg font-bold text-gray-800">{percentage}%</span>
                     </div>
-                    {/* 强度条 */}
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full ${config.color.split(' ')[0].replace('text', 'bg')} transition-all duration-500`}
-                        style={{ width: `${percentage}%` }}
-                      ></div>
+                    
+                    {/* 关联度 */}
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-600 font-medium">关联度</span>
+                        <span className="text-sm font-bold text-gray-800">{weightPercentage}%</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${config.color.split(' ')[0].replace('text', 'bg')} transition-all duration-500`}
+                          style={{ width: `${weightPercentage}%` }}
+                        ></div>
+                      </div>
                     </div>
+                    
+                    {/* 强度 */}
+                    <div className="mb-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-600 font-medium">喜好强度</span>
+                        <div className="flex items-center">
+                          {isPositive ? (
+                            <Smile className="w-3 h-3 text-green-600 mr-1" />
+                          ) : (
+                            <Frown className="w-3 h-3 text-red-600 mr-1" />
+                          )}
+                          <span className={`text-sm font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                            {isPositive ? '+' : ''}{(intensity * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden relative">
+                        {/* 中心线 */}
+                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-300"></div>
+                        {/* 强度条 */}
+                        {isPositive ? (
+                          <div 
+                            className="h-full bg-green-500 transition-all duration-500 absolute left-1/2"
+                            style={{ width: `${intensityPercentage / 2}%` }}
+                          ></div>
+                        ) : (
+                          <div 
+                            className="h-full bg-red-500 transition-all duration-500 absolute right-1/2"
+                            style={{ width: `${intensityPercentage / 2}%` }}
+                          ></div>
+                        )}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                        <span>讨厌</span>
+                        <span>中性</span>
+                        <span>喜欢</span>
+                      </div>
+                    </div>
+                    
                     {match.reasoning && (
-                      <p className="text-xs text-gray-500 mt-2 italic">💡 {match.reasoning}</p>
+                      <p className="text-xs text-gray-500 mt-2 italic border-t border-gray-200 pt-2">💡 {match.reasoning}</p>
                     )}
                   </div>
                 );

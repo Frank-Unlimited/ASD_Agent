@@ -77,7 +77,7 @@ export const BehaviorAnalysisSchema = {
       },
       matches: {
         type: 'array',
-        description: '匹配的兴趣维度列表。为每个相关维度指定准确的关联强度，不要给所有维度设置相同的权重',
+        description: '匹配的兴趣维度列表。为每个相关维度指定准确的关联度和强度，不要给所有维度设置相同的值',
         items: {
           type: 'object',
           properties: {
@@ -88,16 +88,22 @@ export const BehaviorAnalysisSchema = {
             },
             weight: {
               type: 'number',
-              description: '关联强度 (0.1-1.0)。表示该行为与该兴趣维度的关联程度：1.0=强关联（行为直接体现该维度，如"玩积木"与Construction），0.7=中等关联（行为部分体现该维度，如"玩积木"与Visual），0.4=弱关联（行为间接涉及该维度）。请根据行为的实际特征区分主次，不要所有维度都用相同权重',
+              description: '关联度 (0.1-1.0)。表示该行为与该兴趣维度的关联程度（只能是正值）：1.0=强关联（行为直接体现该维度，如"玩积木"与Construction），0.7=中等关联（行为部分体现该维度，如"玩积木"与Visual），0.4=弱关联（行为间接涉及该维度）。请根据行为的实际特征区分主次',
               minimum: 0.1,
+              maximum: 1.0
+            },
+            intensity: {
+              type: 'number',
+              description: '强度 (-1.0 到 1.0)。表示孩子对该维度的喜欢/讨厌程度：1.0=非常喜欢（如"兴奋地玩"、"主动寻求"、"不愿停止"），0.5=比较喜欢，0=中性/无明显偏好，-0.5=比较抗拒，-1.0=非常讨厌（如"哭闹"、"逃避"、"强烈拒绝"）。根据孩子的情绪反应和参与度判断',
+              minimum: -1.0,
               maximum: 1.0
             },
             reasoning: {
               type: 'string',
-              description: '推理说明：解释为什么这个行为与该维度相关，以及关联的具体表现。例如："需要手眼协调和空间感知能力"'
+              description: '推理说明：解释为什么这个行为与该维度相关（关联度），以及孩子表现出的情绪态度（强度）。例如："需要手眼协调和空间感知能力（关联度高），孩子表现出专注和兴奋（强度为正）"'
             }
           },
-          required: ['dimension', 'weight', 'reasoning']
+          required: ['dimension', 'weight', 'intensity', 'reasoning']
         }
       }
     },
@@ -140,7 +146,7 @@ export const ProfileUpdateSchema = {
             },
             matches: {
               type: 'array',
-              description: '关联的兴趣维度及其强度',
+              description: '关联的兴趣维度、关联度及强度',
               items: {
                 type: 'object',
                 properties: {
@@ -151,16 +157,22 @@ export const ProfileUpdateSchema = {
                   },
                   weight: {
                     type: 'number',
-                    description: '关联强度 (0.1-1.0)：1.0=强关联，0.7=中等关联，0.4=弱关联。根据行为实际特征区分主次',
+                    description: '关联度 (0.1-1.0)：1.0=强关联，0.7=中等关联，0.4=弱关联。根据行为实际特征区分主次',
                     minimum: 0.1,
+                    maximum: 1.0
+                  },
+                  intensity: {
+                    type: 'number',
+                    description: '强度 (-1.0 到 1.0)：表示孩子对该维度的喜欢/讨厌程度。1.0=非常喜欢，0=中性，-1.0=非常讨厌',
+                    minimum: -1.0,
                     maximum: 1.0
                   },
                   reasoning: {
                     type: 'string',
-                    description: '推理说明：解释为什么这个行为与该维度相关'
+                    description: '推理说明：解释为什么这个行为与该维度相关，以及孩子的情绪态度'
                   }
                 },
-                required: ['dimension', 'weight', 'reasoning']
+                required: ['dimension', 'weight', 'intensity', 'reasoning']
               }
             }
           },
@@ -237,7 +249,7 @@ export const LogBehaviorTool = {
         },
         dimensions: {
           type: 'array',
-          description: '相关的兴趣维度及其关联强度。每个维度的 weight 表示该行为与该兴趣维度的关联程度：1.0=强关联（行为直接体现该维度），0.7=中等关联（行为部分体现该维度），0.4=弱关联（行为间接涉及该维度）。例如："玩积木"与 Construction 是 1.0（强关联），与 Visual 是 0.7（需要视觉），与 Motor 是 0.6（需要手部动作）',
+          description: '相关的兴趣维度、关联度及强度。每个维度需要指定两个独立的值：1) weight(关联度)：该行为与该兴趣维度的关联程度，只能是0.1-1.0的正值；2) intensity(强度)：孩子对该维度的喜欢/讨厌程度，范围是-1.0到1.0（正值表示喜欢，负值表示讨厌，0表示中性）',
           items: {
             type: 'object',
             properties: {
@@ -248,16 +260,22 @@ export const LogBehaviorTool = {
               },
               weight: {
                 type: 'number',
-                description: '关联强度：1.0=强关联，0.7=中等关联，0.4=弱关联',
+                description: '关联度 (0.1-1.0，只能是正值)：1.0=强关联（行为直接体现该维度），0.7=中等关联，0.4=弱关联。例如："玩积木"与Construction是1.0，与Visual是0.7，与Motor是0.6',
                 minimum: 0.1,
+                maximum: 1.0
+              },
+              intensity: {
+                type: 'number',
+                description: '强度 (-1.0 到 1.0)：表示孩子对该维度的情绪态度。1.0=非常喜欢（兴奋、主动、不愿停止），0.5=比较喜欢，0=中性，-0.5=比较抗拒，-1.0=非常讨厌（哭闹、逃避、拒绝）。根据孩子的情绪反应和参与度判断',
+                minimum: -1.0,
                 maximum: 1.0
               },
               reasoning: {
                 type: 'string',
-                description: '为什么这个行为与该维度相关，例如："需要手眼协调和空间感知"'
+                description: '推理说明：解释关联度（为什么相关）和强度（孩子的情绪态度）。例如："需要手眼协调（关联度高），孩子表现出专注和兴奋（强度为正）"'
               }
             },
-            required: ['dimension', 'weight', 'reasoning']
+            required: ['dimension', 'weight', 'intensity', 'reasoning']
           }
         },
         analysis: {
