@@ -4,7 +4,8 @@ export enum Page {
   CHAT = 'CHAT',
   CALENDAR = 'CALENDAR',
   PROFILE = 'PROFILE',
-  GAMES = 'GAMES'
+  GAMES = 'GAMES',
+  BEHAVIORS = 'BEHAVIORS'
 }
 
 export enum GameState {
@@ -104,6 +105,9 @@ export interface InterestMatch {
 export interface BehaviorAnalysis {
   behavior: string; // Extracted behavior description
   matches: InterestMatch[]; // Associated interest dimensions
+  timestamp?: string; // 记录时间
+  source?: 'GAME' | 'REPORT' | 'CHAT'; // 来源
+  id?: string; // 唯一标识
 }
 
 // --- New Types for Ability/Radar Analysis ---

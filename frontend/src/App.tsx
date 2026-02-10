@@ -67,6 +67,7 @@ import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
 import { speechService } from './services/speechService';
 import { reportStorageService } from './services/reportStorage';
+import { behaviorStorageService } from './services/behaviorStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { MOCK_GAMES, WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
@@ -89,6 +90,7 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen:
           <button onClick={() => { setPage(Page.CALENDAR); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><CalendarIcon className="w-5 h-5 text-primary" /><span>成长日历</span></button>
           <button onClick={() => { setPage(Page.PROFILE); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><User className="w-5 h-5 text-primary" /><span>孩子档案</span></button>
           <button onClick={() => { setPage(Page.GAMES); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Gamepad2 className="w-5 h-5 text-primary" /><span>地板游戏库</span></button>
+          <button onClick={() => { setPage(Page.BEHAVIORS); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Activity className="w-5 h-5 text-primary" /><span>行为数据</span></button>
         </nav>
         <div className="mt-auto pt-6 border-t border-gray-100 relative">
           <div 
@@ -1168,6 +1170,299 @@ const PageCalendar = ({ navigateTo, onStartGame }: { navigateTo: (p: Page) => vo
   );
 };
 
+const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) => {
+  const [behaviors, setBehaviors] = useState<BehaviorAnalysis[]>([]);
+  const [filterDimension, setFilterDimension] = useState<string>('全部');
+  const [filterSource, setFilterSource] = useState<string>('全部');
+  const [stats, setStats] = useState<any>(null);
+  const [selectedBehavior, setSelectedBehavior] = useState<BehaviorAnalysis | null>(null);
+
+  // 加载行为数据
+  useEffect(() => {
+    loadBehaviors();
+  }, [filterDimension, filterSource]);
+
+  const loadBehaviors = () => {
+    let allBehaviors = behaviorStorageService.getAllBehaviors();
+    
+    // 按维度筛选
+    if (filterDimension !== '全部') {
+      allBehaviors = allBehaviors.filter(b => 
+        b.matches.some(m => m.dimension === filterDimension)
+      );
+    }
+    
+    // 按来源筛选
+    if (filterSource !== '全部') {
+      allBehaviors = allBehaviors.filter(b => b.source === filterSource);
+    }
+    
+    setBehaviors(allBehaviors);
+    setStats(behaviorStorageService.getStatistics());
+  };
+
+  const handleDeleteBehavior = (id: string) => {
+    if (confirm('确定要删除这条行为记录吗？')) {
+      behaviorStorageService.deleteBehavior(id);
+      loadBehaviors();
+    }
+  };
+
+  const dimensions: InterestDimensionType[] = ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social'];
+  const sources = ['全部', 'GAME', 'REPORT', 'CHAT'];
+  const dimensionFilters = ['全部', ...dimensions];
+
+  // 行为详情弹窗
+  const BehaviorDetailModal = ({ behavior, onClose }: { behavior: BehaviorAnalysis, onClose: () => void }) => (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between rounded-t-2xl">
+          <h3 className="font-bold text-gray-800">行为详情</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          {/* 行为描述 */}
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <h5 className="text-sm font-bold text-blue-700 mb-2 flex items-center">
+              <Activity className="w-4 h-4 mr-2" />
+              行为描述
+            </h5>
+            <p className="text-sm text-gray-800 leading-relaxed">{behavior.behavior}</p>
+          </div>
+
+          {/* 兴趣关联 */}
+          <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+            <h5 className="text-sm font-bold text-green-700 mb-3 flex items-center">
+              <Dna className="w-4 h-4 mr-2" />
+              兴趣维度关联
+            </h5>
+            <div className="space-y-3">
+              {behavior.matches.map((match, idx) => {
+                const config = getDimensionConfig(match.dimension);
+                const percentage = (match.weight * 100).toFixed(0);
+                return (
+                  <div key={idx} className="bg-white rounded-lg p-3 border border-gray-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={`flex items-center px-2 py-1 rounded-md text-xs font-bold ${config.color}`}>
+                        <config.icon className="w-3 h-3 mr-1" />
+                        {config.label}
+                      </div>
+                      <span className="text-lg font-bold text-gray-800">{percentage}%</span>
+                    </div>
+                    {/* 强度条 */}
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${config.color.split(' ')[0].replace('text', 'bg')} transition-all duration-500`}
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
+                    {match.reasoning && (
+                      <p className="text-xs text-gray-500 mt-2 italic">💡 {match.reasoning}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 元数据 */}
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">记录时间：</span>
+                <span className="font-medium text-gray-700 block mt-1">
+                  {behavior.timestamp ? new Date(behavior.timestamp).toLocaleString('zh-CN') : '未知'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">数据来源：</span>
+                <span className="font-medium text-gray-700 block mt-1">
+                  {behavior.source === 'GAME' ? '游戏互动' : 
+                   behavior.source === 'REPORT' ? '报告分析' : 
+                   behavior.source === 'CHAT' ? 'AI对话' : '未知'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 删除按钮 */}
+          <button
+            onClick={() => {
+              if (behavior.id) {
+                handleDeleteBehavior(behavior.id);
+                onClose();
+              }
+            }}
+            className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition flex items-center justify-center"
+          >
+            <X className="w-4 h-4 mr-2" />
+            删除此记录
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="p-4 space-y-4 h-full overflow-y-auto bg-background">
+      {/* 统计卡片 */}
+      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-lg">行为数据统计</h3>
+          <Activity className="w-6 h-6" />
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
+            <p className="text-xs text-purple-100 mb-1">总记录数</p>
+            <p className="text-2xl font-bold">{stats?.total || 0}</p>
+          </div>
+          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
+            <p className="text-xs text-purple-100 mb-1">游戏记录</p>
+            <p className="text-2xl font-bold">{stats?.sourceCounts?.GAME || 0}</p>
+          </div>
+          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
+            <p className="text-xs text-purple-100 mb-1">报告记录</p>
+            <p className="text-2xl font-bold">{stats?.sourceCounts?.REPORT || 0}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 筛选器 */}
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <h4 className="text-sm font-bold text-gray-700 mb-3">筛选条件</h4>
+        
+        {/* 按兴趣维度筛选 */}
+        <div className="mb-3">
+          <p className="text-xs text-gray-500 mb-2">兴趣维度</p>
+          <div className="flex flex-wrap gap-2">
+            {dimensionFilters.map(dim => (
+              <button
+                key={dim}
+                onClick={() => setFilterDimension(dim)}
+                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${
+                  filterDimension === dim
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {dim === '全部' ? dim : getDimensionConfig(dim as InterestDimensionType).label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 按来源筛选 */}
+        <div>
+          <p className="text-xs text-gray-500 mb-2">数据来源</p>
+          <div className="flex gap-2">
+            {sources.map(source => (
+              <button
+                key={source}
+                onClick={() => setFilterSource(source)}
+                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${
+                  filterSource === source
+                    ? 'bg-secondary text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {source === '全部' ? '全部' :
+                 source === 'GAME' ? '游戏' :
+                 source === 'REPORT' ? '报告' : '对话'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 行为列表 */}
+      <div className="space-y-3 pb-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-bold text-gray-700">
+            行为记录 ({behaviors.length})
+          </h4>
+          {behaviors.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm('确定要清空所有行为记录吗？此操作不可恢复！')) {
+                  behaviorStorageService.clearAllBehaviors();
+                  loadBehaviors();
+                }
+              }}
+              className="text-xs text-red-500 hover:text-red-700 font-medium"
+            >
+              清空全部
+            </button>
+          )}
+        </div>
+
+        {behaviors.length === 0 ? (
+          <div className="text-center py-20 text-gray-400">
+            <Activity className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+            <p>暂无行为记录</p>
+            <p className="text-xs mt-2">完成游戏或导入报告后会自动记录</p>
+          </div>
+        ) : (
+          behaviors.map((behavior) => (
+            <div
+              key={behavior.id}
+              onClick={() => setSelectedBehavior(behavior)}
+              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-primary/30 transition"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <p className="text-sm font-bold text-gray-800 flex-1 line-clamp-2">
+                  {behavior.behavior}
+                </p>
+                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-2" />
+              </div>
+              
+              {/* 兴趣标签 */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {behavior.matches.slice(0, 3).map((match, idx) => {
+                  const config = getDimensionConfig(match.dimension);
+                  return (
+                    <div key={idx} className={`flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${config.color}`}>
+                      <config.icon className="w-3 h-3 mr-1" />
+                      {config.label} {(match.weight * 100).toFixed(0)}%
+                    </div>
+                  );
+                })}
+                {behavior.matches.length > 3 && (
+                  <span className="text-[10px] text-gray-400 px-2 py-0.5">
+                    +{behavior.matches.length - 3}
+                  </span>
+                )}
+              </div>
+
+              {/* 元信息 */}
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>
+                  {behavior.source === 'GAME' ? '🎮 游戏' : 
+                   behavior.source === 'REPORT' ? '📄 报告' : 
+                   behavior.source === 'CHAT' ? '💬 对话' : '❓'}
+                </span>
+                <span>
+                  {behavior.timestamp ? new Date(behavior.timestamp).toLocaleDateString('zh-CN') : ''}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 详情弹窗 */}
+      {selectedBehavior && (
+        <BehaviorDetailModal
+          behavior={selectedBehavior}
+          onClose={() => setSelectedBehavior(null)}
+        />
+      )}
+    </div>
+  );
+};
+
 const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportReport, onExportReport, childProfile, calculateAge }: { trendData: any[], interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void, childProfile: ChildProfile | null, calculateAge: (birthDate: string) => number }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showReportList, setShowReportList] = useState(false);
@@ -1629,13 +1924,26 @@ export default function App() {
   useEffect(() => { localStorage.setItem('asd_floortime_abilities_v1', JSON.stringify(abilityProfile)); }, [abilityProfile]);
 
   const handleProfileUpdate = (update: ProfileUpdate) => {
+    // 保存行为数据到存储
     if (update.interestUpdates?.length > 0) {
+      update.interestUpdates.forEach(behaviorAnalysis => {
+        const behaviorWithMeta: BehaviorAnalysis = {
+          ...behaviorAnalysis,
+          source: update.source,
+          timestamp: new Date().toISOString(),
+          id: behaviorStorageService.generateBehaviorId()
+        };
+        behaviorStorageService.saveBehavior(behaviorWithMeta);
+      });
+      
+      // 更新兴趣档案
       setInterestProfile(prev => {
         const next = { ...prev };
         update.interestUpdates.forEach(item => { item.matches.forEach(match => { next[match.dimension] = (next[match.dimension] || 0) + (match.weight * 5); }); });
         return next;
       });
     }
+    
     if (update.abilityUpdates?.length > 0) {
       setAbilityProfile(prev => {
         const next = { ...prev };
@@ -1760,6 +2068,7 @@ export default function App() {
       case Page.CALENDAR: return "游戏计划"; 
       case Page.PROFILE: return `${childProfile?.name || '孩子'}的档案`; 
       case Page.GAMES: return "游戏库"; 
+      case Page.BEHAVIORS: return "行为数据"; 
       default: return "App"; 
     } 
   };
@@ -1802,6 +2111,7 @@ export default function App() {
         {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} />}
         {currentPage === Page.CALENDAR && <PageCalendar navigateTo={handleNavigate} onStartGame={handleStartGame} />}
         {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} />}
+        {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}
         {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CALENDAR)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} />)}
       </main>
     </div>
