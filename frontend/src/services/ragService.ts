@@ -441,7 +441,7 @@ export const searchGamesOnline = async (
 
 /**
  * 混合搜索：本地库 + 联网搜索
- * 优先使用本地库，如果不够再联网搜索补充
+ * 现在只使用联网搜索，不使用本地模拟数据
  */
 export const searchGamesHybrid = async (
   query: string,
@@ -449,32 +449,20 @@ export const searchGamesHybrid = async (
   topK: number = 5
 ): Promise<Game[]> => {
   try {
-    // 先从本地库搜索
-    const localGames = await searchGamesFromLibrary(query, topK);
+    console.log('[RAG Service] 使用纯联网搜索模式');
     
-    // 如果本地库结果充足，直接返回
-    if (localGames.length >= topK) {
-      return localGames;
-    }
+    // 直接使用联网搜索
+    const onlineGames = await searchGamesOnline(query, childContext, topK);
     
-    // 否则联网搜索补充
-    const onlineGames = await searchGamesOnline(query, childContext, topK - localGames.length);
+    console.log(`[RAG Service] 联网搜索返回 ${onlineGames.length} 个游戏`);
     
-    // 合并结果，去重
-    const allGames = [...localGames];
-    const existingIds = new Set(localGames.map(g => g.id));
-    
-    for (const game of onlineGames) {
-      if (!existingIds.has(game.id)) {
-        allGames.push(game);
-        existingIds.add(game.id);
-      }
-    }
-    
-    return allGames.slice(0, topK);
+    return onlineGames.slice(0, topK);
   } catch (error) {
-    console.error('Hybrid search failed:', error);
-    return searchGamesFromLibrary(query, topK);
+    console.error('[RAG Service] 联网搜索失败:', error);
+    
+    // 如果联网搜索失败，返回空数组或抛出错误
+    // 不再回退到本地库
+    throw new Error(`联网搜索失败: ${error instanceof Error ? error.message : '未知错误'}`);
   }
 };
 
