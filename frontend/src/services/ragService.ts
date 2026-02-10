@@ -358,6 +358,7 @@ export const searchGamesWithEmbedding = async (
 /**
  * 联网搜索游戏（使用阿里云 Web-Search）
  * 实时从互联网搜索适合的地板游戏
+ * 使用 qwenStreamClient 避免 CORS 问题
  */
 export const searchGamesOnline = async (
   query: string,
@@ -370,57 +371,35 @@ export const searchGamesOnline = async (
     // 构建搜索提示词
     const searchPrompt = buildSearchPrompt(query, childContext);
     
-    // 调用通义千问 + Web-Search
-    const response = await fetch(WEB_SEARCH_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
-        'X-DashScope-SSE': 'disable'
-      },
-      body: JSON.stringify({
-        model: 'qwen-plus',
-        input: {
-          messages: [
-            {
-              role: 'system',
-              content: `你是一位专业的 DIR/Floortime 游戏设计师。请从互联网搜索适合自闭症儿童的地板游戏，并按照指定的 JSON 格式返回。`
-            },
-            {
-              role: 'user',
-              content: searchPrompt
-            }
-          ]
+    // 使用 qwenStreamClient（已配置好CORS）
+    const { qwenStreamClient } = await import('./qwenStreamClient');
+    
+    const response = await qwenStreamClient.chat(
+      [
+        {
+          role: 'system',
+          content: `你是一位专业的 DIR/Floortime 游戏设计师。请推荐适合自闭症儿童的地板游戏，并按照指定的 JSON 格式返回。`
         },
-        parameters: {
-          result_format: 'message',
-          enable_search: true, // 启用联网搜索
-          temperature: 0.7,
-          max_tokens: 2000
+        {
+          role: 'user',
+          content: searchPrompt
         }
-      })
-    });
+      ],
+      {
+        temperature: 0.7,
+        max_tokens: 2000
+      }
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ 联网搜索失败:', response.status, errorText);
-      throw new Error(`Web search failed: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('📡 API 响应:', data);
+    console.log('📡 API 响应:', response.substring(0, 200) + '...');
     
-    const content = data.output?.choices?.[0]?.message?.content || '';
-    
-    if (!content) {
+    if (!response) {
       console.warn('⚠️  API 返回内容为空');
       throw new Error('Empty response from API');
     }
     
-    console.log('📝 返回内容:', content.substring(0, 200) + '...');
-    
     // 解析返回的游戏信息
-    const games = parseGamesFromSearchResult(content);
+    const games = parseGamesFromSearchResult(response);
     
     console.log(`✅ 解析到 ${games.length} 个游戏`);
     

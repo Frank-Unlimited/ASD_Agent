@@ -11,7 +11,7 @@ import {
   ProfileUpdateSchema,
   ChatTools
 } from './qwenSchemas';
-import { ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate } from '../types';
+import { ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate, Game } from '../types';
 import { getAllGames } from './ragService';
 
 // 动态生成游戏库描述
@@ -84,10 +84,12 @@ DIR 六大能力维度：
 /**
  * AGENT 1: RECOMMENDATION AGENT
  * 推荐游戏（使用联网搜索）
+ * 返回完整的游戏对象，包含所有步骤信息
  */
 export const recommendGame = async (
   profileContext: string
-): Promise<{ id: string; title: string; reason: string } | null> => {
+): Promise<Game | null> => {
+  let response = '';
   try {
     console.log('[Recommend Agent] 开始推荐游戏，使用联网搜索');
     
@@ -114,7 +116,8 @@ ${candidateGames.map((g, i) => `${i + 1}. ID: ${g.id}
    目标：${g.target}
    时长：${g.duration}
    ${g.isVR ? '[VR游戏]' : ''}
-   特点：${g.reason || '适合自闭症儿童的地板游戏'}`).join('\n\n')}
+   特点：${g.reason || '适合自闭症儿童的地板游戏'}
+   步骤数：${g.steps.length}`).join('\n\n')}
 `;
     
     const prompt = `
@@ -127,31 +130,47 @@ ${profileContext}
 决策逻辑：
 1. 优先选择能利用孩子"高兴趣维度"的游戏（作为切入点）。
 2. 针对孩子"低分能力维度"进行训练（作为目标）。
-3. 必须从候选游戏中选择一个，使用其真实的 id 和 title。
+3. 必须从候选游戏中选择一个，返回其 ID（如 "1", "2", "3" 等）。
 
-请严格按照 JSON Schema 返回结果。
+请只返回选中游戏的序号（1-${candidateGames.length}），例如：{"id": "2"}
 `;
 
-    const response = await qwenStreamClient.chat(
+    response = await qwenStreamClient.chat(
       [
         { role: 'system', content: SYSTEM_INSTRUCTION_BASE },
         { role: 'user', content: prompt }
       ],
       {
         temperature: 0.7,
-        max_tokens: 1000,
-        response_format: {
-          type: 'json_schema',
-          json_schema: GameRecommendationSchema
-        }
+        max_tokens: 500
       }
     );
 
-    const result = JSON.parse(response);
-    console.log('[Recommend Agent] 推荐结果:', result);
-    return result;
+    console.log('[Recommend Agent] 原始响应:', response);
+    
+    // 尝试提取 JSON
+    let jsonContent = response;
+    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      jsonContent = jsonMatch[1];
+    }
+    
+    // 提取选中的游戏序号
+    const result = JSON.parse(jsonContent);
+    const selectedIndex = parseInt(result.id) - 1; // 转换为数组索引
+    
+    if (selectedIndex >= 0 && selectedIndex < candidateGames.length) {
+      const selectedGame = candidateGames[selectedIndex];
+      console.log('[Recommend Agent] 推荐游戏:', selectedGame.title);
+      return selectedGame; // 返回完整的游戏对象
+    } else {
+      console.warn('[Recommend Agent] 选中的序号无效:', result.id);
+      // 如果序号无效，返回第一个游戏
+      return candidateGames[0];
+    }
   } catch (e) {
     console.error('[Recommend Agent] 推荐失败:', e);
+    console.error('[Recommend Agent] 原始响应:', response);
     return null;
   }
 };
