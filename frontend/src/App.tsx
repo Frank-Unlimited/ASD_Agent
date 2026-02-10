@@ -68,6 +68,7 @@ import { fileUploadService } from './services/fileUpload';
 import { speechService } from './services/speechService';
 import { reportStorageService } from './services/reportStorage';
 import { behaviorStorageService } from './services/behaviorStorage';
+import { chatStorageService } from './services/chatStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { MOCK_GAMES, WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
@@ -656,15 +657,11 @@ const PageAIChat = ({
   onProfileUpdate: (u: ProfileUpdate) => void,
   profileContext: string // Passed from App parent
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { 
-      id: '1', 
-      role: 'model', 
-      text: "**你好！我是乐乐的地板时光助手。** 👋 \n\n我已读取了乐乐的最新档案。今天我们重点关注什么？", 
-      timestamp: new Date(),
-      options: ["🎮 推荐今日游戏", "📝 记录刚才的互动", "🤔 咨询孩子行为问题", "📅 查看本周计划"] 
-    }
-  ]);
+  // 从 localStorage 加载聊天历史
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    return chatStorageService.getChatHistory();
+  });
+  
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -677,6 +674,11 @@ const PageAIChat = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 保存聊天历史到 localStorage
+  useEffect(() => {
+    chatStorageService.saveChatHistory(messages);
+  }, [messages]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
@@ -854,12 +856,17 @@ const PageAIChat = ({
                   
                   console.log('行为记录已处理:', behaviorData);
                   
+                  // 获取最新保存的行为ID（最后一条记录）
+                  const allBehaviors = behaviorStorageService.getAllBehaviors();
+                  const latestBehaviorId = allBehaviors.length > 0 ? allBehaviors[0].id : null;
+                  
                   // 为了兼容旧的卡片格式，构造 tags 数组
                   const tags = matches.map((m: any) => m.dimension);
                   const cardData = {
                     behavior: args.behavior,
                     tags: tags,
-                    analysis: args.analysis
+                    analysis: args.analysis,
+                    behaviorId: latestBehaviorId // 添加行为ID用于跳转
                   };
                   
                   // 添加行为记录卡片
@@ -1054,6 +1061,25 @@ const PageAIChat = ({
          </div>
        )}
        
+       {/* 清空历史按钮 */}
+       {messages.length > 1 && (
+         <div className="absolute top-2 right-2 z-10">
+           <button
+             onClick={() => {
+               if (confirm('确定要清空所有聊天记录吗？')) {
+                 chatStorageService.resetToDefault();
+                 setMessages(chatStorageService.getChatHistory());
+               }
+             }}
+             className="bg-white/90 backdrop-blur-sm text-gray-600 hover:text-red-600 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm border border-gray-200 hover:border-red-300 transition flex items-center"
+             title="清空聊天历史"
+           >
+             <RefreshCw className="w-3 h-3 mr-1" />
+             清空
+           </button>
+         </div>
+       )}
+       
        <div className="flex-1 overflow-y-auto p-4 space-y-5 pb-32">
         {messages.map((msg) => {
           const { cleanText, card } = parseMessageContent(msg.text);
@@ -1087,24 +1113,49 @@ const PageAIChat = ({
                 </div>
               )}
               {card && card.type === 'BEHAVIOR' && (
-                <div className="mt-2 max-w-[85%] bg-white p-4 rounded-xl border border-emerald-100 shadow-md animate-in fade-in">
-                   <div className="flex items-center space-x-2 mb-3 pb-2 border-b border-gray-100">
-                     <div className="bg-emerald-100 p-1.5 rounded-full"><ClipboardCheck className="w-4 h-4 text-emerald-600" /></div>
-                     <span className="text-xs font-bold text-emerald-700 uppercase">行为已记录</span>
+                <div 
+                  onClick={() => {
+                    if (card.behaviorId) {
+                      // 跳转到行为页面
+                      navigateTo(Page.BEHAVIORS);
+                      // 使用 setTimeout 确保页面已切换，然后触发详情显示
+                      setTimeout(() => {
+                        const behavior = behaviorStorageService.getAllBehaviors().find(b => b.id === card.behaviorId);
+                        if (behavior) {
+                          // 触发一个自定义事件来显示详情
+                          window.dispatchEvent(new CustomEvent('showBehaviorDetail', { detail: behavior }));
+                        }
+                      }, 100);
+                    }
+                  }}
+                  className="mt-2 max-w-[85%] bg-white p-4 rounded-xl border border-emerald-100 shadow-md animate-in fade-in cursor-pointer hover:border-emerald-300 hover:shadow-lg transition-all active:scale-98"
+                >
+                   <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                     <div className="flex items-center space-x-2">
+                       <div className="bg-emerald-100 p-1.5 rounded-full"><ClipboardCheck className="w-4 h-4 text-emerald-600" /></div>
+                       <span className="text-xs font-bold text-emerald-700 uppercase">行为已记录</span>
+                     </div>
+                     <ArrowUpRight className="w-4 h-4 text-emerald-500" />
                    </div>
                    <div className="mb-3">
                      <p className="text-gray-800 font-bold text-base mb-1">"{card.behavior}"</p>
                      <p className="text-xs text-gray-500">{card.analysis}</p>
                    </div>
                    {card.tags && (
-                     <div className="flex flex-wrap gap-1">
-                       {card.tags.map((t: string, i: number) => (
-                         <span key={i} className="flex items-center bg-gray-100 text-gray-500 text-[10px] px-2 py-1 rounded-full font-medium">
-                           <Tag className="w-3 h-3 mr-1" /> {t}
-                         </span>
-                       ))}
+                     <div className="flex flex-wrap gap-1.5">
+                       {card.tags.map((t: string, i: number) => {
+                         const config = getDimensionConfig(t as InterestDimensionType);
+                         return (
+                           <span key={i} className={`flex items-center text-[10px] px-2 py-1 rounded-full font-medium ${config.color}`}>
+                             <config.icon className="w-3 h-3 mr-1" /> {config.label}
+                           </span>
+                         );
+                       })}
                      </div>
                    )}
+                   <div className="mt-3 pt-2 border-t border-gray-100">
+                     <p className="text-xs text-gray-400 text-center">点击查看详情</p>
+                   </div>
                 </div>
               )}
               {card && card.type === 'WEEKLY' && (
@@ -1216,6 +1267,21 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
   useEffect(() => {
     loadBehaviors();
   }, [filterDimension, filterSource]);
+
+  // 监听从聊天页面跳转过来的事件
+  useEffect(() => {
+    const handleShowDetail = (event: any) => {
+      const behavior = event.detail;
+      if (behavior) {
+        setSelectedBehavior(behavior);
+      }
+    };
+
+    window.addEventListener('showBehaviorDetail', handleShowDetail);
+    return () => {
+      window.removeEventListener('showBehaviorDetail', handleShowDetail);
+    };
+  }, []);
 
   const loadBehaviors = () => {
     let allBehaviors = behaviorStorageService.getAllBehaviors();
