@@ -826,7 +826,9 @@ const PageAIChat = ({
             
             switch (toolCall.function.name) {
               case 'recommend_game':
-                // 添加游戏推荐卡片到响应中
+                // 游戏推荐已经在 recommendGame 函数中完成联网搜索
+                // 这里直接显示推荐卡片
+                console.log('[Tool Call] 游戏推荐:', args);
                 fullResponse += `\n\n:::GAME_RECOMMENDATION:${JSON.stringify(args)}:::`;
                 setMessages(prev => 
                   prev.map(msg => 

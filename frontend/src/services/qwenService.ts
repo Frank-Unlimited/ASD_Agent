@@ -83,17 +83,42 @@ DIR 六大能力维度：
 
 /**
  * AGENT 1: RECOMMENDATION AGENT
- * 推荐游戏（结构化输出）
+ * 推荐游戏（使用联网搜索）
  */
 export const recommendGame = async (
   profileContext: string
 ): Promise<{ id: string; title: string; reason: string } | null> => {
   try {
-    // 重新生成游戏库描述（确保使用最新的游戏）
-    const gamesLibrary = getGamesLibraryDescription();
+    console.log('[Recommend Agent] 开始推荐游戏，使用联网搜索');
+    
+    // 从 profileContext 中提取关键信息构建搜索查询
+    const searchQuery = buildSearchQueryFromProfile(profileContext);
+    console.log('[Recommend Agent] 搜索查询:', searchQuery);
+    
+    // 使用联网搜索获取候选游戏
+    const { searchGamesHybrid } = await import('./ragService');
+    const candidateGames = await searchGamesHybrid(searchQuery, profileContext, 5);
+    
+    console.log(`[Recommend Agent] 搜索到 ${candidateGames.length} 个候选游戏`);
+    
+    if (candidateGames.length === 0) {
+      console.warn('[Recommend Agent] 未找到候选游戏');
+      return null;
+    }
+    
+    // 构建游戏库描述
+    const gamesLibrary = `
+候选游戏库（从联网搜索获取）：
+${candidateGames.map((g, i) => `${i + 1}. ID: ${g.id}
+   名称：${g.title}
+   目标：${g.target}
+   时长：${g.duration}
+   ${g.isVR ? '[VR游戏]' : ''}
+   特点：${g.reason || '适合自闭症儿童的地板游戏'}`).join('\n\n')}
+`;
     
     const prompt = `
-作为推荐 Agent，请分析以下儿童档案，从游戏库中选择一个最适合当前发展需求的游戏。
+作为推荐 Agent，请分析以下儿童档案，从候选游戏中选择一个最适合当前发展需求的游戏。
 
 ${gamesLibrary}
 
@@ -102,6 +127,7 @@ ${profileContext}
 决策逻辑：
 1. 优先选择能利用孩子"高兴趣维度"的游戏（作为切入点）。
 2. 针对孩子"低分能力维度"进行训练（作为目标）。
+3. 必须从候选游戏中选择一个，使用其真实的 id 和 title。
 
 请严格按照 JSON Schema 返回结果。
 `;
@@ -121,12 +147,45 @@ ${profileContext}
       }
     );
 
-    return JSON.parse(response);
+    const result = JSON.parse(response);
+    console.log('[Recommend Agent] 推荐结果:', result);
+    return result;
   } catch (e) {
-    console.error('Recommendation Agent Failed:', e);
+    console.error('[Recommend Agent] 推荐失败:', e);
     return null;
   }
 };
+
+/**
+ * 从档案上下文中提取搜索查询
+ */
+function buildSearchQueryFromProfile(profileContext: string): string {
+  // 提取关键词
+  const keywords: string[] = [];
+  
+  // 提取兴趣维度
+  if (profileContext.includes('Visual')) keywords.push('视觉');
+  if (profileContext.includes('Auditory')) keywords.push('听觉');
+  if (profileContext.includes('Tactile')) keywords.push('触觉');
+  if (profileContext.includes('Motor')) keywords.push('运动');
+  if (profileContext.includes('Construction')) keywords.push('建构');
+  if (profileContext.includes('Order')) keywords.push('秩序');
+  if (profileContext.includes('Cognitive')) keywords.push('认知');
+  if (profileContext.includes('Social')) keywords.push('社交');
+  
+  // 提取能力维度
+  if (profileContext.includes('自我调节')) keywords.push('情绪调节');
+  if (profileContext.includes('双向沟通')) keywords.push('互动沟通');
+  if (profileContext.includes('复杂沟通')) keywords.push('语言表达');
+  
+  // 基础查询
+  const baseQuery = '自闭症儿童 地板游戏 DIR Floortime';
+  
+  // 组合查询
+  return keywords.length > 0 
+    ? `${baseQuery} ${keywords.slice(0, 3).join(' ')}`
+    : baseQuery;
+}
 
 /**
  * AGENT 2: EVALUATION AGENT (Session)
