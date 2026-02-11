@@ -26,17 +26,21 @@ export interface ChildProfile {
 // 报告类型
 export type ReportType = 'hospital' | 'ai_generated' | 'assessment' | 'other';
 
-// 医疗/评估报告
-export interface MedicalReport {
+// 报告（包括医疗报告和AI生成的评估报告）
+export interface Report {
   id: string; // 报告唯一ID
-  imageUrl: string; // 报告原图（base64 或 URL）
-  ocrResult: string; // OCR 识别结果
+  imageUrl?: string; // 报告原图（base64 或 URL），AI生成的评估报告可能没有
+  ocrResult?: string; // OCR 识别结果，AI生成的评估报告可能没有
   summary: string; // 报告摘要（一句话）
   diagnosis: string; // 根据报告生成的孩子画像
+  nextStepSuggestion?: string; // 下一步干预建议（仅评估报告有）
   date: string; // 报告日期 YYYY-MM-DD
   type: ReportType; // 报告类型
   createdAt: string; // 导入时间
 }
+
+// 为了向后兼容，保留 MedicalReport 类型别名
+export type MedicalReport = Report;
 
 export interface GameStep {
   instruction: string; // The main action
@@ -145,17 +149,13 @@ export interface ProfileUpdate {
 
 // --- Comprehensive Assessment Types ---
 
-// 综合评估结果
+// 综合评估结果（简化版，只保留3个核心字段）
 export interface ComprehensiveAssessment {
   id: string; // 唯一ID
   timestamp: string; // 评估时间
-  currentProfile: string; // 当前孩子画像（详细描述）
-  nextStepSuggestion: string; // 下一步干预建议
-  interestSummary: string; // 兴趣维度总结
-  abilitySummary: string; // 能力维度总结
-  keyFindings: string[]; // 关键发现（数组）
-  concerns: string[]; // 需要关注的点
-  strengths: string[]; // 优势点
+  summary: string; // 评估摘要（一句话，50字以内）
+  currentProfile: string; // 当前孩子画像（详细描述，200-300字）
+  nextStepSuggestion: string; // 下一步干预建议（150-200字）
 }
 
 // 游戏推荐结果
@@ -183,7 +183,7 @@ export interface ParentPreference {
 // 历史数据摘要（用于Agent输入）
 export interface HistoricalDataSummary {
   recentAssessments: ComprehensiveAssessment[]; // 最近3次评估
-  recentReports: MedicalReport[]; // 最近3份报告
+  recentReports: Report[]; // 最近3份报告
   recentBehaviors: BehaviorAnalysis[]; // 最近10条行为记录
   recentGames: EvaluationResult[]; // 最近5次游戏评估
   interestTrends: Record<InterestDimensionType, number>; // 兴趣趋势

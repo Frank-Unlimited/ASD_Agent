@@ -65,7 +65,7 @@ import {
   CartesianGrid, 
   Tooltip 
 } from 'recharts';
-import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, MedicalReport } from './types';
+import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report } from './types';
 import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
@@ -238,7 +238,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
             // 保存报告到数据库
             const metadata = result.metadata;
             if (metadata?.base64) {
-              const report: MedicalReport = {
+              const report: Report = {
                 id: reportStorageService.generateReportId(),
                 imageUrl: metadata.base64,
                 ocrResult: ocrText,
@@ -1003,8 +1003,21 @@ const PageAIChat = ({
                     
                     console.log('[综合评估] 评估完成:', assessment);
                     
-                    // 保存评估结果
+                    // 保存评估结果到 assessmentStorage
                     saveAssessment(assessment);
+                    
+                    // 同时将评估结果保存为 Report 到 reportStorage
+                    const assessmentReport: Report = {
+                      id: assessment.id,
+                      summary: assessment.summary,
+                      diagnosis: assessment.currentProfile,
+                      nextStepSuggestion: assessment.nextStepSuggestion,
+                      date: new Date().toISOString().split('T')[0],
+                      type: 'ai_generated',
+                      createdAt: assessment.timestamp
+                    };
+                    reportStorageService.saveReport(assessmentReport);
+                    console.log('[综合评估] 已保存为报告:', assessmentReport.id);
                     
                     // 移除加载提示，添加评估结果卡片
                     fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
@@ -1320,73 +1333,39 @@ const PageAIChat = ({
                     </span>
                   </div>
 
+                  {/* 评估摘要 */}
+                  <div className="mb-4 bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-500">
+                    <p className="text-sm text-gray-800 font-medium leading-relaxed">{card.summary}</p>
+                  </div>
+
                   {/* 当前画像 */}
                   <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
                     <div className="flex items-center mb-2">
                       <User className="w-4 h-4 text-purple-600 mr-2" />
                       <h4 className="font-bold text-gray-800">当前画像</h4>
                     </div>
-                    <p className="text-sm text-gray-700 leading-relaxed">{card.currentProfile}</p>
-                  </div>
-
-                  {/* 关键发现 */}
-                  {card.keyFindings && card.keyFindings.length > 0 && (
-                    <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center mb-2">
-                        <Lightbulb className="w-4 h-4 text-yellow-600 mr-2" />
-                        <h4 className="font-bold text-gray-800">关键发现</h4>
-                      </div>
-                      <ul className="space-y-1.5">
-                        {card.keyFindings.map((finding: string, i: number) => (
-                          <li key={i} className="text-sm text-gray-700 flex items-start">
-                            <span className="text-yellow-500 mr-2">•</span>
-                            <span>{finding}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* 优势与关注点 */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    {/* 优势 */}
-                    {card.strengths && card.strengths.length > 0 && (
-                      <div className="bg-green-50 rounded-xl p-3 border border-green-200">
-                        <div className="flex items-center mb-2">
-                          <Smile className="w-4 h-4 text-green-600 mr-1" />
-                          <h5 className="font-bold text-green-800 text-xs">优势</h5>
-                        </div>
-                        <ul className="space-y-1">
-                          {card.strengths.map((strength: string, i: number) => (
-                            <li key={i} className="text-xs text-gray-700 flex items-start">
-                              <span className="text-green-500 mr-1">✓</span>
-                              <span>{strength}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* 关注点 */}
-                    {card.concerns && card.concerns.length > 0 && (
-                      <div className="bg-orange-50 rounded-xl p-3 border border-orange-200">
-                        <div className="flex items-center mb-2">
-                          <Eye className="w-4 h-4 text-orange-600 mr-1" />
-                          <h5 className="font-bold text-orange-800 text-xs">关注点</h5>
-                        </div>
-                        <ul className="space-y-1">
-                          {card.concerns.map((concern: string, i: number) => (
-                            <li key={i} className="text-xs text-gray-700 flex items-start">
-                              <span className="text-orange-500 mr-1">!</span>
-                              <span>{concern}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{card.currentProfile}</p>
                   </div>
 
                   {/* 下一步建议 */}
+                  <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl p-4 shadow-sm">
+                    <div className="flex items-center mb-2">
+                      <Lightbulb className="w-4 h-4 text-yellow-300 mr-2" />
+                      <h4 className="font-bold">下一步干预建议</h4>
+                    </div>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{card.nextStepSuggestion}</p>
+                  </div>
+
+                  {/* 查看详情按钮 */}
+                  <button 
+                    onClick={() => navigateTo(Page.PROFILE)}
+                    className="w-full mt-4 bg-white text-purple-600 py-2.5 rounded-xl font-bold hover:bg-purple-50 transition flex items-center justify-center shadow-sm"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    在档案页面查看完整报告
+                  </button>
+                </div>
+              )}                  {/* 下一步建议 */}
                   <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
                     <div className="flex items-center mb-2">
                       <ArrowRight className="w-4 h-4 text-blue-600 mr-2" />
@@ -1845,8 +1824,8 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
 const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportReport, onExportReport, childProfile, calculateAge }: { trendData: any[], interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void, childProfile: ChildProfile | null, calculateAge: (birthDate: string) => number }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showReportList, setShowReportList] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null);
-  const [reports, setReports] = useState<MedicalReport[]>([]);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [reports, setReports] = useState<Report[]>([]);
   
   // 加载报告列表
   useEffect(() => {
@@ -1865,7 +1844,7 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
   const latestReport = reportStorageService.getLatestReport();
 
   // 报告详情弹窗
-  const ReportDetailModal = ({ report, onClose }: { report: MedicalReport, onClose: () => void }) => (
+  const ReportDetailModal = ({ report, onClose }: { report: Report, onClose: () => void }) => (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
