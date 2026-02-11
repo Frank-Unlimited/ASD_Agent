@@ -1837,7 +1837,7 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
         </div>
         
         <div className="p-6 space-y-4">
-          {/* 报告摘要 */}
+          {/* 报告摘要 - 必填字段，始终显示 */}
           <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
             <h5 className="text-sm font-bold text-purple-700 mb-2 flex items-center">
               <Sparkles className="w-4 h-4 mr-2" />
@@ -1846,40 +1846,59 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
             <p className="text-sm text-gray-700">{report.summary}</p>
           </div>
 
-          {/* 报告原图 */}
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-            <h5 className="text-sm font-bold text-gray-700 mb-3 flex items-center">
-              <FileText className="w-4 h-4 mr-2 text-blue-600" />
-              报告原图
-            </h5>
-            <img 
-              src={`data:image/jpeg;base64,${report.imageUrl}`} 
-              alt="报告原图" 
-              className="w-full rounded-lg border border-gray-300"
-            />
-          </div>
-
-          {/* OCR 提取结果 */}
-          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-            <h5 className="text-sm font-bold text-blue-700 mb-3 flex items-center">
-              <Eye className="w-4 h-4 mr-2" />
-              文字提取
-            </h5>
-            <div className="bg-white rounded-lg p-3 max-h-60 overflow-y-auto text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
-              {report.ocrResult}
+          {/* 报告原图 - 仅当有图片时显示 */}
+          {report.imageUrl && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <h5 className="text-sm font-bold text-gray-700 mb-3 flex items-center">
+                <FileText className="w-4 h-4 mr-2 text-blue-600" />
+                报告原图
+              </h5>
+              <img 
+                src={report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`} 
+                alt="报告原图" 
+                className="w-full rounded-lg border border-gray-300 cursor-pointer hover:opacity-90 transition"
+                onClick={() => window.open(report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`, '_blank')}
+              />
+              <p className="text-xs text-gray-400 mt-2 text-center">点击查看大图</p>
             </div>
-          </div>
+          )}
 
-          {/* 孩子画像 */}
+          {/* OCR 提取结果 - 仅当有OCR结果时显示 */}
+          {report.ocrResult && (
+            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+              <h5 className="text-sm font-bold text-blue-700 mb-3 flex items-center">
+                <Eye className="w-4 h-4 mr-2" />
+                文字提取
+              </h5>
+              <div className="bg-white rounded-lg p-3 max-h-60 overflow-y-auto text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {report.ocrResult}
+              </div>
+            </div>
+          )}
+
+          {/* 孩子画像 - 必填字段，始终显示 */}
           <div className="bg-green-50 rounded-xl p-4 border border-green-200">
             <h5 className="text-sm font-bold text-green-700 mb-3 flex items-center">
               <User className="w-4 h-4 mr-2" />
               孩子画像
             </h5>
-            <div className="bg-white rounded-lg p-3 text-sm text-gray-700 leading-relaxed">
+            <div className="bg-white rounded-lg p-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
               {report.diagnosis}
             </div>
           </div>
+
+          {/* 下一步干预建议 - 仅当有建议时显示（评估报告才有） */}
+          {report.nextStepSuggestion && (
+            <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl p-4">
+              <h5 className="text-sm font-bold mb-3 flex items-center">
+                <Lightbulb className="w-4 h-4 mr-2 text-yellow-300" />
+                下一步干预建议
+              </h5>
+              <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                {report.nextStepSuggestion}
+              </div>
+            </div>
+          )}
 
           {/* 报告信息 */}
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
@@ -1892,12 +1911,12 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
                 <span className="text-gray-500">报告类型：</span>
                 <span className="font-medium text-gray-700">
                   {report.type === 'hospital' ? '医院报告' : 
-                   report.type === 'ai_generated' ? 'AI生成' : 
+                   report.type === 'ai_generated' ? 'AI评估' : 
                    report.type === 'assessment' ? '评估报告' : '其他'}
                 </span>
               </div>
               <div className="col-span-2">
-                <span className="text-gray-500">导入时间：</span>
+                <span className="text-gray-500">创建时间：</span>
                 <span className="font-medium text-gray-700">
                   {new Date(report.createdAt).toLocaleString('zh-CN')}
                 </span>
