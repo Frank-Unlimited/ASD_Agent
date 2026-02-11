@@ -1958,15 +1958,27 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
                 className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-primary/30 transition"
               >
                 <div className="flex items-start space-x-3">
-                  <img 
-                    src={`data:image/jpeg;base64,${report.imageUrl}`} 
-                    alt="报告缩略图" 
-                    className="w-16 h-16 rounded-lg object-cover border border-gray-200"
-                  />
+                  {/* 缩略图或默认图标 */}
+                  {report.imageUrl ? (
+                    <img 
+                      src={report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`} 
+                      alt="报告缩略图" 
+                      className="w-16 h-16 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg border border-gray-200 flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-purple-50 to-blue-50">
+                      {report.type === 'ai_generated' || report.type === 'assessment' ? (
+                        <Award className="w-8 h-8 text-purple-500" />
+                      ) : (
+                        <FileText className="w-8 h-8 text-blue-500" />
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-gray-800 truncate">{report.summary}</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {report.date} · {report.type === 'hospital' ? '医院报告' : 'AI生成'}
+                      {report.date} · {report.type === 'hospital' ? '医院报告' : report.type === 'ai_generated' ? 'AI评估' : report.type === 'assessment' ? '评估报告' : '其他'}
                     </p>
                     <p className="text-xs text-gray-400 mt-1 line-clamp-2">{report.diagnosis}</p>
                   </div>
