@@ -69,7 +69,16 @@ export const generateComprehensiveAssessment = async (
     );
 
     console.log('[Assessment Agent] Raw response:', response);
-    let data = JSON.parse(response);
+    
+    // 尝试解析响应
+    let data;
+    try {
+      data = JSON.parse(response);
+    } catch (parseError) {
+      console.error('[Assessment Agent] JSON parse error:', parseError);
+      console.log('[Assessment Agent] Raw response text:', response);
+      throw new Error('无法解析 LLM 响应，请重试');
+    }
     
     // 如果返回的是数组，取第一个元素
     if (Array.isArray(data)) {
@@ -79,31 +88,22 @@ export const generateComprehensiveAssessment = async (
     
     // 检查是否返回了 Schema 定义而不是实际数据
     // Schema 定义会有 "type", "properties", "required" 等字段
-    if (data.type === 'object' && data.properties && !data.currentProfile) {
+    if (data.type === 'object' && data.properties && data.required) {
       console.error('[Assessment Agent] ❌ LLM 返回了 Schema 定义而不是数据！');
       console.log('[Assessment Agent] Schema properties:', Object.keys(data.properties));
       
-      // 尝试从 properties 中提取实际数据（如果有的话）
-      if (data.properties.currentProfile && typeof data.properties.currentProfile === 'object') {
-        // 有些情况下，数据可能在 properties 的子对象中
-        const extractedData: any = {};
-        for (const key of Object.keys(data.properties)) {
-          if (data.properties[key].value) {
-            extractedData[key] = data.properties[key].value;
-          } else if (typeof data.properties[key] === 'string') {
-            extractedData[key] = data.properties[key];
-          }
-        }
-        
-        if (Object.keys(extractedData).length > 0) {
-          console.log('[Assessment Agent] 从 properties 中提取到数据');
-          data = extractedData;
-        } else {
-          throw new Error('LLM 返回了 Schema 定义而不是实际数据，请重试');
-        }
-      } else {
-        throw new Error('LLM 返回了 Schema 定义而不是实际数据，请重试');
-      }
+      // 这是一个常见问题，尝试重新调用
+      throw new Error('LLM 返回了 Schema 定义而不是实际数据。请再试一次，或者稍后重试。');
+    }
+    
+    // 验证必需字段
+    const requiredFields = ['currentProfile', 'nextStepSuggestion', 'interestSummary', 'abilitySummary', 'keyFindings', 'concerns', 'strengths'];
+    const missingFields = requiredFields.filter(field => !data[field]);
+    
+    if (missingFields.length > 0) {
+      console.error('[Assessment Agent] 缺少必需字段:', missingFields);
+      console.log('[Assessment Agent] 实际返回的字段:', Object.keys(data));
+      throw new Error(`评估数据不完整，缺少字段: ${missingFields.join(', ')}`);
     }
     
     console.log('[Assessment Agent] Parsed data:', data);
@@ -219,6 +219,21 @@ ${Object.entries(historicalData.abilityTrends).map(([dim, score]) =>
    - 用于鼓励和建立信心
 
 请严格按照 JSON Schema 返回结果。
+
+重要提示：
+- 请直接返回包含实际数据的 JSON 对象
+- 不要返回 Schema 定义本身
+- 确保返回的 JSON 包含所有必需字段的实际内容
+- 示例格式：
+{
+  "currentProfile": "这里是孩子的详细画像...",
+  "nextStepSuggestion": "这里是下一步建议...",
+  "interestSummary": "这里是兴趣总结...",
+  "abilitySummary": "这里是能力总结...",
+  "keyFindings": ["发现1", "发现2", "发现3"],
+  "concerns": ["关注点1", "关注点2"],
+  "strengths": ["优势1", "优势2", "优势3"]
+}
 `;
 }
 
