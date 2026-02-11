@@ -1365,24 +1365,6 @@ const PageAIChat = ({
                     在档案页面查看完整报告
                   </button>
                 </div>
-              )}                  {/* 下一步建议 */}
-                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                    <div className="flex items-center mb-2">
-                      <ArrowRight className="w-4 h-4 text-blue-600 mr-2" />
-                      <h4 className="font-bold text-blue-800">下一步建议</h4>
-                    </div>
-                    <p className="text-sm text-gray-700 leading-relaxed">{card.nextStepSuggestion}</p>
-                  </div>
-
-                  {/* 查看详情按钮 */}
-                  <button 
-                    onClick={() => navigateTo(Page.PROFILE)}
-                    className="w-full mt-4 bg-purple-500 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center hover:bg-purple-600 transition shadow-md"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    查看完整档案
-                  </button>
-                </div>
               )}
             </div>
           );
