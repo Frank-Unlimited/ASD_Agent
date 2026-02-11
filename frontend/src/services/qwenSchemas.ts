@@ -351,10 +351,163 @@ export const NavigatePageTool = {
   }
 };
 
+export const GenerateAssessmentTool = {
+  type: 'function' as const,
+  function: {
+    name: 'generate_assessment',
+    description: '生成孩子的综合评估报告。当家长询问以下内容时必须调用此工具：1) 孩子的评估报告 2) 孩子的发展情况 3) 孩子的当前状态 4) 孩子的进步情况 5) 孩子的综合评估 6) 查看评估 7) 生成报告。这个工具会基于历史数据生成正式的、结构化的评估报告。',
+    parameters: {
+      type: 'object',
+      properties: {
+        reason: {
+          type: 'string',
+          description: '为什么需要生成评估报告，例如：家长询问孩子的发展情况'
+        }
+      },
+      required: ['reason']
+    }
+  }
+};
+
 // 所有对话工具
 export const ChatTools = [
   RecommendGameTool,
   LogBehaviorTool,
   CreateWeeklyPlanTool,
-  NavigatePageTool
+  NavigatePageTool,
+  GenerateAssessmentTool
 ];
+
+// --- Comprehensive Assessment Schema ---
+
+export const ComprehensiveAssessmentSchema = {
+  name: 'comprehensive_assessment',
+  description: '综合评估结果',
+  schema: {
+    type: 'object',
+    properties: {
+      currentProfile: {
+        type: 'string',
+        description: '当前孩子的详细画像，200-300字，包括性格特点、兴趣偏好、能力水平、社交表现'
+      },
+      nextStepSuggestion: {
+        type: 'string',
+        description: '下一步干预建议，150-200字，具体可操作'
+      },
+      interestSummary: {
+        type: 'string',
+        description: '兴趣维度总结，100字左右'
+      },
+      abilitySummary: {
+        type: 'string',
+        description: '能力维度总结，100字左右'
+      },
+      keyFindings: {
+        type: 'array',
+        description: '3-5个关键发现',
+        items: {
+          type: 'string',
+          description: '每条20-30字'
+        },
+        minItems: 3,
+        maxItems: 5
+      },
+      concerns: {
+        type: 'array',
+        description: '2-3个需要关注的点',
+        items: {
+          type: 'string',
+          description: '每条20-30字'
+        },
+        minItems: 2,
+        maxItems: 3
+      },
+      strengths: {
+        type: 'array',
+        description: '3-5个优势点',
+        items: {
+          type: 'string',
+          description: '每条20-30字'
+        },
+        minItems: 3,
+        maxItems: 5
+      }
+    },
+    required: [
+      'currentProfile',
+      'nextStepSuggestion',
+      'interestSummary',
+      'abilitySummary',
+      'keyFindings',
+      'concerns',
+      'strengths'
+    ],
+    additionalProperties: false
+  }
+};
+
+// --- Game Recommendation Schema ---
+
+export const GameRecommendationDetailedSchema = {
+  name: 'game_recommendation_detailed',
+  description: '详细游戏推荐结果',
+  schema: {
+    type: 'object',
+    properties: {
+      game: {
+        type: 'object',
+        description: '推荐的游戏完整信息',
+        properties: {
+          id: { type: 'string', description: '游戏ID' },
+          title: { type: 'string', description: '游戏名称' },
+          target: { type: 'string', description: '训练目标' },
+          duration: { type: 'string', description: '游戏时长' },
+          isVR: { type: 'boolean', description: '是否为VR游戏' },
+          steps: {
+            type: 'array',
+            description: '游戏步骤',
+            items: {
+              type: 'object',
+              properties: {
+                instruction: { type: 'string', description: '步骤说明' },
+                guidance: { type: 'string', description: '引导要点' }
+              },
+              required: ['instruction', 'guidance']
+            }
+          }
+        },
+        required: ['id', 'title', 'target', 'duration', 'steps']
+      },
+      reason: {
+        type: 'string',
+        description: '详细推荐理由，150-200字，说明为什么这个游戏最适合'
+      },
+      expectedOutcome: {
+        type: 'string',
+        description: '预期效果，100字左右，具体可观察的改善'
+      },
+      parentGuidance: {
+        type: 'string',
+        description: '家长指导要点，150字左右，如何引导、注意事项'
+      },
+      adaptationSuggestions: {
+        type: 'array',
+        description: '3-5条适应性调整建议',
+        items: {
+          type: 'string',
+          description: '每条30-50字，应对不同情况的调整方法'
+        },
+        minItems: 3,
+        maxItems: 5
+      }
+    },
+    required: [
+      'game',
+      'reason',
+      'expectedOutcome',
+      'parentGuidance',
+      'adaptationSuggestions'
+    ],
+    additionalProperties: false
+  }
+};
