@@ -77,6 +77,7 @@ import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getAllGames } from './services/ragService';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
+import { PageRadar } from './components/RadarChartPage';
 
 // --- Helper Components ---
 
@@ -97,6 +98,7 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen:
           <button onClick={() => { setPage(Page.PROFILE); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><User className="w-5 h-5 text-primary" /><span>孩子档案</span></button>
           <button onClick={() => { setPage(Page.GAMES); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Gamepad2 className="w-5 h-5 text-primary" /><span>地板游戏库</span></button>
           <button onClick={() => { setPage(Page.BEHAVIORS); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Activity className="w-5 h-5 text-primary" /><span>行为数据</span></button>
+          <button onClick={() => { setPage(Page.RADAR); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><TrendingUp className="w-5 h-5 text-primary" /><span>兴趣雷达图</span></button>
         </nav>
         <div className="mt-auto pt-6 border-t border-gray-100 relative">
           <div 
@@ -2481,6 +2483,7 @@ export default function App() {
       case Page.PROFILE: return `${childProfile?.name || '孩子'}的档案`; 
       case Page.GAMES: return "游戏库"; 
       case Page.BEHAVIORS: return "行为数据"; 
+      case Page.RADAR: return "兴趣雷达图"; 
       default: return "App"; 
     } 
   };
@@ -2524,6 +2527,7 @@ export default function App() {
         {currentPage === Page.CALENDAR && <PageCalendar navigateTo={handleNavigate} onStartGame={handleStartGame} />}
         {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} />}
         {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}
+        {currentPage === Page.RADAR && <PageRadar />}
         {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CALENDAR)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} />)}
       </main>
     </div>

@@ -5,7 +5,8 @@ export enum Page {
   CALENDAR = 'CALENDAR',
   PROFILE = 'PROFILE',
   GAMES = 'GAMES',
-  BEHAVIORS = 'BEHAVIORS'
+  BEHAVIORS = 'BEHAVIORS',
+  RADAR = 'RADAR'
 }
 
 export enum GameState {
@@ -188,4 +189,34 @@ export interface HistoricalDataSummary {
   recentGames: EvaluationResult[]; // 最近5次游戏评估
   interestTrends: Record<InterestDimensionType, number>; // 兴趣趋势
   abilityTrends: Record<AbilityDimensionType, number>; // 能力趋势
+}
+
+// --- Interest Radar Chart Types ---
+
+// 雷达图查询类型
+export type RadarChartType = 'weight' | 'intensity' | 'both';
+
+// 雷达图数据点
+export interface RadarDataPoint {
+  dimension: InterestDimensionType; // 维度名称
+  weight: number; // 关联度累计值
+  intensity: number; // 强度累计值（可能为负）
+  count: number; // 该维度的行为记录数量
+}
+
+// 雷达图查询参数
+export interface RadarChartQuery {
+  type: RadarChartType; // 查询类型
+  startDate: string; // 开始日期 YYYY-MM-DD
+  endDate: string; // 结束日期 YYYY-MM-DD
+}
+
+// 雷达图数据结构
+export interface RadarChartData {
+  type: RadarChartType;
+  startDate: string;
+  endDate: string;
+  data: RadarDataPoint[]; // 8个维度的数据
+  totalBehaviors: number; // 时间段内的总行为数
+  summary: string; // 数据摘要
 }
