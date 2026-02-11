@@ -1,6 +1,10 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { sendQwenMessage } from './services/qwenService';
+import { clearAllCache } from './utils/clearCache'; // 导入清空缓存功能
+import { generateComprehensiveAssessment } from './services/assessmentAgent';
+import { collectHistoricalData } from './services/historicalDataHelper';
+import { saveAssessment } from './services/assessmentStorage';
 import { 
   MessageCircle, 
   Calendar as CalendarIcon, 
@@ -70,7 +74,8 @@ import { reportStorageService } from './services/reportStorage';
 import { behaviorStorageService } from './services/behaviorStorage';
 import { chatStorageService } from './services/chatStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
-import { MOCK_GAMES, WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
+import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
+import { getAllGames } from './services/ragService';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
 
 // --- Helper Components ---
@@ -735,13 +740,20 @@ const PageAIChat = ({
     setRecognizing(false);
   };
 
-  const startCheckInFlow = (gameId: string, gameTitle: string) => {
-      setTargetGameId(gameId);
+  const startCheckInFlow = (game: Game) => {
+      console.log('[Check-In Flow] 开始游戏流程:', game);
+      console.log('[Check-In Flow] 游戏步骤数:', game.steps?.length);
+      
+      setTargetGameId(game.id);
+      // 将完整的游戏对象存储到 localStorage，供游戏页面使用
+      localStorage.setItem('pending_game', JSON.stringify(game));
+      console.log('[Check-In Flow] 已保存到 localStorage');
+      
       setCheckInStep(1);
       setMessages(prev => [...prev, {
           id: Date.now().toString(),
           role: 'model',
-          text: `太棒了！我们准备开始玩 **${gameTitle}**。在此之前，为了确保互动效果，请先确认一下：\n\n**1. 孩子现在的情绪怎么样？**`,
+          text: `太棒了！我们准备开始玩 **${game.title}**。在此之前，为了确保互动效果，请先确认一下：\n\n**1. 孩子现在的情绪怎么样？**`,
           timestamp: new Date(),
           options: ["开心/兴奋", "平静/专注", "烦躁/低落"]
       }]);
@@ -773,7 +785,12 @@ const PageAIChat = ({
             setTimeout(() => {
                 setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "收到，状态确认完毕！正在为您进入游戏页面...", timestamp: new Date() }]);
                 setTimeout(() => {
-                    if (targetGameId) onStartGame(targetGameId);
+                    console.log('[Check-In Flow] 准备跳转到游戏页面，gameId:', targetGameId);
+                    if (targetGameId) {
+                        onStartGame(targetGameId);
+                    } else {
+                        console.error('[Check-In Flow] targetGameId 为空！');
+                    }
                     setCheckInStep(0);
                     setTargetGameId(null);
                 }, 1500);
@@ -821,15 +838,57 @@ const PageAIChat = ({
             
             switch (toolCall.function.name) {
               case 'recommend_game':
-                // 添加游戏推荐卡片到响应中
-                fullResponse += `\n\n:::GAME_RECOMMENDATION:${JSON.stringify(args)}:::`;
-                setMessages(prev => 
-                  prev.map(msg => 
-                    msg.id === tempMsgId 
-                      ? { ...msg, text: fullResponse }
-                      : msg
-                  )
-                );
+                // 使用联网搜索推荐游戏
+                (async () => {
+                  try {
+                    console.log('[Tool Call] 开始联网搜索推荐游戏...');
+                    
+                    // 添加加载提示
+                    fullResponse += `\n\n🔍 正在联网搜索适合的游戏...`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                    
+                    // 调用联网搜索推荐
+                    const { recommendGame } = await import('./services/qwenService');
+                    const recommendation = await recommendGame(profileContext);
+                    
+                    if (recommendation) {
+                      console.log('[Tool Call] 推荐成功:', recommendation);
+                      
+                      // 移除加载提示，添加推荐卡片
+                      fullResponse = fullResponse.replace('🔍 正在联网搜索适合的游戏...', '');
+                      fullResponse += `\n\n:::GAME_RECOMMENDATION:${JSON.stringify(recommendation)}:::`;
+                    } else {
+                      console.warn('[Tool Call] 推荐失败，未找到合适的游戏');
+                      fullResponse = fullResponse.replace('🔍 正在联网搜索适合的游戏...', '');
+                      fullResponse += `\n\n抱歉，暂时没有找到合适的游戏推荐。`;
+                    }
+                    
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  } catch (error) {
+                    console.error('[Tool Call] 推荐游戏失败:', error);
+                    fullResponse = fullResponse.replace('🔍 正在联网搜索适合的游戏...', '');
+                    fullResponse += `\n\n推荐游戏时出现错误，请稍后重试。`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  }
+                })();
                 break;
                 
               case 'log_behavior':
@@ -907,6 +966,70 @@ const PageAIChat = ({
                       : msg
                   )
                 );
+                break;
+                
+              case 'generate_assessment':
+                // 调用综合评估Agent
+                (async () => {
+                  try {
+                    console.log('[综合评估] 开始生成评估报告...');
+                    
+                    // 添加加载提示
+                    fullResponse += `\n\n🔄 正在生成综合评估报告，请稍候...`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                    
+                    // 获取历史数据
+                    const historicalData = collectHistoricalData();
+                    
+                    // 获取当前孩子档案（从父组件传递的profileContext中提取）
+                    // 这里需要从localStorage获取完整的childProfile
+                    const storedProfile = localStorage.getItem('asd_floortime_child_profile');
+                    if (!storedProfile) {
+                      throw new Error('未找到孩子档案，请先完成初始设置');
+                    }
+                    const currentChildProfile = JSON.parse(storedProfile);
+                    
+                    // 调用综合评估Agent
+                    const assessment = await generateComprehensiveAssessment(
+                      currentChildProfile,
+                      historicalData
+                    );
+                    
+                    console.log('[综合评估] 评估完成:', assessment);
+                    
+                    // 保存评估结果
+                    saveAssessment(assessment);
+                    
+                    // 移除加载提示，添加评估结果卡片
+                    fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
+                    fullResponse += `\n\n:::ASSESSMENT_CARD:${JSON.stringify(assessment)}:::`;
+                    
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  } catch (error) {
+                    console.error('[综合评估] 生成失败:', error);
+                    fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
+                    fullResponse += `\n\n❌ 评估报告生成失败：${error instanceof Error ? error.message : '未知错误'}`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  }
+                })();
                 break;
             }
           } catch (e) {
@@ -1024,6 +1147,7 @@ const PageAIChat = ({
     const navRegex = /:::NAVIGATION_CARD:\s*([\s\S]*?)\s*:::/;
     const behaviorRegex = /:::BEHAVIOR_LOG_CARD:\s*([\s\S]*?)\s*:::/;
     const weeklyRegex = /:::WEEKLY_PLAN_CARD:\s*([\s\S]*?)\s*:::/;
+    const assessmentRegex = /:::ASSESSMENT_CARD:\s*([\s\S]*?)\s*:::/;
     
     let cleanText = text;
     let card: any = null;
@@ -1041,11 +1165,15 @@ const PageAIChat = ({
     const weeklyMatch = text.match(weeklyRegex);
     if (weeklyMatch?.[1] && !card) { try { card = { ...JSON.parse(weeklyMatch[1]), type: 'WEEKLY' }; } catch (e) {} }
 
+    const assessmentMatch = text.match(assessmentRegex);
+    if (assessmentMatch?.[1] && !card) { try { card = { ...JSON.parse(assessmentMatch[1]), type: 'ASSESSMENT' }; } catch (e) {} }
+
     cleanText = cleanText
         .replace(gameRegex, '')
         .replace(navRegex, '')
         .replace(behaviorRegex, '')
         .replace(weeklyRegex, '')
+        .replace(assessmentRegex, '')
         .trim();
         
     return { cleanText, card };
@@ -1102,7 +1230,7 @@ const PageAIChat = ({
                    <div className="flex items-center space-x-2 mb-2"><Sparkles className="w-4 h-4 text-secondary" /><span className="text-xs font-bold text-secondary uppercase">推荐游戏 (基于分析)</span></div>
                    <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
-                   <button onClick={() => startCheckInFlow(card.id, card.title)} className="w-full bg-secondary text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-blue-600 transition"><Play className="w-4 h-4 mr-2" /> 开始游戏</button>
+                   <button onClick={() => startCheckInFlow(card)} className="w-full bg-secondary text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-blue-600 transition"><Play className="w-4 h-4 mr-2" /> 开始游戏</button>
                 </div>
               )}
               {card && card.type === 'NAV' && (
@@ -1176,6 +1304,106 @@ const PageAIChat = ({
                     </div>
                     <button onClick={() => navigateTo(Page.CALENDAR)} className="w-full mt-3 text-xs font-bold text-gray-400 hover:text-accent transition flex items-center justify-center py-2">查看完整日历 <ChevronRight className="w-3 h-3 ml-1" /></button>
                  </div>
+              )}
+              {card && card.type === 'ASSESSMENT' && (
+                <div className="mt-2 w-full max-w-[95%] bg-gradient-to-br from-purple-50 to-blue-50 p-5 rounded-2xl border border-purple-200 shadow-lg animate-in fade-in">
+                  {/* 标题 */}
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-purple-200">
+                    <div className="flex items-center space-x-2">
+                      <div className="bg-purple-500 p-2 rounded-full">
+                        <Award className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="font-bold text-gray-800 text-lg">综合评估报告</span>
+                    </div>
+                    <span className="text-xs bg-purple-500 text-white px-3 py-1 rounded-full font-bold">
+                      {new Date(card.timestamp).toLocaleDateString('zh-CN')}
+                    </span>
+                  </div>
+
+                  {/* 当前画像 */}
+                  <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
+                    <div className="flex items-center mb-2">
+                      <User className="w-4 h-4 text-purple-600 mr-2" />
+                      <h4 className="font-bold text-gray-800">当前画像</h4>
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed">{card.currentProfile}</p>
+                  </div>
+
+                  {/* 关键发现 */}
+                  {card.keyFindings && card.keyFindings.length > 0 && (
+                    <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
+                      <div className="flex items-center mb-2">
+                        <Lightbulb className="w-4 h-4 text-yellow-600 mr-2" />
+                        <h4 className="font-bold text-gray-800">关键发现</h4>
+                      </div>
+                      <ul className="space-y-1.5">
+                        {card.keyFindings.map((finding: string, i: number) => (
+                          <li key={i} className="text-sm text-gray-700 flex items-start">
+                            <span className="text-yellow-500 mr-2">•</span>
+                            <span>{finding}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* 优势与关注点 */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {/* 优势 */}
+                    {card.strengths && card.strengths.length > 0 && (
+                      <div className="bg-green-50 rounded-xl p-3 border border-green-200">
+                        <div className="flex items-center mb-2">
+                          <Smile className="w-4 h-4 text-green-600 mr-1" />
+                          <h5 className="font-bold text-green-800 text-xs">优势</h5>
+                        </div>
+                        <ul className="space-y-1">
+                          {card.strengths.map((strength: string, i: number) => (
+                            <li key={i} className="text-xs text-gray-700 flex items-start">
+                              <span className="text-green-500 mr-1">✓</span>
+                              <span>{strength}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* 关注点 */}
+                    {card.concerns && card.concerns.length > 0 && (
+                      <div className="bg-orange-50 rounded-xl p-3 border border-orange-200">
+                        <div className="flex items-center mb-2">
+                          <Eye className="w-4 h-4 text-orange-600 mr-1" />
+                          <h5 className="font-bold text-orange-800 text-xs">关注点</h5>
+                        </div>
+                        <ul className="space-y-1">
+                          {card.concerns.map((concern: string, i: number) => (
+                            <li key={i} className="text-xs text-gray-700 flex items-start">
+                              <span className="text-orange-500 mr-1">!</span>
+                              <span>{concern}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 下一步建议 */}
+                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                    <div className="flex items-center mb-2">
+                      <ArrowRight className="w-4 h-4 text-blue-600 mr-2" />
+                      <h4 className="font-bold text-blue-800">下一步建议</h4>
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed">{card.nextStepSuggestion}</p>
+                  </div>
+
+                  {/* 查看详情按钮 */}
+                  <button 
+                    onClick={() => navigateTo(Page.PROFILE)}
+                    className="w-full mt-4 bg-purple-500 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center hover:bg-purple-600 transition shadow-md"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    查看完整档案
+                  </button>
+                </div>
               )}
             </div>
           );
@@ -1346,7 +1574,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
                 const config = getDimensionConfig(match.dimension);
                 const weightPercentage = (match.weight * 100).toFixed(0);
                 const intensity = match.intensity !== undefined ? match.intensity : 0;
-                const intensityPercentage = Math.abs(intensity * 100).toFixed(0);
+                const intensityPercentage = Math.abs(intensity * 100);
                 const isPositive = intensity >= 0;
                 
                 return (
@@ -1870,11 +2098,12 @@ const PageGames = ({
   onProfileUpdate: (u: ProfileUpdate) => void,
   activeGame?: Game
 }) => {
+  const MOCK_GAMES = getAllGames(); // 使用 RAG 服务的游戏库
+  
   const [internalActiveGame, setInternalActiveGame] = useState<Game | undefined>(
       activeGame || (initialGameId ? MOCK_GAMES.find(g => g.id === initialGameId) : undefined)
   );
-  useEffect(() => { if (initialGameId && !internalActiveGame) setInternalActiveGame(MOCK_GAMES.find(g => g.id === initialGameId)); }, [initialGameId]);
-
+  
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [timer, setTimer] = useState(0);
   const [currentStepIndex, setCurrentStepIndex] = useState(0); 
@@ -1886,16 +2115,50 @@ const PageGames = ({
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('全部');
   const FILTERS = ['全部', '共同注意', '自我调节', '亲密感', '双向沟通', '情绪思考', '创造力'];
-
+  
   useEffect(() => {
-    if (initialGameId && gameState !== GameState.PLAYING) {
+    if (initialGameId && !internalActiveGame) {
+        console.log('[Game Page] 初始化游戏，ID:', initialGameId);
+        
+        // 先尝试从 localStorage 获取待开始的游戏（来自聊天推荐）
+        const pendingGameStr = localStorage.getItem('pending_game');
+        console.log('[Game Page] pending_game 内容:', pendingGameStr ? '存在' : '不存在');
+        
+        if (pendingGameStr) {
+          try {
+            const pendingGame = JSON.parse(pendingGameStr);
+            console.log('[Game Page] 解析的游戏:', pendingGame);
+            console.log('[Game Page] 游戏步骤数:', pendingGame.steps?.length);
+            
+            if (pendingGame.id === initialGameId) {
+              console.log('[Game Page] ✅ 加载推荐的游戏:', pendingGame.title);
+              setInternalActiveGame(pendingGame);
+              setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false);
+              // 不要立即删除，等组件稳定后再删除（避免 React Strict Mode 重复执行）
+              setTimeout(() => {
+                localStorage.removeItem('pending_game');
+                console.log('[Game Page] 已清除 pending_game');
+              }, 100);
+              return;
+            } else {
+              console.log('[Game Page] ⚠️  游戏ID不匹配:', pendingGame.id, '!=', initialGameId);
+            }
+          } catch (e) {
+            console.error('[Game Page] ❌ 解析待开始游戏失败:', e);
+          }
+        }
+        
+        // 如果没有待开始的游戏，从游戏库中查找
         const game = MOCK_GAMES.find(g => g.id === initialGameId);
         if (game) {
+            console.log('[Game Page] 从游戏库加载游戏:', game.title);
             setInternalActiveGame(game);
             setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false);
+        } else {
+            console.warn('[Game Page] ❌ 未找到游戏:', initialGameId);
         }
     }
-  }, [initialGameId]);
+  }, [initialGameId, internalActiveGame]);
 
   useEffect(() => {
     if (gameState === GameState.PLAYING) { timerRef.current = setInterval(() => setTimer(t => t + 1), 1000); } 
@@ -2105,7 +2368,13 @@ export default function App() {
   };
 
   const handleNavigate = (page: Page) => { setCurrentPage(page); setActiveGameId(undefined); setGameMode(GameState.LIST); };
-  const handleStartGame = (gameId: string) => { setActiveGameId(gameId); setGameMode(GameState.PLAYING); setCurrentPage(Page.GAMES); };
+  const handleStartGame = (gameId: string) => { 
+    console.log('[App] handleStartGame 被调用，gameId:', gameId);
+    setActiveGameId(gameId); 
+    setGameMode(GameState.PLAYING); 
+    setCurrentPage(Page.GAMES);
+    console.log('[App] 已设置 activeGameId:', gameId, 'gameMode: PLAYING, currentPage: GAMES');
+  };
   const handleUpdateTrend = (newScore: number) => { setTrendData(prev => [...prev, { name: '本次', engagement: newScore }]); };
   
   // 计算年龄的辅助函数
