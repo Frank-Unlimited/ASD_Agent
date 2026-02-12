@@ -657,12 +657,14 @@ const PageAIChat = ({
   navigateTo, 
   onStartGame, 
   onProfileUpdate, 
-  profileContext 
+  profileContext,
+  childProfile
 }: { 
   navigateTo: (p: Page) => void, 
   onStartGame: (id: string) => void, 
   onProfileUpdate: (u: ProfileUpdate) => void,
-  profileContext: string // Passed from App parent
+  profileContext: string, // Passed from App parent
+  childProfile: ChildProfile | null
 }) => {
   // 从 localStorage 加载聊天历史
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -803,6 +805,9 @@ const PageAIChat = ({
 
     setLoading(true);
     
+    // 捕获当前的 childProfile 值，避免闭包问题
+    const currentChildProfile = childProfile;
+    
     // 创建一个临时消息用于流式更新
     const tempMsgId = (Date.now() + 1).toString();
     const tempMsg: ChatMessage = { 
@@ -839,8 +844,340 @@ const PageAIChat = ({
             const args = JSON.parse(toolCall.function.arguments);
             
             switch (toolCall.function.name) {
+              case 'suggest_game_directions':
+                // 阶段1：生成游戏方向建议
+                (async () => {
+                  try {
+                    console.log('[Tool Call] 生成游戏方向建议...');
+                    
+                    fullResponse += `\n\n🎯 正在分析${currentChildProfile?.name || '孩子'}的档案，生成游戏方向建议...`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                    
+                    // 调用协商式对话 Agent
+                    const { generateGameDirections } = await import('./services/gameRecommendConversationalAgent');
+                    const { collectHistoricalData } = await import('./services/historicalDataHelper');
+                    
+                    // 收集历史数据
+                    const historicalData = collectHistoricalData();
+                    
+                    // 获取最新评估（可选）
+                    const { getLatestAssessment } = await import('./services/assessmentStorage');
+                    const latestAssessment = getLatestAssessment();
+                    
+                    if (!currentChildProfile) {
+                      fullResponse = fullResponse.replace(/🎯 正在分析.*?生成游戏方向建议\.\.\./, '');
+                      fullResponse += `\n\n需要先完善孩子的档案信息才能推荐游戏哦。`;
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.id === tempMsgId 
+                            ? { ...msg, text: fullResponse }
+                            : msg
+                        )
+                      );
+                      return;
+                    }
+                    
+                    // 即使没有评估也可以推荐游戏
+                    const directions = await generateGameDirections(
+                      currentChildProfile,
+                      latestAssessment,
+                      historicalData
+                    );
+                    
+                    if (directions.length > 0) {
+                      console.log('[Tool Call] 生成方向成功:', directions);
+                      
+                      fullResponse = fullResponse.replace(/🎯 正在分析.*?生成游戏方向建议\.\.\./, '');
+                      
+                      // 适度详细的文本，不要太简单也不要太冗长
+                      fullResponse += `\n\n根据${currentChildProfile.name}的情况，我推荐这几个方向：\n\n`;
+                      
+                      directions.forEach((dir, index) => {
+                        fullResponse += `**${index + 1}. ${dir.name}**\n`;
+                        fullResponse += `💡 ${dir.reason}\n`;
+                        fullResponse += `🎯 目标：${dir.goal}\n`;
+                        fullResponse += `📍 ${dir.scene}\n\n`;
+                      });
+                      
+                      fullResponse += `您想试试哪个方向？也可以告诉我您的想法。`;
+                      
+                      // 不再显示卡片，只保存方向数据供后续使用
+                      // 将方向数据存储到 sessionStorage，供后续检索游戏时使用
+                      sessionStorage.setItem('game_directions', JSON.stringify(directions));
+                    } else {
+                      fullResponse = fullResponse.replace(/🎯 正在分析.*?生成游戏方向建议\.\.\./, '');
+                      fullResponse += `\n\n抱歉，暂时无法生成游戏方向建议。`;
+                    }
+                    
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  } catch (error) {
+                    console.error('[Tool Call] 生成游戏方向失败:', error);
+                    fullResponse = fullResponse.replace(/🎯 正在分析.*?生成游戏方向建议\.\.\./, '');
+                    fullResponse += `\n\n生成游戏方向时出现错误，请稍后重试。`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  }
+                })();
+                break;
+                
+              case 'search_candidate_games':
+                // 阶段2：检索候选游戏
+                (async () => {
+                  try {
+                    console.log('[Tool Call] 检索候选游戏...', args);
+                    
+                    fullResponse += `\n\n🔍 正在为您检索"${args.directionName}"方向的游戏...`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                    
+                    // 这里需要从之前的对话中找到选定的方向
+                    // 简化处理：直接使用 directionName 构建一个临时方向对象
+                    const tempDirection = {
+                      name: args.directionName,
+                      reason: '',
+                      goal: args.directionName,
+                      scene: ''
+                    };
+                    
+                    const { searchCandidateGames } = await import('./services/gameRecommendConversationalAgent');
+                    const { getLatestAssessment } = await import('./services/assessmentStorage');
+                    
+                    const latestAssessment = getLatestAssessment();
+                    if (!currentChildProfile) {
+                      fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
+                      fullResponse += `\n\n需要先完善孩子的档案信息。`;
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.id === tempMsgId 
+                            ? { ...msg, text: fullResponse }
+                            : msg
+                        )
+                      );
+                      return;
+                    }
+                    
+                    // 即使没有评估也可以检索游戏
+                    const candidateGames = await searchCandidateGames(
+                      tempDirection,
+                      currentChildProfile,
+                      latestAssessment,
+                      args.count || 3
+                    );
+                    
+                    if (candidateGames.length > 0) {
+                      console.log('[Tool Call] 检索成功:', candidateGames);
+                      
+                      fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
+                      fullResponse += `\n\n找到了几个适合的游戏：\n\n`;
+                      
+                      candidateGames.forEach((game, index) => {
+                        fullResponse += `${index + 1}. **${game.title}**\n`;
+                        fullResponse += `玩法：${game.reason}\n`;
+                        fullResponse += `⏱️ ${game.duration} | 难度：${game.difficulty} | 材料：${game.materials}\n\n`;
+                      });
+                      
+                      fullResponse += `您想试试哪个？`;
+                      
+                      // 不再显示卡片，只保存候选游戏数据供后续使用
+                      sessionStorage.setItem('candidate_games', JSON.stringify(candidateGames));
+                    } else {
+                      fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
+                      fullResponse += `\n\n抱歉，暂时没有找到合适的游戏。`;
+                    }
+                    
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  } catch (error) {
+                    console.error('[Tool Call] 检索候选游戏失败:', error);
+                    fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
+                    fullResponse += `\n\n检索游戏时出现错误，请稍后重试。`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  }
+                })();
+                break;
+                
+              case 'recommend_game_final':
+                // 阶段3：生成最终游戏卡片
+                (async () => {
+                  try {
+                    console.log('[Tool Call] 生成最终游戏卡片...', args);
+                    
+                    fullResponse += `\n\n✨ 正在生成游戏实施方案...`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                    
+                    // 从 sessionStorage 获取候选游戏列表
+                    const candidateGamesStr = sessionStorage.getItem('candidate_games');
+                    let selectedGame = null;
+                    
+                    if (candidateGamesStr) {
+                      const candidateGames = JSON.parse(candidateGamesStr);
+                      
+                      // 尝试通过 gameId 匹配
+                      selectedGame = candidateGames.find((g: any) => g.id === args.gameId);
+                      
+                      // 如果没找到，尝试通过游戏名称匹配
+                      if (!selectedGame && args.gameId) {
+                        selectedGame = candidateGames.find((g: any) => 
+                          g.title.includes(args.gameId) || args.gameId.includes(g.title)
+                        );
+                      }
+                      
+                      // 如果还是没找到，尝试通过序号匹配（如"第一个"、"1"）
+                      if (!selectedGame) {
+                        const indexMatch = args.gameId.match(/第?([一二三1-3])个?/);
+                        if (indexMatch) {
+                          const numMap: any = { '一': 0, '二': 1, '三': 2, '1': 0, '2': 1, '3': 2 };
+                          const index = numMap[indexMatch[1]];
+                          if (index !== undefined && candidateGames[index]) {
+                            selectedGame = candidateGames[index];
+                          }
+                        }
+                      }
+                    }
+                    
+                    if (!selectedGame) {
+                      fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
+                      fullResponse += `\n\n抱歉，未找到该游戏。`;
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.id === tempMsgId 
+                            ? { ...msg, text: fullResponse }
+                            : msg
+                        )
+                      );
+                      return;
+                    }
+                    
+                    // 优先使用候选游戏中保存的完整游戏对象
+                    let fullGame = selectedGame.fullGame;
+                    
+                    // 如果没有完整游戏对象，尝试从游戏库中获取
+                    if (!fullGame) {
+                      const { getAllGames } = await import('./services/ragService');
+                      const allGames = getAllGames();
+                      fullGame = allGames.find(g => g.id === selectedGame.id);
+                    }
+                    
+                    if (!fullGame) {
+                      fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
+                      fullResponse += `\n\n抱歉，未找到该游戏的完整信息。`;
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.id === tempMsgId 
+                            ? { ...msg, text: fullResponse }
+                            : msg
+                        )
+                      );
+                      return;
+                    }
+                    
+                    const { generateImplementationPlan } = await import('./services/gameRecommendConversationalAgent');
+                    const { getLatestAssessment } = await import('./services/assessmentStorage');
+                    
+                    const latestAssessment = getLatestAssessment();
+                    if (!currentChildProfile) {
+                      fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
+                      fullResponse += `\n\n需要先完善孩子的档案信息。`;
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.id === tempMsgId 
+                            ? { ...msg, text: fullResponse }
+                            : msg
+                        )
+                      );
+                      return;
+                    }
+                    
+                    // 使用完整的游戏对象生成实施方案
+                    const plan = await generateImplementationPlan(
+                      fullGame,
+                      currentChildProfile,
+                      latestAssessment,
+                      args.customizations || []
+                    );
+                    
+                    console.log('[Tool Call] 生成实施方案成功:', plan);
+                    
+                    fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
+                    fullResponse += `\n\n太棒了！我为"${fullGame.title}"制定了一套完整的实施方案：\n\n`;
+                    
+                    // 显示游戏步骤概览
+                    fullResponse += `📋 **游戏流程**\n`;
+                    plan.steps.forEach((step, index) => {
+                      fullResponse += `${index + 1}. ${step.title}（${step.duration}）\n`;
+                    });
+                    
+                    fullResponse += `\n👨‍👩‍👧 **家长指导要点**\n`;
+                    plan.parentGuidance.slice(0, 2).forEach((guide, index) => {
+                      fullResponse += `• ${guide}\n`;
+                    });
+                    
+                    fullResponse += `\n如果您觉得这个方案合适，我们就可以开始游戏了！\n\n`;
+                    fullResponse += `:::GAME_IMPLEMENTATION_PLAN:${JSON.stringify({ game: fullGame, plan })}:::`;
+                    
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  } catch (error) {
+                    console.error('[Tool Call] 生成最终游戏失败:', error);
+                    fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
+                    fullResponse += `\n\n生成游戏方案时出现错误，请稍后重试。`;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === tempMsgId 
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
+                  }
+                })();
+                break;
+              
               case 'recommend_game':
-                // 使用联网搜索推荐游戏
+                // 保留旧的推荐方式作为后备
                 (async () => {
                   try {
                     console.log('[Tool Call] 开始联网搜索推荐游戏...');
@@ -989,13 +1326,10 @@ const PageAIChat = ({
                     // 获取历史数据
                     const historicalData = collectHistoricalData();
                     
-                    // 获取当前孩子档案（从父组件传递的profileContext中提取）
-                    // 这里需要从localStorage获取完整的childProfile
-                    const storedProfile = localStorage.getItem('asd_floortime_child_profile');
-                    if (!storedProfile) {
+                    // 使用外层已捕获的 currentChildProfile
+                    if (!currentChildProfile) {
                       throw new Error('未找到孩子档案，请先完成初始设置');
                     }
-                    const currentChildProfile = JSON.parse(storedProfile);
                     
                     // 调用综合评估Agent
                     const assessment = await generateComprehensiveAssessment(
@@ -1163,6 +1497,9 @@ const PageAIChat = ({
     const behaviorRegex = /:::BEHAVIOR_LOG_CARD:\s*([\s\S]*?)\s*:::/;
     const weeklyRegex = /:::WEEKLY_PLAN_CARD:\s*([\s\S]*?)\s*:::/;
     const assessmentRegex = /:::ASSESSMENT_CARD:\s*([\s\S]*?)\s*:::/;
+    const directionsRegex = /:::GAME_DIRECTIONS:\s*([\s\S]*?)\s*:::/;
+    const candidateGamesRegex = /:::CANDIDATE_GAMES:\s*([\s\S]*?)\s*:::/;
+    const implementationPlanRegex = /:::GAME_IMPLEMENTATION_PLAN:\s*([\s\S]*?)\s*:::/;
     
     let cleanText = text;
     let card: any = null;
@@ -1183,12 +1520,24 @@ const PageAIChat = ({
     const assessmentMatch = text.match(assessmentRegex);
     if (assessmentMatch?.[1] && !card) { try { card = { ...JSON.parse(assessmentMatch[1]), type: 'ASSESSMENT' }; } catch (e) {} }
 
+    const directionsMatch = text.match(directionsRegex);
+    if (directionsMatch?.[1] && !card) { try { card = { directions: JSON.parse(directionsMatch[1]), type: 'DIRECTIONS' }; } catch (e) {} }
+
+    const candidateGamesMatch = text.match(candidateGamesRegex);
+    if (candidateGamesMatch?.[1] && !card) { try { card = { games: JSON.parse(candidateGamesMatch[1]), type: 'CANDIDATE_GAMES' }; } catch (e) {} }
+
+    const implementationPlanMatch = text.match(implementationPlanRegex);
+    if (implementationPlanMatch?.[1] && !card) { try { card = { ...JSON.parse(implementationPlanMatch[1]), type: 'IMPLEMENTATION_PLAN' }; } catch (e) {} }
+
     cleanText = cleanText
         .replace(gameRegex, '')
         .replace(navRegex, '')
         .replace(behaviorRegex, '')
         .replace(weeklyRegex, '')
         .replace(assessmentRegex, '')
+        .replace(directionsRegex, '')
+        .replace(candidateGamesRegex, '')
+        .replace(implementationPlanRegex, '')
         .trim();
         
     return { cleanText, card };
@@ -1365,6 +1714,181 @@ const PageAIChat = ({
                   >
                     <FileText className="w-4 h-4 mr-2" />
                     在档案页面查看完整报告
+                  </button>
+                </div>
+              )}
+              
+              {/* 游戏方向选择卡片 */}
+              {card && card.type === 'DIRECTIONS' && card.directions && (
+                <div className="mt-2 w-full max-w-[95%] space-y-3 animate-in fade-in">
+                  {card.directions.map((dir: any, idx: number) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSend(`我选择方向${idx + 1}：${dir.name}`)}
+                      className="w-full text-left p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition shadow-sm active:scale-98"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-bold text-gray-800 text-base flex items-center">
+                          <span className="bg-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">{idx + 1}</span>
+                          {dir.name}
+                        </h4>
+                        <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2 leading-relaxed">{dir.reason}</p>
+                      <div className="flex items-center justify-between text-xs text-gray-500 mt-3 pt-2 border-t border-gray-100">
+                        <span className="flex items-center"><Zap className="w-3 h-3 mr-1" /> {dir.goal}</span>
+                        <span className="flex items-center"><Tag className="w-3 h-3 mr-1" /> {dir.scene}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {/* 候选游戏卡片 */}
+              {card && card.type === 'CANDIDATE_GAMES' && card.games && (
+                <div className="mt-2 w-full max-w-[95%] space-y-3 animate-in fade-in">
+                  {card.games.map((game: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="w-full bg-white border-2 border-gray-200 rounded-xl shadow-sm overflow-hidden"
+                    >
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-bold text-gray-800 text-base flex items-center">
+                            <Gamepad2 className="w-5 h-5 text-secondary mr-2" />
+                            {game.title}
+                          </h4>
+                          <div className="flex items-center text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                            {'★'.repeat(game.difficulty)}{'☆'.repeat(5 - game.difficulty)}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-3 leading-relaxed">{game.summary}</p>
+                        <div className="bg-blue-50 rounded-lg p-3 mb-3">
+                          <p className="text-xs text-blue-800 leading-relaxed">{game.reason}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">⏱️ {game.duration}</span>
+                          {game.materials.map((m: string, i: number) => (
+                            <span key={i} className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full">📦 {m}</span>
+                          ))}
+                        </div>
+                        {game.challenges && game.challenges.length > 0 && (
+                          <div className="text-xs text-gray-500 mb-3">
+                            <p className="font-medium mb-1">💡 应对建议：</p>
+                            <ul className="space-y-1 pl-4">
+                              {game.challenges.slice(0, 2).map((c: string, i: number) => (
+                                <li key={i} className="list-disc">{c}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleSend(`我选择游戏${idx + 1}：${game.title}`)}
+                        className="w-full bg-secondary text-white py-3 font-bold hover:bg-blue-600 transition flex items-center justify-center"
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        选择这个游戏
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* 游戏实施方案卡片 */}
+              {card && card.type === 'IMPLEMENTATION_PLAN' && card.game && card.plan && (
+                <div className="mt-2 w-full max-w-[95%] bg-gradient-to-br from-green-50 to-blue-50 p-5 rounded-2xl border border-green-200 shadow-lg animate-in fade-in">
+                  {/* 标题 */}
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-green-200">
+                    <div className="flex items-center space-x-2">
+                      <div className="bg-green-500 p-2 rounded-full">
+                        <Gamepad2 className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="font-bold text-gray-800 text-lg">{card.game.title}</span>
+                    </div>
+                    <span className="text-xs bg-green-500 text-white px-3 py-1 rounded-full font-bold">实施方案</span>
+                  </div>
+
+                  {/* 游戏步骤 */}
+                  <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
+                    <h4 className="font-bold text-gray-800 mb-3 flex items-center">
+                      <ListOrdered className="w-4 h-4 text-green-600 mr-2" />
+                      游戏步骤
+                    </h4>
+                    <div className="space-y-3">
+                      {card.plan.steps.map((step: any, idx: number) => (
+                        <div key={idx} className="border-l-4 border-green-300 pl-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-sm text-gray-800">{step.title}</span>
+                            <span className="text-xs text-gray-500">{step.duration}</span>
+                          </div>
+                          <ul className="space-y-1">
+                            {step.instructions.map((inst: string, i: number) => (
+                              <li key={i} className="text-xs text-gray-600 list-disc ml-4">{inst}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 家长指导 */}
+                  <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
+                    <h4 className="font-bold text-gray-800 mb-2 flex items-center">
+                      <Users className="w-4 h-4 text-blue-600 mr-2" />
+                      家长指导要点
+                    </h4>
+                    <ul className="space-y-2">
+                      {card.plan.parentGuidance.map((guide: string, idx: number) => (
+                        <li key={idx} className="text-xs text-gray-700 flex items-start">
+                          <span className="text-blue-500 mr-2">•</span>
+                          <span>{guide}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* 预期效果 */}
+                  <div className="mb-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl p-4 shadow-sm">
+                    <h4 className="font-bold mb-2 flex items-center">
+                      <Sparkles className="w-4 h-4 text-yellow-300 mr-2" />
+                      预期效果
+                    </h4>
+                    <ul className="space-y-1">
+                      {card.plan.expectedOutcome.map((outcome: string, idx: number) => (
+                        <li key={idx} className="text-xs flex items-start">
+                          <span className="mr-2">✓</span>
+                          <span>{outcome}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* 问题应对 */}
+                  {card.plan.troubleshooting && card.plan.troubleshooting.length > 0 && (
+                    <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
+                      <h4 className="font-bold text-gray-800 mb-2 flex items-center">
+                        <Lightbulb className="w-4 h-4 text-amber-600 mr-2" />
+                        问题应对
+                      </h4>
+                      <div className="space-y-2">
+                        {card.plan.troubleshooting.map((item: any, idx: number) => (
+                          <div key={idx} className="text-xs">
+                            <p className="text-gray-700 font-medium">❓ {item.problem}</p>
+                            <p className="text-gray-600 ml-4 mt-1">💡 {item.solution}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 开始游戏按钮 */}
+                  <button 
+                    onClick={() => startCheckInFlow(card.game)}
+                    className="w-full bg-gradient-to-r from-green-500 to-blue-500 text-white py-3 rounded-xl font-bold hover:shadow-lg transition flex items-center justify-center"
+                  >
+                    <Play className="w-5 h-5 mr-2" />
+                    开始游戏
                   </button>
                 </div>
               )}
@@ -2523,7 +3047,7 @@ export default function App() {
       <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 z-10 sticky top-0"><div className="flex items-center">{currentPage !== Page.CHAT && currentPage !== Page.WELCOME && (<button onClick={() => setCurrentPage(Page.CHAT)} className="mr-3 text-gray-500 hover:text-primary transition"><ChevronLeft className="w-6 h-6" /></button>)}{currentPage === Page.CHAT && (<button onClick={() => setSidebarOpen(true)} className="mr-3 text-gray-700 hover:text-primary transition"><Menu className="w-6 h-6" /></button>)}<h1 className="text-lg font-bold text-gray-800">{getHeaderTitle()}</h1></div>{currentPage === Page.GAMES && gameMode === GameState.PLAYING ? (<button onClick={() => setGameMode(GameState.SUMMARY)} className="text-red-500 font-bold text-sm h-8 flex items-center px-2 rounded hover:bg-red-50 transition">结束</button>) : currentPage !== Page.WELCOME && (<div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden border border-gray-200"><img src={childProfile?.avatar || 'https://ui-avatars.com/api/?name=User&background=random&size=200'} alt="User" /></div>)}</header>
       <main className="flex-1 overflow-hidden relative">
         {currentPage === Page.WELCOME && <PageWelcome onComplete={handleWelcomeComplete} />}
-        {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} />}
+        {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} childProfile={childProfile} />}
         {currentPage === Page.CALENDAR && <PageCalendar navigateTo={handleNavigate} onStartGame={handleStartGame} />}
         {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} />}
         {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}

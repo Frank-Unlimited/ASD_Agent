@@ -76,7 +76,7 @@ export const recommendGameForChild = async (
     const data = JSON.parse(response);
     
     return {
-      id: `recommendation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `recommendation_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       timestamp: new Date().toISOString(),
       assessmentId: latestAssessment.id,
       ...data
@@ -131,11 +131,8 @@ function buildChildContext(
 当前画像：
 ${assessment.currentProfile}
 
-优势：
-${assessment.strengths.join('、')}
-
-需要关注：
-${assessment.concerns.join('、')}
+评估摘要：
+${assessment.summary}
 `.trim();
 }
 
@@ -168,23 +165,13 @@ function buildRecommendationPrompt(
 ${latestAssessment.currentProfile}
 
 【最新评估】
+评估摘要：${latestAssessment.summary}
 下一步建议：${latestAssessment.nextStepSuggestion}
 
-关键发现：
-${latestAssessment.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n')}
-
-优势：
-${latestAssessment.strengths.map((s, i) => `${i + 1}. ${s}`).join('\n')}
-
-需要关注：
-${latestAssessment.concerns.map((c, i) => `${i + 1}. ${c}`).join('\n')}
-
 【兴趣维度】
-${latestAssessment.interestSummary}
 高兴趣维度：${highInterests.length > 0 ? highInterests.join(', ') : '暂无明显高兴趣'}
 
 【能力维度】
-${latestAssessment.abilitySummary}
 需要提升：${lowAbilities.length > 0 ? lowAbilities.join(', ') : '整体均衡'}
 
 【家长偏好】
@@ -198,7 +185,7 @@ ${parentPreference.avoidTopics && parentPreference.avoidTopics.length > 0
 ${parentPreference.notes ? `备注：${parentPreference.notes}` : ''}
 
 【候选游戏库】
-${candidateGames.map((g, i) => 
+${candidateGames.map((g, i: number) => 
   `${i + 1}. ID: ${g.id}
    名称：${g.title}
    目标：${g.target}

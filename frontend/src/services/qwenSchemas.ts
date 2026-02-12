@@ -369,9 +369,78 @@ export const GenerateAssessmentTool = {
   }
 };
 
+// 新增：游戏方向建议工具
+export const SuggestGameDirectionsTool = {
+  type: 'function' as const,
+  function: {
+    name: 'suggest_game_directions',
+    description: '基于孩子档案生成3-5个游戏方向建议。当家长询问"推荐游戏"、"今天玩什么"、"推荐今日游戏"等时调用此工具。这是游戏推荐的第一阶段：需求探讨。',
+    parameters: {
+      type: 'object',
+      properties: {
+        reason: {
+          type: 'string',
+          description: '为什么现在推荐游戏，例如：家长询问今天玩什么'
+        }
+      },
+      required: ['reason']
+    }
+  }
+};
+
+// 新增：检索候选游戏工具
+export const SearchCandidateGamesTool = {
+  type: 'function' as const,
+  function: {
+    name: 'search_candidate_games',
+    description: '根据家长选定的游戏方向检索3-5个候选游戏。这是游戏推荐的第二阶段：方案细化。只有在家长明确选择了某个方向后才调用。',
+    parameters: {
+      type: 'object',
+      properties: {
+        directionName: {
+          type: 'string',
+          description: '家长选择的游戏方向名称'
+        },
+        count: {
+          type: 'number',
+          description: '候选游戏数量，默认3',
+          default: 3
+        }
+      },
+      required: ['directionName']
+    }
+  }
+};
+
+// 修改：推荐游戏工具（仅在最终确认后调用）
+export const RecommendGameFinalTool = {
+  type: 'function' as const,
+  function: {
+    name: 'recommend_game_final',
+    description: '生成最终游戏卡片并准备实施。这是游戏推荐的第三阶段：实施确认。只有在家长明确确认要开始某个游戏后才调用此工具。',
+    parameters: {
+      type: 'object',
+      properties: {
+        gameId: {
+          type: 'string',
+          description: '家长选定的游戏ID、游戏名称或序号（如"影子模仿游戏"、"第一个"、"1"）'
+        },
+        customizations: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '家长要求的调整（可选）'
+        }
+      },
+      required: ['gameId']
+    }
+  }
+};
+
 // 所有对话工具
 export const ChatTools = [
-  RecommendGameTool,
+  SuggestGameDirectionsTool,
+  SearchCandidateGamesTool,
+  RecommendGameFinalTool,
   LogBehaviorTool,
   CreateWeeklyPlanTool,
   NavigatePageTool,
