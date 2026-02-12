@@ -171,6 +171,51 @@ export interface GameRecommendation {
   adaptationSuggestions: string[]; // 适应性调整建议
 }
 
+// 游戏推荐对话状态
+export type GameRecommendationState = 
+  | 'idle'              // 空闲状态
+  | 'discussing'        // 需求探讨阶段
+  | 'designing'         // 方案细化阶段
+  | 'confirming'        // 实施确认阶段
+  | 'generating';       // 生成游戏卡片
+
+// 游戏方向建议
+export interface GameDirection {
+  name: string;         // 方向名称
+  reason: string;       // 推荐理由（必须引用具体数据）
+  goal: string;         // 预期目标
+  scene: string;        // 适合场景（室内/户外、时长、难度）
+}
+
+// 候选游戏信息
+export interface CandidateGame {
+  id: string;
+  title: string;
+  summary: string;      // 玩法概述
+  reason: string;       // 为什么适合这个孩子
+  materials: string[];  // 需要准备的材料
+  duration: string;     // 预计时长
+  difficulty: number;   // 难度（1-5星）
+  challenges: string[]; // 可能遇到的挑战和应对
+  fullGame?: Game;      // 完整的游戏对象（可选）
+}
+
+// 游戏实施方案
+export interface GameImplementationPlan {
+  gameId: string;
+  steps: Array<{
+    title: string;
+    duration: string;
+    instructions: string[];
+  }>;
+  parentGuidance: string[];   // 家长指导要点
+  expectedOutcome: string[];  // 预期效果
+  troubleshooting: Array<{    // 问题应对
+    problem: string;
+    solution: string;
+  }>;
+}
+
 // 家长偏好
 export interface ParentPreference {
   duration: 'short' | 'medium' | 'long'; // 游戏时长偏好
