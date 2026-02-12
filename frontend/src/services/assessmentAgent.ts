@@ -69,7 +69,16 @@ export const generateComprehensiveAssessment = async (
     );
 
     console.log('[Assessment Agent] Raw response:', response);
-    let data = JSON.parse(response);
+    
+    // 尝试解析响应
+    let data;
+    try {
+      data = JSON.parse(response);
+    } catch (parseError) {
+      console.error('[Assessment Agent] JSON parse error:', parseError);
+      console.log('[Assessment Agent] Raw response text:', response);
+      throw new Error('无法解析 LLM 响应，请重试');
+    }
     
     // 如果返回的是数组，取第一个元素
     if (Array.isArray(data)) {
@@ -79,31 +88,22 @@ export const generateComprehensiveAssessment = async (
     
     // 检查是否返回了 Schema 定义而不是实际数据
     // Schema 定义会有 "type", "properties", "required" 等字段
-    if (data.type === 'object' && data.properties && !data.currentProfile) {
+    if (data.type === 'object' && data.properties && data.required) {
       console.error('[Assessment Agent] ❌ LLM 返回了 Schema 定义而不是数据！');
       console.log('[Assessment Agent] Schema properties:', Object.keys(data.properties));
       
-      // 尝试从 properties 中提取实际数据（如果有的话）
-      if (data.properties.currentProfile && typeof data.properties.currentProfile === 'object') {
-        // 有些情况下，数据可能在 properties 的子对象中
-        const extractedData: any = {};
-        for (const key of Object.keys(data.properties)) {
-          if (data.properties[key].value) {
-            extractedData[key] = data.properties[key].value;
-          } else if (typeof data.properties[key] === 'string') {
-            extractedData[key] = data.properties[key];
-          }
-        }
-        
-        if (Object.keys(extractedData).length > 0) {
-          console.log('[Assessment Agent] 从 properties 中提取到数据');
-          data = extractedData;
-        } else {
-          throw new Error('LLM 返回了 Schema 定义而不是实际数据，请重试');
-        }
-      } else {
-        throw new Error('LLM 返回了 Schema 定义而不是实际数据，请重试');
-      }
+      // 这是一个常见问题，尝试重新调用
+      throw new Error('LLM 返回了 Schema 定义而不是实际数据。请再试一次，或者稍后重试。');
+    }
+    
+    // 验证必需字段
+    const requiredFields = ['summary', 'currentProfile', 'nextStepSuggestion'];
+    const missingFields = requiredFields.filter(field => !data[field]);
+    
+    if (missingFields.length > 0) {
+      console.error('[Assessment Agent] 缺少必需字段:', missingFields);
+      console.log('[Assessment Agent] 实际返回的字段:', Object.keys(data));
+      throw new Error(`评估数据不完整，缺少字段: ${missingFields.join(', ')}`);
     }
     
     console.log('[Assessment Agent] Parsed data:', data);
@@ -111,13 +111,9 @@ export const generateComprehensiveAssessment = async (
     const assessment: ComprehensiveAssessment = {
       id: `assessment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date().toISOString(),
+      summary: data.summary || '',
       currentProfile: data.currentProfile || '',
-      nextStepSuggestion: data.nextStepSuggestion || '',
-      interestSummary: data.interestSummary || '',
-      abilitySummary: data.abilitySummary || '',
-      keyFindings: data.keyFindings || [],
-      concerns: data.concerns || [],
-      strengths: data.strengths || []
+      nextStepSuggestion: data.nextStepSuggestion || ''
     };
     
     console.log('[Assessment Agent] Final assessment:', assessment);
@@ -189,36 +185,33 @@ ${Object.entries(historicalData.abilityTrends).map(([dim, score]) =>
 ).join(', ')}
 
 请生成：
-1. currentProfile：当前孩子的详细画像（200-300字）
-   - 包括性格特点、兴趣偏好、能力水平、社交表现
-   - 要具体、生动，让家长能"看到"自己的孩子
+1. summary：评估摘要（50字以内）
+   - 一句话概括孩子当前状态和主要特点
+   - 简洁明了，让家长快速了解核心信息
    
-2. nextStepSuggestion：下一步干预建议（150-200字）
+2. currentProfile：当前孩子的详细画像（200-300字）
+   - 包括性格特点、兴趣偏好、能力水平、社交表现、发展特点
+   - 要具体、生动，让家长能"看到"自己的孩子
+   - 综合兴趣维度和能力维度的分析
+   
+3. nextStepSuggestion：下一步干预建议（150-200字）
    - 具体、可操作的建议
    - 基于孩子的兴趣点设计活动
    - 针对需要提升的能力
-   
-3. interestSummary：兴趣维度总结（100字左右）
-   - 总结孩子的兴趣特点
-   - 指出高兴趣和低兴趣的维度
-   
-4. abilitySummary：能力维度总结（100字左右）
-   - 总结孩子的能力水平
-   - 指出优势和需要提升的能力
-   
-5. keyFindings：3-5个关键发现（每条20-30字）
-   - 最重要的观察和发现
-   - 可以是进步、特点、或需要关注的点
-   
-6. concerns：2-3个需要关注的点（每条20-30字）
-   - 需要家长特别注意的方面
-   - 用温和、鼓励的语气表达
-   
-7. strengths：3-5个优势点（每条20-30字）
-   - 孩子的优势和亮点
-   - 用于鼓励和建立信心
+   - 提供2-3个具体的活动建议
 
 请严格按照 JSON Schema 返回结果。
+
+重要提示：
+- 请直接返回包含实际数据的 JSON 对象
+- 不要返回 Schema 定义本身
+- 确保返回的 JSON 包含所有必需字段的实际内容
+- 示例格式：
+{
+  "summary": "这里是评估摘要，一句话概括...",
+  "currentProfile": "这里是孩子的详细画像...",
+  "nextStepSuggestion": "这里是下一步建议..."
+}
 `;
 }
 

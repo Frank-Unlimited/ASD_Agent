@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试数据注入工具</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .console-output {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 16px;
+      border-radius: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .console-output .success { color: #4ade80; }
+    .console-output .info { color: #60a5fa; }
+    .console-output .warning { color: #fbbf24; }
+    .console-output .error { color: #f87171; }
+  </style>
+</head>
+<body class="bg-gray-50 p-8">
+  <div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">🧪 测试数据注入工具</h1>
+      <p class="text-gray-600 mb-8">为雷达图时间轴功能生成测试数据</p>
+      
+      <div class="grid grid-cols-2 gap-4 mb-8">
+        <button 
+          onclick="initializeTestData()"
+          class="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-4 rounded-xl font-bold hover:shadow-lg transition transform hover:scale-105"
+        >
+          🚀 初始化所有测试数据
+        </button>
+        
+        <button 
+          onclick="clearAllData()"
+          class="bg-gradient-to-r from-red-500 to-pink-600 text-white px-6 py-4 rounded-xl font-bold hover:shadow-lg transition transform hover:scale-105"
+        >
+          🗑️ 清空所有数据
+        </button>
+        
+        <button 
+          onclick="seedChildProfile()"
+          class="bg-gradient-to-r from-blue-500 to-cyan-600 text-white px-6 py-4 rounded-xl font-bold hover:shadow-lg transition transform hover:scale-105"
+        >
+          👤 创建孩子档案
+        </button>
+        
+        <button 
+          onclick="seedBehaviorData()"
+          class="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-4 rounded-xl font-bold hover:shadow-lg transition transform hover:scale-105"
+        >
+          📊 生成行为数据
+        </button>
+      </div>
+      
+      <div class="bg-gray-50 rounded-xl p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-3">📝 功能说明</h2>
+        <ul class="space-y-2 text-sm text-gray-600">
+          <li>• <strong>初始化所有测试数据</strong>：清空现有数据并生成完整的测试数据集（推荐）</li>
+          <li>• <strong>清空所有数据</strong>：删除 localStorage 中的所有数据</li>
+          <li>• <strong>创建孩子档案</strong>：仅创建测试用的孩子基本信息</li>
+          <li>• <strong>生成行为数据</strong>：生成 30 天的行为记录，展示兴趣发展过程</li>
+        </ul>
+      </div>
+      
+      <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 mb-6 border border-blue-200">
+        <h2 class="text-lg font-bold text-gray-800 mb-3">🎯 测试数据特点</h2>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p class="font-semibold text-gray-700 mb-2">时间跨度</p>
+            <p class="text-gray-600">30 天，从过去到今天</p>
+          </div>
+          <div>
+            <p class="font-semibold text-gray-700 mb-2">记录数量</p>
+            <p class="text-gray-600">约 60+ 条行为记录</p>
+          </div>
+          <div>
+            <p class="font-semibold text-gray-700 mb-2">发展阶段</p>
+            <p class="text-gray-600">5 个阶段，逐步进步</p>
+          </div>
+          <div>
+            <p class="font-semibold text-gray-700 mb-2">数据来源</p>
+            <p class="text-gray-600">CHAT 和 GAME 混合</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-yellow-50 rounded-xl p-6 mb-6 border border-yellow-200">
+        <h2 class="text-lg font-bold text-yellow-800 mb-3">⚠️ 注意事项</h2>
+        <ul class="space-y-1 text-sm text-yellow-700">
+          <li>• 初始化会清空所有现有数据，请谨慎操作</li>
+          <li>• 数据存储在浏览器 localStorage 中</li>
+          <li>• 清空浏览器缓存会丢失所有数据</li>
+          <li>• 建议在开发环境中使用</li>
+        </ul>
+      </div>
+      
+      <div>
+        <h2 class="text-lg font-bold text-gray-800 mb-3">📺 控制台输出</h2>
+        <div id="console" class="console-output">
+          <div class="info">💡 准备就绪，点击上方按钮开始操作...</div>
+        </div>
+      </div>
+      
+      <div class="mt-6 text-center">
+        <a 
+          href="/" 
+          class="inline-block bg-gray-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-700 transition"
+        >
+          ← 返回应用
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // 导入类型定义
+    const InterestDimensionTypes = ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social'];
+    
+    // 控制台输出函数
+    const consoleDiv = document.getElementById('console');
+    const log = (message, type = 'info') => {
+      const line = document.createElement('div');
+      line.className = type;
+      line.textContent = message;
+      consoleDiv.appendChild(line);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    };
+    
+    const clearConsole = () => {
+      consoleDiv.innerHTML = '';
+    };
+    
+    // 清空所有数据
+    window.clearAllData = () => {
+      clearConsole();
+      localStorage.clear();
+      log('✅ 所有数据已清空', 'success');
+    };
+    
+    // 生成孩子档案
+    window.seedChildProfile = () => {
+      clearConsole();
+      const profile = {
+        name: '小明',
+        gender: '男',
+        birthDate: '2020-03-15',
+        diagnosis: '轻度自闭症谱系障碍，语言发展迟缓，对视觉和建构类活动表现出较强兴趣',
+        avatar: 'https://ui-avatars.com/api/?name=小明&background=10B981&color=fff&size=200',
+        createdAt: new Date('2024-01-01').toISOString()
+      };
+      
+      localStorage.setItem('asd_floortime_child_profile', JSON.stringify(profile));
+      log('✅ 孩子档案已创建: ' + profile.name, 'success');
+      log('📋 姓名: ' + profile.name, 'info');
+      log('📋 性别: ' + profile.gender, 'info');
+      log('📋 出生日期: ' + profile.birthDate, 'info');
+    };
+    
+    // 生成行为数据
+    window.seedBehaviorData = () => {
+      clearConsole();
+      log('🔄 开始生成行为数据...', 'info');
+      
+      const behaviors = [];
+      const today = new Date();
+      
+      const generateBehavior = (date, behaviorText, dimensions, source = 'CHAT') => {
+        return {
+          id: `behavior_${date.getTime()}_${Math.random().toString(36).substr(2, 9)}`,
+          behavior: behaviorText,
+          matches: dimensions,
+          timestamp: date.toISOString(),
+          source
+        };
+      };
+      
+      // 第1-5天：初期探索
+      for (let i = 29; i >= 25; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        
+        behaviors.push(generateBehavior(date, '孩子盯着旋转的风车看了很久，眼睛一直追随着转动', [
+          { dimension: 'Visual', weight: 0.9, intensity: 0.8, reasoning: '对视觉刺激表现出强烈兴趣' },
+          { dimension: 'Motor', weight: 0.3, intensity: 0.2, reasoning: '轻微的身体摇摆' }
+        ]));
+        
+        behaviors.push(generateBehavior(date, '用手反复触摸不同材质的布料，特别喜欢柔软的绒布', [
+          { dimension: 'Tactile', weight: 0.8, intensity: 0.7, reasoning: '主动探索触觉体验' },
+          { dimension: 'Cognitive', weight: 0.4, intensity: 0.3, reasoning: '在比较不同材质' }
+        ]));
+      }
+      
+      // 第6-10天：建构兴趣
+      for (let i = 24; i >= 20; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        
+        behaviors.push(generateBehavior(date, '尝试把积木叠高，虽然经常倒塌但会重新尝试', [
+          { dimension: 'Construction', weight: 0.7, intensity: 0.6, reasoning: '开始对建构活动感兴趣' },
+          { dimension: 'Visual', weight: 0.5, intensity: 0.4, reasoning: '观察积木的形状和颜色' },
+          { dimension: 'Motor', weight: 0.6, intensity: 0.5, reasoning: '手部精细动作练习' }
+        ], 'GAME'));
+        
+        behaviors.push(generateBehavior(date, '听到音乐会停下来，身体随着节奏轻轻摇摆', [
+          { dimension: 'Auditory', weight: 0.7, intensity: 0.5, reasoning: '对音乐有反应' },
+          { dimension: 'Motor', weight: 0.5, intensity: 0.4, reasoning: '身体律动' }
+        ]));
+      }
+      
+      // 第11-15天：秩序感
+      for (let i = 19; i >= 15; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        
+        behaviors.push(generateBehavior(date, '能够搭建简单的积木塔，并且会按照颜色分类摆放', [
+          { dimension: 'Construction', weight: 0.9, intensity: 0.8, reasoning: '建构能力明显提升' },
+          { dimension: 'Order', weight: 0.7, intensity: 0.6, reasoning: '开始按规则分类' },
+          { dimension: 'Cognitive', weight: 0.6, intensity: 0.5, reasoning: '理解分类概念' }
+        ], 'GAME'));
+        
+        behaviors.push(generateBehavior(date, '玩具必须按照固定顺序摆放，如果顺序错了会重新排列', [
+          { dimension: 'Order', weight: 0.9, intensity: 0.7, reasoning: '对秩序有强烈需求' },
+          { dimension: 'Visual', weight: 0.4, intensity: 0.3, reasoning: '视觉检查排列' }
+        ]));
+      }
+      
+      // 第16-20天：认知和社交
+      for (let i = 14; i >= 10; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        
+        behaviors.push(generateBehavior(date, '能够完成简单的拼图，会主动寻找正确的位置', [
+          { dimension: 'Cognitive', weight: 0.8, intensity: 0.7, reasoning: '问题解决能力提升' },
+          { dimension: 'Visual', weight: 0.7, intensity: 0.6, reasoning: '视觉匹配能力' },
+          { dimension: 'Construction', weight: 0.5, intensity: 0.4, reasoning: '空间构建' }
+        ], 'GAME'));
+        
+        behaviors.push(generateBehavior(date, '看到妈妈会主动伸手，希望被抱起来', [
+          { dimension: 'Social', weight: 0.6, intensity: 0.5, reasoning: '开始主动寻求互动' },
+          { dimension: 'Motor', weight: 0.4, intensity: 0.3, reasoning: '伸手动作' }
+        ]));
+      }
+      
+      // 第21-25天：运动和社交
+      for (let i = 9; i >= 5; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        
+        behaviors.push(generateBehavior(date, '和其他小朋友一起玩球，会模仿别人的动作', [
+          { dimension: 'Social', weight: 0.8, intensity: 0.7, reasoning: '主动参与群体活动' },
+          { dimension: 'Motor', weight: 0.8, intensity: 0.7, reasoning: '大运动能力提升' },
+          { dimension: 'Cognitive', weight: 0.5, intensity: 0.4, reasoning: '模仿学习' }
+        ], 'GAME'));
+        
+        behaviors.push(generateBehavior(date, '喜欢跑来跑去，精力充沛，笑声增多', [
+          { dimension: 'Motor', weight: 0.9, intensity: 0.8, reasoning: '运动成为主要兴趣' },
+          { dimension: 'Social', weight: 0.4, intensity: 0.5, reasoning: '情绪表达增多' }
+        ]));
+      }
+      
+      // 第26-30天：全面发展
+      for (let i = 4; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        
+        behaviors.push(generateBehavior(date, '能够和家长进行简单的对话，表达自己的需求', [
+          { dimension: 'Social', weight: 0.9, intensity: 0.8, reasoning: '社交沟通能力显著提升' },
+          { dimension: 'Cognitive', weight: 0.7, intensity: 0.7, reasoning: '语言理解和表达' },
+          { dimension: 'Auditory', weight: 0.6, intensity: 0.5, reasoning: '听觉处理' }
+        ]));
+        
+        behaviors.push(generateBehavior(date, '搭建了一个复杂的积木城堡，并邀请妈妈一起玩', [
+          { dimension: 'Construction', weight: 0.9, intensity: 0.9, reasoning: '建构能力达到新高度' },
+          { dimension: 'Social', weight: 0.7, intensity: 0.8, reasoning: '主动邀请互动' },
+          { dimension: 'Cognitive', weight: 0.8, intensity: 0.7, reasoning: '复杂规划能力' },
+          { dimension: 'Visual', weight: 0.6, intensity: 0.6, reasoning: '空间视觉' }
+        ], 'GAME'));
+        
+        if (i % 2 === 0) {
+          behaviors.push(generateBehavior(date, '听到突然的噪音会捂住耳朵，表现出不适', [
+            { dimension: 'Auditory', weight: 0.8, intensity: -0.6, reasoning: '对突然的声音敏感和抗拒' }
+          ]));
+        }
+      }
+      
+      localStorage.setItem('asd_floortime_behaviors', JSON.stringify(behaviors));
+      
+      log(`✅ 已生成 ${behaviors.length} 条行为记录`, 'success');
+      log(`📅 日期范围: ${behaviors[behaviors.length - 1].timestamp.split('T')[0]} 至 ${behaviors[0].timestamp.split('T')[0]}`, 'info');
+      
+      const chatCount = behaviors.filter(b => b.source === 'CHAT').length;
+      const gameCount = behaviors.filter(b => b.source === 'GAME').length;
+      log(`📊 来源分布: CHAT(${chatCount}) GAME(${gameCount})`, 'info');
+    };
+    
+    // 初始化所有数据
+    window.initializeTestData = () => {
+      clearConsole();
+      log('🚀 开始初始化测试数据...', 'info');
+      log('', 'info');
+      
+      // 清空
+      localStorage.clear();
+      log('✅ 所有数据已清空', 'success');
+      log('', 'info');
+      
+      // 档案
+      window.seedChildProfile();
+      log('', 'info');
+      
+      // 行为
+      window.seedBehaviorData();
+      log('', 'info');
+      
+      log('✨ 测试数据初始化完成！', 'success');
+      log('📊 现在可以访问"兴趣雷达图"页面查看时间轴效果', 'info');
+      log('💡 提示：拖动时间轴滑块或点击播放按钮查看数据变化', 'warning');
+    };
+    
+    log('💡 准备就绪，点击上方按钮开始操作...', 'info');
+  </script>
+</body>
+</html>

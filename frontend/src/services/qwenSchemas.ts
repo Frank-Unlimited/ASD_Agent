@@ -386,61 +386,23 @@ export const ComprehensiveAssessmentSchema = {
   schema: {
     type: 'object',
     properties: {
+      summary: {
+        type: 'string',
+        description: '评估摘要，一句话概括孩子当前状态和主要特点，50字以内'
+      },
       currentProfile: {
         type: 'string',
-        description: '当前孩子的详细画像，200-300字，包括性格特点、兴趣偏好、能力水平、社交表现'
+        description: '当前孩子的详细画像，200-300字，包括性格特点、兴趣偏好、能力水平、社交表现、发展特点'
       },
       nextStepSuggestion: {
         type: 'string',
-        description: '下一步干预建议，150-200字，具体可操作'
-      },
-      interestSummary: {
-        type: 'string',
-        description: '兴趣维度总结，100字左右'
-      },
-      abilitySummary: {
-        type: 'string',
-        description: '能力维度总结，100字左右'
-      },
-      keyFindings: {
-        type: 'array',
-        description: '3-5个关键发现',
-        items: {
-          type: 'string',
-          description: '每条20-30字'
-        },
-        minItems: 3,
-        maxItems: 5
-      },
-      concerns: {
-        type: 'array',
-        description: '2-3个需要关注的点',
-        items: {
-          type: 'string',
-          description: '每条20-30字'
-        },
-        minItems: 2,
-        maxItems: 3
-      },
-      strengths: {
-        type: 'array',
-        description: '3-5个优势点',
-        items: {
-          type: 'string',
-          description: '每条20-30字'
-        },
-        minItems: 3,
-        maxItems: 5
+        description: '下一步干预建议，150-200字，具体可操作，基于孩子的兴趣点设计活动，针对需要提升的能力'
       }
     },
     required: [
+      'summary',
       'currentProfile',
-      'nextStepSuggestion',
-      'interestSummary',
-      'abilitySummary',
-      'keyFindings',
-      'concerns',
-      'strengths'
+      'nextStepSuggestion'
     ],
     additionalProperties: false
   }

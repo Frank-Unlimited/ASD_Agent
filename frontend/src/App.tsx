@@ -65,7 +65,7 @@ import {
   CartesianGrid, 
   Tooltip 
 } from 'recharts';
-import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, MedicalReport } from './types';
+import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report } from './types';
 import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
@@ -77,6 +77,7 @@ import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getAllGames } from './services/ragService';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
+import { PageRadar } from './components/RadarChartPage';
 
 // --- Helper Components ---
 
@@ -97,6 +98,7 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen:
           <button onClick={() => { setPage(Page.PROFILE); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><User className="w-5 h-5 text-primary" /><span>孩子档案</span></button>
           <button onClick={() => { setPage(Page.GAMES); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Gamepad2 className="w-5 h-5 text-primary" /><span>地板游戏库</span></button>
           <button onClick={() => { setPage(Page.BEHAVIORS); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Activity className="w-5 h-5 text-primary" /><span>行为数据</span></button>
+          <button onClick={() => { setPage(Page.RADAR); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><TrendingUp className="w-5 h-5 text-primary" /><span>兴趣雷达图</span></button>
         </nav>
         <div className="mt-auto pt-6 border-t border-gray-100 relative">
           <div 
@@ -238,7 +240,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
             // 保存报告到数据库
             const metadata = result.metadata;
             if (metadata?.base64) {
-              const report: MedicalReport = {
+              const report: Report = {
                 id: reportStorageService.generateReportId(),
                 imageUrl: metadata.base64,
                 ocrResult: ocrText,
@@ -1003,8 +1005,21 @@ const PageAIChat = ({
                     
                     console.log('[综合评估] 评估完成:', assessment);
                     
-                    // 保存评估结果
+                    // 保存评估结果到 assessmentStorage
                     saveAssessment(assessment);
+                    
+                    // 同时将评估结果保存为 Report 到 reportStorage
+                    const assessmentReport: Report = {
+                      id: assessment.id,
+                      summary: assessment.summary,
+                      diagnosis: assessment.currentProfile,
+                      nextStepSuggestion: assessment.nextStepSuggestion,
+                      date: new Date().toISOString().split('T')[0],
+                      type: 'ai_generated',
+                      createdAt: assessment.timestamp
+                    };
+                    reportStorageService.saveReport(assessmentReport);
+                    console.log('[综合评估] 已保存为报告:', assessmentReport.id);
                     
                     // 移除加载提示，添加评估结果卡片
                     fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
@@ -1320,88 +1335,36 @@ const PageAIChat = ({
                     </span>
                   </div>
 
+                  {/* 评估摘要 */}
+                  <div className="mb-4 bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-500">
+                    <p className="text-sm text-gray-800 font-medium leading-relaxed">{card.summary}</p>
+                  </div>
+
                   {/* 当前画像 */}
                   <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
                     <div className="flex items-center mb-2">
                       <User className="w-4 h-4 text-purple-600 mr-2" />
                       <h4 className="font-bold text-gray-800">当前画像</h4>
                     </div>
-                    <p className="text-sm text-gray-700 leading-relaxed">{card.currentProfile}</p>
-                  </div>
-
-                  {/* 关键发现 */}
-                  {card.keyFindings && card.keyFindings.length > 0 && (
-                    <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center mb-2">
-                        <Lightbulb className="w-4 h-4 text-yellow-600 mr-2" />
-                        <h4 className="font-bold text-gray-800">关键发现</h4>
-                      </div>
-                      <ul className="space-y-1.5">
-                        {card.keyFindings.map((finding: string, i: number) => (
-                          <li key={i} className="text-sm text-gray-700 flex items-start">
-                            <span className="text-yellow-500 mr-2">•</span>
-                            <span>{finding}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* 优势与关注点 */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    {/* 优势 */}
-                    {card.strengths && card.strengths.length > 0 && (
-                      <div className="bg-green-50 rounded-xl p-3 border border-green-200">
-                        <div className="flex items-center mb-2">
-                          <Smile className="w-4 h-4 text-green-600 mr-1" />
-                          <h5 className="font-bold text-green-800 text-xs">优势</h5>
-                        </div>
-                        <ul className="space-y-1">
-                          {card.strengths.map((strength: string, i: number) => (
-                            <li key={i} className="text-xs text-gray-700 flex items-start">
-                              <span className="text-green-500 mr-1">✓</span>
-                              <span>{strength}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* 关注点 */}
-                    {card.concerns && card.concerns.length > 0 && (
-                      <div className="bg-orange-50 rounded-xl p-3 border border-orange-200">
-                        <div className="flex items-center mb-2">
-                          <Eye className="w-4 h-4 text-orange-600 mr-1" />
-                          <h5 className="font-bold text-orange-800 text-xs">关注点</h5>
-                        </div>
-                        <ul className="space-y-1">
-                          {card.concerns.map((concern: string, i: number) => (
-                            <li key={i} className="text-xs text-gray-700 flex items-start">
-                              <span className="text-orange-500 mr-1">!</span>
-                              <span>{concern}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{card.currentProfile}</p>
                   </div>
 
                   {/* 下一步建议 */}
-                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl p-4 shadow-sm">
                     <div className="flex items-center mb-2">
-                      <ArrowRight className="w-4 h-4 text-blue-600 mr-2" />
-                      <h4 className="font-bold text-blue-800">下一步建议</h4>
+                      <Lightbulb className="w-4 h-4 text-yellow-300 mr-2" />
+                      <h4 className="font-bold">下一步干预建议</h4>
                     </div>
-                    <p className="text-sm text-gray-700 leading-relaxed">{card.nextStepSuggestion}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{card.nextStepSuggestion}</p>
                   </div>
 
                   {/* 查看详情按钮 */}
                   <button 
                     onClick={() => navigateTo(Page.PROFILE)}
-                    className="w-full mt-4 bg-purple-500 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center hover:bg-purple-600 transition shadow-md"
+                    className="w-full mt-4 bg-white text-purple-600 py-2.5 rounded-xl font-bold hover:bg-purple-50 transition flex items-center justify-center shadow-sm"
                   >
                     <FileText className="w-4 h-4 mr-2" />
-                    查看完整档案
+                    在档案页面查看完整报告
                   </button>
                 </div>
               )}
@@ -1845,8 +1808,8 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
 const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportReport, onExportReport, childProfile, calculateAge }: { trendData: any[], interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void, childProfile: ChildProfile | null, calculateAge: (birthDate: string) => number }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showReportList, setShowReportList] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null);
-  const [reports, setReports] = useState<MedicalReport[]>([]);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [reports, setReports] = useState<Report[]>([]);
   
   // 加载报告列表
   useEffect(() => {
@@ -1865,7 +1828,7 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
   const latestReport = reportStorageService.getLatestReport();
 
   // 报告详情弹窗
-  const ReportDetailModal = ({ report, onClose }: { report: MedicalReport, onClose: () => void }) => (
+  const ReportDetailModal = ({ report, onClose }: { report: Report, onClose: () => void }) => (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
@@ -1876,7 +1839,7 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
         </div>
         
         <div className="p-6 space-y-4">
-          {/* 报告摘要 */}
+          {/* 报告摘要 - 必填字段，始终显示 */}
           <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
             <h5 className="text-sm font-bold text-purple-700 mb-2 flex items-center">
               <Sparkles className="w-4 h-4 mr-2" />
@@ -1885,40 +1848,59 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
             <p className="text-sm text-gray-700">{report.summary}</p>
           </div>
 
-          {/* 报告原图 */}
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-            <h5 className="text-sm font-bold text-gray-700 mb-3 flex items-center">
-              <FileText className="w-4 h-4 mr-2 text-blue-600" />
-              报告原图
-            </h5>
-            <img 
-              src={`data:image/jpeg;base64,${report.imageUrl}`} 
-              alt="报告原图" 
-              className="w-full rounded-lg border border-gray-300"
-            />
-          </div>
-
-          {/* OCR 提取结果 */}
-          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-            <h5 className="text-sm font-bold text-blue-700 mb-3 flex items-center">
-              <Eye className="w-4 h-4 mr-2" />
-              文字提取
-            </h5>
-            <div className="bg-white rounded-lg p-3 max-h-60 overflow-y-auto text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
-              {report.ocrResult}
+          {/* 报告原图 - 仅当有图片时显示 */}
+          {report.imageUrl && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <h5 className="text-sm font-bold text-gray-700 mb-3 flex items-center">
+                <FileText className="w-4 h-4 mr-2 text-blue-600" />
+                报告原图
+              </h5>
+              <img 
+                src={report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`} 
+                alt="报告原图" 
+                className="w-full rounded-lg border border-gray-300 cursor-pointer hover:opacity-90 transition"
+                onClick={() => window.open(report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`, '_blank')}
+              />
+              <p className="text-xs text-gray-400 mt-2 text-center">点击查看大图</p>
             </div>
-          </div>
+          )}
 
-          {/* 孩子画像 */}
+          {/* OCR 提取结果 - 仅当有OCR结果时显示 */}
+          {report.ocrResult && (
+            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+              <h5 className="text-sm font-bold text-blue-700 mb-3 flex items-center">
+                <Eye className="w-4 h-4 mr-2" />
+                文字提取
+              </h5>
+              <div className="bg-white rounded-lg p-3 max-h-60 overflow-y-auto text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {report.ocrResult}
+              </div>
+            </div>
+          )}
+
+          {/* 孩子画像 - 必填字段，始终显示 */}
           <div className="bg-green-50 rounded-xl p-4 border border-green-200">
             <h5 className="text-sm font-bold text-green-700 mb-3 flex items-center">
               <User className="w-4 h-4 mr-2" />
               孩子画像
             </h5>
-            <div className="bg-white rounded-lg p-3 text-sm text-gray-700 leading-relaxed">
+            <div className="bg-white rounded-lg p-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
               {report.diagnosis}
             </div>
           </div>
+
+          {/* 下一步干预建议 - 仅当有建议时显示（评估报告才有） */}
+          {report.nextStepSuggestion && (
+            <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl p-4">
+              <h5 className="text-sm font-bold mb-3 flex items-center">
+                <Lightbulb className="w-4 h-4 mr-2 text-yellow-300" />
+                下一步干预建议
+              </h5>
+              <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                {report.nextStepSuggestion}
+              </div>
+            </div>
+          )}
 
           {/* 报告信息 */}
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
@@ -1931,12 +1913,12 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
                 <span className="text-gray-500">报告类型：</span>
                 <span className="font-medium text-gray-700">
                   {report.type === 'hospital' ? '医院报告' : 
-                   report.type === 'ai_generated' ? 'AI生成' : 
+                   report.type === 'ai_generated' ? 'AI评估' : 
                    report.type === 'assessment' ? '评估报告' : '其他'}
                 </span>
               </div>
               <div className="col-span-2">
-                <span className="text-gray-500">导入时间：</span>
+                <span className="text-gray-500">创建时间：</span>
                 <span className="font-medium text-gray-700">
                   {new Date(report.createdAt).toLocaleString('zh-CN')}
                 </span>
@@ -1978,15 +1960,27 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
                 className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-primary/30 transition"
               >
                 <div className="flex items-start space-x-3">
-                  <img 
-                    src={`data:image/jpeg;base64,${report.imageUrl}`} 
-                    alt="报告缩略图" 
-                    className="w-16 h-16 rounded-lg object-cover border border-gray-200"
-                  />
+                  {/* 缩略图或默认图标 */}
+                  {report.imageUrl ? (
+                    <img 
+                      src={report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`} 
+                      alt="报告缩略图" 
+                      className="w-16 h-16 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg border border-gray-200 flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-purple-50 to-blue-50">
+                      {report.type === 'ai_generated' || report.type === 'assessment' ? (
+                        <Award className="w-8 h-8 text-purple-500" />
+                      ) : (
+                        <FileText className="w-8 h-8 text-blue-500" />
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-gray-800 truncate">{report.summary}</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {report.date} · {report.type === 'hospital' ? '医院报告' : 'AI生成'}
+                      {report.date} · {report.type === 'hospital' ? '医院报告' : report.type === 'ai_generated' ? 'AI评估' : report.type === 'assessment' ? '评估报告' : '其他'}
                     </p>
                     <p className="text-xs text-gray-400 mt-1 line-clamp-2">{report.diagnosis}</p>
                   </div>
@@ -2489,6 +2483,7 @@ export default function App() {
       case Page.PROFILE: return `${childProfile?.name || '孩子'}的档案`; 
       case Page.GAMES: return "游戏库"; 
       case Page.BEHAVIORS: return "行为数据"; 
+      case Page.RADAR: return "兴趣雷达图"; 
       default: return "App"; 
     } 
   };
@@ -2532,6 +2527,7 @@ export default function App() {
         {currentPage === Page.CALENDAR && <PageCalendar navigateTo={handleNavigate} onStartGame={handleStartGame} />}
         {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} />}
         {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}
+        {currentPage === Page.RADAR && <PageRadar />}
         {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CALENDAR)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} />)}
       </main>
     </div>
