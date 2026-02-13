@@ -48,6 +48,9 @@ import {
   Users,
   ClipboardCheck,
   CalendarClock,
+  Settings,
+  ChevronDown,
+  ChevronUp,
   Tag,
   Keyboard
 } from 'lucide-react';
@@ -808,6 +811,14 @@ const PageAIChat = ({
     // 捕获当前的 childProfile 值，避免闭包问题
     const currentChildProfile = childProfile;
     
+    // 辅助函数：获取最近的对话历史（最多5轮）
+    const getConversationHistory = () => {
+      const recentMessages = messages.slice(-10); // 最近10条消息（5轮对话）
+      return recentMessages
+        .map(msg => `${msg.role === 'user' ? '用户' : 'AI'}: ${msg.text}`)
+        .join('\n');
+    };
+    
     // 创建一个临时消息用于流式更新
     const tempMsgId = (Date.now() + 1).toString();
     const tempMsg: ChatMessage = { 
@@ -836,6 +847,13 @@ const PageAIChat = ({
           );
         },
         onToolCall: (toolCall) => {
+          // 辅助函数：获取对话历史
+          const getConversationHistory = () => {
+            return messages
+              .map(msg => `${msg.role === 'user' ? '用户' : 'AI'}: ${msg.text}`)
+              .join('\n');
+          };
+          
           // 处理 Function Call
           console.log('Tool called:', toolCall);
           toolCallsReceived.push(toolCall);
@@ -848,9 +866,16 @@ const PageAIChat = ({
                 // 阶段1：生成游戏方向建议
                 (async () => {
                   try {
-                    console.log('[Tool Call] 生成游戏方向建议...');
+                    console.log('[Tool Call] 生成游戏方向建议...', args);
                     
-                    fullResponse += `\n\n🎯 正在分析${currentChildProfile?.name || '孩子'}的档案，生成游戏方向建议...`;
+                    // 添加工具调用卡片标记
+                    fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                      tool: 'suggest_game_directions',
+                      status: 'running',
+                      params: args
+                    })}:::TOOL_CALL_END:::\n`;
+                    
+                    fullResponse += `🎯 正在分析${currentChildProfile?.name || '孩子'}的档案，生成游戏方向建议...`;
                     setMessages(prev => 
                       prev.map(msg => 
                         msg.id === tempMsgId 
@@ -883,17 +908,35 @@ const PageAIChat = ({
                       return;
                     }
                     
+                    // 提取用户偏好（从工具参数中获取）
+                    const userPreferences = args.userPreferences || undefined;
+                    
                     // 即使没有评估也可以推荐游戏
                     const directions = await generateGameDirections(
                       currentChildProfile,
                       latestAssessment,
-                      historicalData
+                      historicalData,
+                      userPreferences,  // 传入用户偏好
+                      getConversationHistory()  // 传入对话历史
                     );
                     
                     if (directions.length > 0) {
                       console.log('[Tool Call] 生成方向成功:', directions);
                       
+                      // 更新工具调用状态为成功
+                      fullResponse = fullResponse.replace(
+                        /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                        (match) => {
+                          const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                          toolData.status = 'success';
+                          return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                        }
+                      );
                       fullResponse = fullResponse.replace(/🎯 正在分析.*?生成游戏方向建议\.\.\./, '');
+                      
+                      // 保存当前的游戏方向到 sessionStorage（用于后续匹配）
+                      sessionStorage.setItem('game_directions', JSON.stringify(directions));
+                      sessionStorage.removeItem('candidate_games'); // 清除旧的候选游戏
                       
                       // 适度详细的文本，不要太简单也不要太冗长
                       fullResponse += `\n\n根据${currentChildProfile.name}的情况，我推荐这几个方向：\n\n`;
@@ -943,7 +986,10 @@ const PageAIChat = ({
                   try {
                     console.log('[Tool Call] 检索候选游戏...', args);
                     
-                    fullResponse += `\n\n🔍 正在为您检索"${args.directionName}"方向的游戏...`;
+                    // 显示工具调用信息
+                    fullResponse += `\n\n� **调用工具**: search_candidate_games\n`;
+                    fullResponse += `📝 **参数**: ${JSON.stringify(args, null, 2)}\n`;
+                    fullResponse += `\n🔍 正在为您检索"${args.directionName}"方向的游戏...`;
                     setMessages(prev => 
                       prev.map(msg => 
                         msg.id === tempMsgId 
@@ -983,26 +1029,48 @@ const PageAIChat = ({
                       tempDirection,
                       currentChildProfile,
                       latestAssessment,
-                      args.count || 3
+                      args.count || 3,
+                      args.additionalRequirements,
+                      getConversationHistory()  // 传入对话历史
                     );
                     
                     if (candidateGames.length > 0) {
                       console.log('[Tool Call] 检索成功:', candidateGames);
                       
+                      // 更新工具调用状态为成功
+                      fullResponse = fullResponse.replace(
+                        /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                        (match) => {
+                          const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                          toolData.status = 'success';
+                          return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                        }
+                      );
                       fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
+                      
                       fullResponse += `\n\n找到了几个适合的游戏：\n\n`;
                       
                       candidateGames.forEach((game, index) => {
-                        fullResponse += `${index + 1}. **${game.title}**\n`;
+                        // 添加来源标记
+                        const sourceTag = game.source === 'generated' ? '🎨 AI设计' : '📚 游戏库';
+                        fullResponse += `${index + 1}. **${game.title}** ${sourceTag}\n`;
                         fullResponse += `玩法：${game.reason}\n`;
-                        fullResponse += `⏱️ ${game.duration} | 难度：${game.difficulty} | 材料：${game.materials}\n\n`;
+                        fullResponse += `⏱️ ${game.duration} | 难度：${'⭐'.repeat(game.difficulty)} | 材料：${game.materials.join('、')}\n\n`;
                       });
                       
                       fullResponse += `您想试试哪个？`;
                       
-                      // 不再显示卡片，只保存候选游戏数据供后续使用
-                      sessionStorage.setItem('candidate_games', JSON.stringify(candidateGames));
+                      // 保存候选游戏数据供后续使用，并添加时间戳
+                      const candidateGamesData = {
+                        games: candidateGames,
+                        timestamp: Date.now(),
+                        directionName: args.directionName
+                      };
+                      sessionStorage.setItem('candidate_games', JSON.stringify(candidateGamesData));
                     } else {
+                      // 清除工具调用信息
+                      fullResponse = fullResponse.replace(/🔧 \*\*调用工具\*\*:.*?\n/s, '');
+                      fullResponse = fullResponse.replace(/📝 \*\*参数\*\*:.*?\n\n/s, '');
                       fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
                       fullResponse += `\n\n抱歉，暂时没有找到合适的游戏。`;
                     }
@@ -1035,7 +1103,14 @@ const PageAIChat = ({
                   try {
                     console.log('[Tool Call] 生成最终游戏卡片...', args);
                     
-                    fullResponse += `\n\n✨ 正在生成游戏实施方案...`;
+                    // 添加工具调用卡片标记
+                    fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                      tool: 'recommend_game_final',
+                      status: 'running',
+                      params: args
+                    })}:::TOOL_CALL_END:::\n`;
+                    
+                    fullResponse += `\n✨ 正在生成游戏实施方案...`;
                     setMessages(prev => 
                       prev.map(msg => 
                         msg.id === tempMsgId 
@@ -1049,7 +1124,11 @@ const PageAIChat = ({
                     let selectedGame = null;
                     
                     if (candidateGamesStr) {
-                      const candidateGames = JSON.parse(candidateGamesStr);
+                      const candidateGamesData = JSON.parse(candidateGamesStr);
+                      const candidateGames = candidateGamesData.games || candidateGamesData; // 兼容旧格式
+                      
+                      console.log('[Tool Call] 候选游戏列表:', candidateGames);
+                      console.log('[Tool Call] 用户选择:', args.gameId);
                       
                       // 尝试通过 gameId 匹配
                       selectedGame = candidateGames.find((g: any) => g.id === args.gameId);
@@ -1063,20 +1142,29 @@ const PageAIChat = ({
                       
                       // 如果还是没找到，尝试通过序号匹配（如"第一个"、"1"）
                       if (!selectedGame) {
-                        const indexMatch = args.gameId.match(/第?([一二三1-3])个?/);
+                        const indexMatch = args.gameId.match(/第?([一二三四五1-5])个?/);
                         if (indexMatch) {
-                          const numMap: any = { '一': 0, '二': 1, '三': 2, '1': 0, '2': 1, '3': 2 };
+                          const numMap: any = { 
+                            '一': 0, '二': 1, '三': 2, '四': 3, '五': 4,
+                            '1': 0, '2': 1, '3': 2, '4': 3, '5': 4 
+                          };
                           const index = numMap[indexMatch[1]];
+                          console.log('[Tool Call] 匹配序号:', indexMatch[1], '→ 索引:', index);
                           if (index !== undefined && candidateGames[index]) {
                             selectedGame = candidateGames[index];
+                            console.log('[Tool Call] 通过序号匹配到游戏:', selectedGame.title);
                           }
                         }
                       }
                     }
                     
                     if (!selectedGame) {
+                      // 清除工具调用信息
+                      fullResponse = fullResponse.replace(/🔧 \*\*调用工具\*\*:.*?\n/s, '');
+                      fullResponse = fullResponse.replace(/📝 \*\*参数\*\*:.*?\n\n/s, '');
                       fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
-                      fullResponse += `\n\n抱歉，未找到该游戏。`;
+                      fullResponse += `\n\n抱歉，未找到该游戏。请重新选择。`;
+                      console.error('[Tool Call] 未找到匹配的游戏');
                       setMessages(prev => 
                         prev.map(msg => 
                           msg.id === tempMsgId 
@@ -1132,11 +1220,15 @@ const PageAIChat = ({
                       fullGame,
                       currentChildProfile,
                       latestAssessment,
-                      args.customizations || []
+                      args.customizations || [],
+                      getConversationHistory()  // 传入对话历史
                     );
                     
                     console.log('[Tool Call] 生成实施方案成功:', plan);
                     
+                    // 清除工具调用信息和加载提示
+                    fullResponse = fullResponse.replace(/🔧 \*\*调用工具\*\*:.*?\n/s, '');
+                    fullResponse = fullResponse.replace(/📝 \*\*参数\*\*:.*?\n\n/s, '');
                     fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
                     fullResponse += `\n\n太棒了！我为"${fullGame.title}"制定了一套完整的实施方案：\n\n`;
                     
@@ -1163,6 +1255,9 @@ const PageAIChat = ({
                     );
                   } catch (error) {
                     console.error('[Tool Call] 生成最终游戏失败:', error);
+                    // 清除工具调用信息
+                    fullResponse = fullResponse.replace(/🔧 \*\*调用工具\*\*:.*?\n/s, '');
+                    fullResponse = fullResponse.replace(/📝 \*\*参数\*\*:.*?\n\n/s, '');
                     fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
                     fullResponse += `\n\n生成游戏方案时出现错误，请稍后重试。`;
                     setMessages(prev => 
@@ -1233,6 +1328,13 @@ const PageAIChat = ({
               case 'log_behavior':
                 // 将 dimensions 转换为 matches 格式，并通过 ProfileUpdate 统一处理
                 try {
+                  // 添加工具调用卡片标记
+                  fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                    tool: 'log_behavior',
+                    status: 'running',
+                    params: args
+                  })}:::TOOL_CALL_END:::\n`;
+                  
                   // 新格式：dimensions 已经包含 weight, intensity 和 reasoning
                   const matches = (args.dimensions || []).map((dim: any) => ({
                     dimension: dim.dimension,
@@ -1268,10 +1370,30 @@ const PageAIChat = ({
                     behaviorId: latestBehaviorId // 添加行为ID用于跳转
                   };
                   
+                  // 更新工具调用状态为成功
+                  fullResponse = fullResponse.replace(
+                    /:::TOOL_CALL_START:::.*?"tool":"log_behavior".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                    (match) => {
+                      const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                      toolData.status = 'success';
+                      return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                    }
+                  );
+                  
                   // 添加行为记录卡片
                   fullResponse += `\n\n:::BEHAVIOR_LOG_CARD:${JSON.stringify(cardData)}:::`;
                 } catch (saveError) {
                   console.error('处理行为数据失败:', saveError);
+                  // 更新工具调用状态为失败
+                  fullResponse = fullResponse.replace(
+                    /:::TOOL_CALL_START:::.*?"tool":"log_behavior".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                    (match) => {
+                      const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                      toolData.status = 'error';
+                      toolData.error = saveError instanceof Error ? saveError.message : '未知错误';
+                      return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                    }
+                  );
                 }
                 
                 setMessages(prev => 
@@ -1284,6 +1406,13 @@ const PageAIChat = ({
                 break;
                 
               case 'create_weekly_plan':
+                // 添加工具调用卡片标记
+                fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                  tool: 'create_weekly_plan',
+                  status: 'success',
+                  params: args
+                })}:::TOOL_CALL_END:::\n`;
+                
                 // 添加周计划卡片
                 fullResponse += `\n\n:::WEEKLY_PLAN_CARD:${JSON.stringify(args)}:::`;
                 setMessages(prev => 
@@ -1296,6 +1425,13 @@ const PageAIChat = ({
                 break;
                 
               case 'navigate_page':
+                // 添加工具调用卡片标记
+                fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                  tool: 'navigate_page',
+                  status: 'success',
+                  params: args
+                })}:::TOOL_CALL_END:::\n`;
+                
                 // 添加导航卡片
                 fullResponse += `\n\n:::NAVIGATION_CARD:${JSON.stringify(args)}:::`;
                 setMessages(prev => 
@@ -1312,6 +1448,13 @@ const PageAIChat = ({
                 (async () => {
                   try {
                     console.log('[综合评估] 开始生成评估报告...');
+                    
+                    // 添加工具调用卡片标记
+                    fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                      tool: 'generate_assessment',
+                      status: 'running',
+                      params: args
+                    })}:::TOOL_CALL_END:::\n`;
                     
                     // 添加加载提示
                     fullResponse += `\n\n🔄 正在生成综合评估报告，请稍候...`;
@@ -1355,6 +1498,16 @@ const PageAIChat = ({
                     reportStorageService.saveReport(assessmentReport);
                     console.log('[综合评估] 已保存为报告:', assessmentReport.id);
                     
+                    // 更新工具调用状态为成功
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"generate_assessment".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'success';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+                    
                     // 移除加载提示，添加评估结果卡片
                     fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
                     fullResponse += `\n\n:::ASSESSMENT_CARD:${JSON.stringify(assessment)}:::`;
@@ -1368,6 +1521,18 @@ const PageAIChat = ({
                     );
                   } catch (error) {
                     console.error('[综合评估] 生成失败:', error);
+                    
+                    // 更新工具调用状态为失败
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"generate_assessment".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'error';
+                        toolData.error = error instanceof Error ? error.message : '未知错误';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+                    
                     fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
                     fullResponse += `\n\n❌ 评估报告生成失败：${error instanceof Error ? error.message : '未知错误'}`;
                     setMessages(prev => 
@@ -1500,6 +1665,7 @@ const PageAIChat = ({
     const directionsRegex = /:::GAME_DIRECTIONS:\s*([\s\S]*?)\s*:::/;
     const candidateGamesRegex = /:::CANDIDATE_GAMES:\s*([\s\S]*?)\s*:::/;
     const implementationPlanRegex = /:::GAME_IMPLEMENTATION_PLAN:\s*([\s\S]*?)\s*:::/;
+    const toolCallRegex = /:::TOOL_CALL_START:::([\s\S]*?):::TOOL_CALL_END:::/;
     
     let cleanText = text;
     let card: any = null;
@@ -1529,6 +1695,9 @@ const PageAIChat = ({
     const implementationPlanMatch = text.match(implementationPlanRegex);
     if (implementationPlanMatch?.[1] && !card) { try { card = { ...JSON.parse(implementationPlanMatch[1]), type: 'IMPLEMENTATION_PLAN' }; } catch (e) {} }
 
+    const toolCallMatch = text.match(toolCallRegex);
+    if (toolCallMatch?.[1] && !card) { try { card = { ...JSON.parse(toolCallMatch[1]), type: 'TOOL_CALL' }; } catch (e) {} }
+
     cleanText = cleanText
         .replace(gameRegex, '')
         .replace(navRegex, '')
@@ -1538,6 +1707,7 @@ const PageAIChat = ({
         .replace(directionsRegex, '')
         .replace(candidateGamesRegex, '')
         .replace(implementationPlanRegex, '')
+        .replace(toolCallRegex, '')
         .trim();
         
     return { cleanText, card };
@@ -1562,6 +1732,10 @@ const PageAIChat = ({
                if (confirm('确定要清空所有聊天记录吗？')) {
                  chatStorageService.resetToDefault();
                  setMessages(chatStorageService.getChatHistory());
+                 // 清空游戏推荐相关的 sessionStorage 数据
+                 sessionStorage.removeItem('game_directions');
+                 sessionStorage.removeItem('candidate_games');
+                 console.log('[Chat] 已清空对话历史和游戏推荐数据');
                }
              }}
              className="bg-white/90 backdrop-blur-sm text-gray-600 hover:text-red-600 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm border border-gray-200 hover:border-red-300 transition flex items-center"
@@ -1588,6 +1762,45 @@ const PageAIChat = ({
                   ))}
                 </div>
               )}
+              
+              {/* 工具调用卡片 */}
+              {card && card.type === 'TOOL_CALL' && (
+                <div className="mt-2 max-w-[85%] bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-200 shadow-md animate-in fade-in">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <Settings className="w-4 h-4 text-indigo-600 animate-spin-slow" />
+                      <span className="text-xs font-bold text-indigo-700 uppercase">工具调用</span>
+                    </div>
+                    <div className={`flex items-center space-x-1 text-xs font-medium px-2 py-1 rounded-full ${
+                      card.status === 'running' ? 'bg-yellow-100 text-yellow-700' :
+                      card.status === 'success' ? 'bg-green-100 text-green-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {card.status === 'running' && <><div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div><span>执行中</span></>}
+                      {card.status === 'success' && <><CheckCircle2 className="w-3 h-3" /><span>成功</span></>}
+                      {card.status === 'error' && <><X className="w-3 h-3" /><span>失败</span></>}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white/70 rounded-lg p-3 mb-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <code className="text-xs font-mono text-indigo-900 bg-indigo-100 px-2 py-1 rounded">{card.tool}</code>
+                    </div>
+                    {card.params && Object.keys(card.params).length > 0 && (
+                      <details className="mt-2">
+                        <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-800 flex items-center">
+                          <ChevronDown className="w-3 h-3 mr-1" />
+                          查看参数
+                        </summary>
+                        <pre className="mt-2 text-xs bg-gray-50 p-2 rounded overflow-x-auto">
+                          {JSON.stringify(card.params, null, 2)}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               {/* Card Rendering */}
               {card && card.type === 'GAME' && (
                 <div className="mt-2 max-w-[85%] bg-white p-3 rounded-xl border-l-4 border-secondary shadow-md animate-in fade-in">
@@ -2983,11 +3196,16 @@ export default function App() {
     // 清空所有 localStorage 数据
     localStorage.clear();
     
+    // 清空所有 sessionStorage 数据
+    sessionStorage.clear();
+    
     // 重置状态
     setInterestProfile(INITIAL_INTEREST_SCORES);
     setAbilityProfile(INITIAL_ABILITY_SCORES);
     setTrendData(INITIAL_TREND_DATA);
     setIsFirstTime(true);
+    
+    console.log('[Logout] 已清空所有本地数据');
     
     // 跳转到欢迎页面
     setCurrentPage(Page.WELCOME);

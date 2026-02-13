@@ -198,6 +198,7 @@ export interface CandidateGame {
   difficulty: number;   // 难度（1-5星）
   challenges: string[]; // 可能遇到的挑战和应对
   fullGame?: Game;      // 完整的游戏对象（可选）
+  source?: 'library' | 'generated';  // 游戏来源：游戏库检索 or LLM生成
 }
 
 // 游戏实施方案
@@ -224,6 +225,15 @@ export interface ParentPreference {
   focus: AbilityDimensionType[]; // 希望重点训练的能力
   avoidTopics?: string[]; // 需要避免的主题
   notes?: string; // 其他备注
+}
+
+// 用户偏好（从对话中提取）
+export interface UserPreferences {
+  environment?: 'indoor' | 'outdoor' | 'both' | 'any';
+  duration?: 'short' | 'medium' | 'long' | 'any';
+  avoidMaterials?: string[];  // 需要避免的材料
+  preferMaterials?: string[]; // 偏好的材料
+  otherRequirements?: string; // 其他要求
 }
 
 // 历史数据摘要（用于Agent输入）
