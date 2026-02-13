@@ -378,12 +378,43 @@ export const SuggestGameDirectionsTool = {
     parameters: {
       type: 'object',
       properties: {
-        reason: {
+        userPreferences: {
+          type: 'object',
+          description: '用户的偏好和要求（必须提供，如果用户没有明确说明则使用默认值）',
+          properties: {
+            environment: {
+              type: 'string',
+              enum: ['indoor', 'outdoor', 'both', 'any'],
+              description: '环境偏好：indoor(室内)、outdoor(户外)、both(都可以)、any(无要求，默认值)'
+            },
+            duration: {
+              type: 'string',
+              enum: ['short', 'medium', 'long', 'any'],
+              description: '时长偏好：short(短时间10分钟内)、medium(中等10-20分钟)、long(长时间20分钟以上)、any(无要求，默认值)'
+            },
+            avoidMaterials: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '需要避免的材料（如：积木、水、颜料等），如果用户说"没有XX"或"不要XX"。如果没有则为空数组'
+            },
+            preferMaterials: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '偏好使用的材料（如果用户明确提到）。如果没有则为空数组'
+            },
+            otherRequirements: {
+              type: 'string',
+              description: '其他特殊要求（如：安静的、不需要跑动的、适合两个人玩的等）。如果没有则为空字符串'
+            }
+          },
+          required: ['environment', 'duration', 'avoidMaterials', 'preferMaterials', 'otherRequirements']
+        },
+        conversationHistory: {
           type: 'string',
-          description: '为什么现在推荐游戏，例如：家长询问今天玩什么'
+          description: '最近的对话历史（最多5轮），帮助理解上下文。格式：用户: xxx\\nAI: xxx'
         }
       },
-      required: ['reason']
+      required: ['userPreferences', 'conversationHistory']
     }
   }
 };
@@ -405,9 +436,17 @@ export const SearchCandidateGamesTool = {
           type: 'number',
           description: '候选游戏数量，默认3',
           default: 3
+        },
+        additionalRequirements: {
+          type: 'string',
+          description: '家长在选择方向后提出的额外要求（如："不要太复杂"、"材料简单一点"等）'
+        },
+        conversationHistory: {
+          type: 'string',
+          description: '最近的对话历史（最多5轮），帮助理解上下文。格式：用户: xxx\\nAI: xxx'
         }
       },
-      required: ['directionName']
+      required: ['directionName', 'conversationHistory']
     }
   }
 };
@@ -429,9 +468,13 @@ export const RecommendGameFinalTool = {
           type: 'array',
           items: { type: 'string' },
           description: '家长要求的调整（可选）'
+        },
+        conversationHistory: {
+          type: 'string',
+          description: '最近的对话历史（最多5轮），帮助理解上下文。格式：用户: xxx\\nAI: xxx'
         }
       },
-      required: ['gameId']
+      required: ['gameId', 'conversationHistory']
     }
   }
 };
