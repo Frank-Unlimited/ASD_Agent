@@ -986,9 +986,13 @@ const PageAIChat = ({
                   try {
                     console.log('[Tool Call] 检索候选游戏...', args);
                     
-                    // 显示工具调用信息
-                    fullResponse += `\n\n� **调用工具**: search_candidate_games\n`;
-                    fullResponse += `📝 **参数**: ${JSON.stringify(args, null, 2)}\n`;
+                    // 添加工具调用卡片标记
+                    fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                      tool: 'search_candidate_games',
+                      status: 'running',
+                      params: args
+                    })}:::TOOL_CALL_END:::\n`;
+                    
                     fullResponse += `\n🔍 正在为您检索"${args.directionName}"方向的游戏...`;
                     setMessages(prev => 
                       prev.map(msg => 
@@ -1068,9 +1072,16 @@ const PageAIChat = ({
                       };
                       sessionStorage.setItem('candidate_games', JSON.stringify(candidateGamesData));
                     } else {
-                      // 清除工具调用信息
-                      fullResponse = fullResponse.replace(/🔧 \*\*调用工具\*\*:.*?\n/s, '');
-                      fullResponse = fullResponse.replace(/📝 \*\*参数\*\*:.*?\n\n/s, '');
+                      // 更新工具调用状态为失败
+                      fullResponse = fullResponse.replace(
+                        /:::TOOL_CALL_START:::.*?"tool":"search_candidate_games".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                        (match) => {
+                          const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                          toolData.status = 'error';
+                          toolData.error = '未找到合适的游戏';
+                          return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                        }
+                      );
                       fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
                       fullResponse += `\n\n抱歉，暂时没有找到合适的游戏。`;
                     }
@@ -1084,6 +1095,18 @@ const PageAIChat = ({
                     );
                   } catch (error) {
                     console.error('[Tool Call] 检索候选游戏失败:', error);
+                    
+                    // 更新工具调用状态为失败
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"search_candidate_games".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'error';
+                        toolData.error = error instanceof Error ? error.message : '未知错误';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+                    
                     fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
                     fullResponse += `\n\n检索游戏时出现错误，请稍后重试。`;
                     setMessages(prev => 
@@ -1159,9 +1182,16 @@ const PageAIChat = ({
                     }
                     
                     if (!selectedGame) {
-                      // 清除工具调用信息
-                      fullResponse = fullResponse.replace(/🔧 \*\*调用工具\*\*:.*?\n/s, '');
-                      fullResponse = fullResponse.replace(/📝 \*\*参数\*\*:.*?\n\n/s, '');
+                      // 更新工具调用状态为失败
+                      fullResponse = fullResponse.replace(
+                        /:::TOOL_CALL_START:::.*?"tool":"recommend_game_final".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                        (match) => {
+                          const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                          toolData.status = 'error';
+                          toolData.error = '未找到匹配的游戏';
+                          return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                        }
+                      );
                       fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
                       fullResponse += `\n\n抱歉，未找到该游戏。请重新选择。`;
                       console.error('[Tool Call] 未找到匹配的游戏');
@@ -1226,9 +1256,16 @@ const PageAIChat = ({
                     
                     console.log('[Tool Call] 生成实施方案成功:', plan);
                     
-                    // 清除工具调用信息和加载提示
-                    fullResponse = fullResponse.replace(/🔧 \*\*调用工具\*\*:.*?\n/s, '');
-                    fullResponse = fullResponse.replace(/📝 \*\*参数\*\*:.*?\n\n/s, '');
+                    // 更新工具调用状态为成功
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"recommend_game_final".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'success';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+                    
                     fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
                     fullResponse += `\n\n太棒了！我为"${fullGame.title}"制定了一套完整的实施方案：\n\n`;
                     
@@ -1255,9 +1292,18 @@ const PageAIChat = ({
                     );
                   } catch (error) {
                     console.error('[Tool Call] 生成最终游戏失败:', error);
-                    // 清除工具调用信息
-                    fullResponse = fullResponse.replace(/🔧 \*\*调用工具\*\*:.*?\n/s, '');
-                    fullResponse = fullResponse.replace(/📝 \*\*参数\*\*:.*?\n\n/s, '');
+                    
+                    // 更新工具调用状态为失败
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"recommend_game_final".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'error';
+                        toolData.error = error instanceof Error ? error.message : '未知错误';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+                    
                     fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
                     fullResponse += `\n\n生成游戏方案时出现错误，请稍后重试。`;
                     setMessages(prev => 
