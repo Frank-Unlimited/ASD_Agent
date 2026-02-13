@@ -144,16 +144,12 @@ export const testAssessment = async () => {
     saveAssessment(assessment);
     
     console.log('\n✅ 评估完成！\n');
-    console.log('【当前画像】');
+    console.log('【评估摘要】');
+    console.log(assessment.summary);
+    console.log('\n【当前画像】');
     console.log(assessment.currentProfile);
     console.log('\n【下一步建议】');
     console.log(assessment.nextStepSuggestion);
-    console.log('\n【关键发现】');
-    assessment.keyFindings.forEach((f, i) => console.log(`${i + 1}. ${f}`));
-    console.log('\n【优势】');
-    assessment.strengths.forEach((s, i) => console.log(`${i + 1}. ${s}`));
-    console.log('\n【需要关注】');
-    assessment.concerns.forEach((c, i) => console.log(`${i + 1}. ${c}`));
     
     return assessment;
   } catch (error) {

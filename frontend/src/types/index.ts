@@ -56,6 +56,8 @@ export interface Game {
   reason: string;
   isVR?: boolean;     // New property for VR feature
   steps: GameStep[]; // Changed from string[] to GameStep[]
+  summary?: string;   // 游戏玩法概要（用于阶段2展示）
+  materials?: string[]; // 所需材料列表（用于阶段2展示）
 }
 
 export interface CalendarEvent {
