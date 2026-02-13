@@ -5,6 +5,7 @@
  */
 
 import { Game } from '../types';
+import { buildSearchGamesPrompt } from '../prompts';
 
 // 阿里云 Web-Search 配置
 const DASHSCOPE_API_KEY = import.meta.env.VITE_DASHSCOPE_API_KEY;
@@ -369,7 +370,7 @@ export const searchGamesOnline = async (
     console.log('🌐 开始联网搜索游戏...');
     
     // 构建搜索提示词
-    const searchPrompt = buildSearchPrompt(query, childContext);
+    const searchPrompt = buildSearchGamesPrompt(query, childContext);
     
     // 使用 qwenStreamClient（已配置好CORS）
     const { qwenStreamClient } = await import('./qwenStreamClient');
@@ -446,52 +447,6 @@ export const searchGamesHybrid = async (
 };
 
 /**
- * 构建搜索提示词
- */
-function buildSearchPrompt(query: string, childContext: string): string {
-  return `
-请从互联网搜索适合自闭症儿童的 DIR/Floortime 地板游戏，要求：
-
-【搜索条件】
-${query}
-
-${childContext ? `【儿童情况】\n${childContext}\n` : ''}
-
-【要求】
-1. 搜索适合自闭症儿童的地板游戏、感统游戏、互动游戏
-2. 游戏应该基于 DIR/Floortime 理念
-3. 游戏应该有明确的训练目标
-4. 游戏步骤要具体可操作
-
-【返回格式】
-请以 JSON 数组格式返回，每个游戏包含：
-- title: 游戏名称
-- target: 训练目标
-- duration: 游戏时长
-- reason: 适合理由
-- steps: 游戏步骤数组，每个步骤包含 instruction 和 guidance
-
-示例：
-\`\`\`json
-[
-  {
-    "title": "游戏名称",
-    "target": "训练目标",
-    "duration": "15-20分钟",
-    "reason": "适合理由",
-    "steps": [
-      {"instruction": "步骤1", "guidance": "引导要点1"},
-      {"instruction": "步骤2", "guidance": "引导要点2"}
-    ]
-  }
-]
-\`\`\`
-
-请返回 3-5 个游戏。
-`;
-}
-
-/**
  * 解析搜索结果中的游戏信息
  */
 function parseGamesFromSearchResult(content: string): Game[] {
@@ -521,8 +476,15 @@ function parseGamesFromSearchResult(content: string): Game[] {
     
     console.log(`✅ 成功解析 ${gamesData.length} 个游戏`);
     
-    // 转换为 Game 类型
+    // 转换为 Game 类型（只保存概要信息，不保存详细步骤）
     const games = gamesData.map((game, index) => {
+      // 将 keyPoints 转换为简单的步骤格式（用于临时存储）
+      const keyPoints = game.keyPoints || [];
+      const steps = keyPoints.map((point: string) => ({
+        instruction: point,
+        guidance: '' // 概要阶段不需要详细引导
+      }));
+      
       const gameObj: Game = {
         id: `online_${Date.now()}_${index}`,
         title: game.title || '未命名游戏',
@@ -530,13 +492,13 @@ function parseGamesFromSearchResult(content: string): Game[] {
         duration: game.duration || '15-20分钟',
         reason: game.reason || '',
         isVR: game.isVR || false,
-        steps: Array.isArray(game.steps) ? game.steps.map((step: any) => ({
-          instruction: step.instruction || step,
-          guidance: step.guidance || '请根据孩子的反应灵活调整'
-        })) : []
+        steps: steps, // 只保存关键要点，不是详细步骤
+        // 保存额外的概要信息
+        summary: game.summary || '',
+        materials: game.materials || []
       };
       
-      console.log(`  ${index + 1}. ${gameObj.title} (${gameObj.steps.length} 个步骤)`);
+      console.log(`  ${index + 1}. ${gameObj.title} (概要: ${keyPoints.length} 个关键点)`);
       return gameObj;
     });
     

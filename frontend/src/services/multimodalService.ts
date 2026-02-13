@@ -5,7 +5,7 @@
 
 import { dashscopeClient } from './dashscopeClient';
 import { fileUploadService, FileMetadata } from './fileUpload';
-import { DEFAULT_IMAGE_ANALYSIS_PROMPT, DEFAULT_VIDEO_ANALYSIS_PROMPT } from '../prompts/multimodal-analysis';
+import { DEFAULT_IMAGE_ANALYSIS_PROMPT, DEFAULT_VIDEO_ANALYSIS_PROMPT } from '../prompts';
 
 export interface AnalysisResult {
   success: boolean;

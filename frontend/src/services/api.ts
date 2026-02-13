@@ -1,7 +1,7 @@
 
 import { ChildProfile, Game, CalendarEvent, InterestCategory, ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate } from '../types';
 import { sendQwenMessageSync, evaluateSession, analyzeReport, recommendGame } from './qwenService';
-import { MEDICAL_REPORT_ANALYSIS_PROMPT, VERBAL_DESCRIPTION_ANALYSIS_PROMPT } from '../prompts/diagnosis-analysis';
+import { MEDICAL_REPORT_ANALYSIS_PROMPT, VERBAL_DESCRIPTION_ANALYSIS_PROMPT } from '../prompts';
 
 // --- Configuration ---
 export const USE_REAL_API = true;

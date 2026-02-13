@@ -934,9 +934,21 @@ const PageAIChat = ({
                       );
                       fullResponse = fullResponse.replace(/🎯 正在分析.*?生成游戏方向建议\.\.\./, '');
                       
+                      // 保存上下文信息到 sessionStorage，供后续工具使用
+                      const gameRecommendationContext = {
+                        childProfile: currentChildProfile,
+                        latestAssessment: latestAssessment,
+                        historicalData: historicalData,
+                        userPreferences: args.userPreferences,
+                        timestamp: Date.now()
+                      };
+                      sessionStorage.setItem('game_recommendation_context', JSON.stringify(gameRecommendationContext));
+                      
                       // 保存当前的游戏方向到 sessionStorage（用于后续匹配）
                       sessionStorage.setItem('game_directions', JSON.stringify(directions));
                       sessionStorage.removeItem('candidate_games'); // 清除旧的候选游戏
+                      
+                      console.log('[Tool Call] 已保存上下文信息到 sessionStorage');
                       
                       // 适度详细的文本，不要太简单也不要太冗长
                       fullResponse += `\n\n根据${currentChildProfile.name}的情况，我推荐这几个方向：\n\n`;
@@ -949,10 +961,6 @@ const PageAIChat = ({
                       });
                       
                       fullResponse += `您想试试哪个方向？也可以告诉我您的想法。`;
-                      
-                      // 不再显示卡片，只保存方向数据供后续使用
-                      // 将方向数据存储到 sessionStorage，供后续检索游戏时使用
-                      sessionStorage.setItem('game_directions', JSON.stringify(directions));
                     } else {
                       fullResponse = fullResponse.replace(/🎯 正在分析.*?生成游戏方向建议\.\.\./, '');
                       fullResponse += `\n\n抱歉，暂时无法生成游戏方向建议。`;
@@ -1002,8 +1010,7 @@ const PageAIChat = ({
                       )
                     );
                     
-                    // 这里需要从之前的对话中找到选定的方向
-                    // 简化处理：直接使用 directionName 构建一个临时方向对象
+                    // 构建方向对象（从 directionName 推断）
                     const tempDirection = {
                       name: args.directionName,
                       reason: '',
@@ -1012,27 +1019,10 @@ const PageAIChat = ({
                     };
                     
                     const { searchCandidateGames } = await import('./services/gameRecommendConversationalAgent');
-                    const { getLatestAssessment } = await import('./services/assessmentStorage');
                     
-                    const latestAssessment = getLatestAssessment();
-                    if (!currentChildProfile) {
-                      fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
-                      fullResponse += `\n\n需要先完善孩子的档案信息。`;
-                      setMessages(prev => 
-                        prev.map(msg => 
-                          msg.id === tempMsgId 
-                            ? { ...msg, text: fullResponse }
-                            : msg
-                        )
-                      );
-                      return;
-                    }
-                    
-                    // 即使没有评估也可以检索游戏
+                    // 调用检索函数（不再传递 childProfile 和 latestAssessment，工具内部会从 sessionStorage 读取）
                     const candidateGames = await searchCandidateGames(
                       tempDirection,
-                      currentChildProfile,
-                      latestAssessment,
                       args.count || 3,
                       args.additionalRequirements,
                       getConversationHistory()  // 传入对话历史
@@ -1056,13 +1046,14 @@ const PageAIChat = ({
                       
                       candidateGames.forEach((game, index) => {
                         // 添加来源标记
-                        const sourceTag = game.source === 'generated' ? '🎨 AI设计' : '📚 游戏库';
-                        fullResponse += `${index + 1}. **${game.title}** ${sourceTag}\n`;
-                        fullResponse += `玩法：${game.reason}\n`;
+                        const sourceTag = game.source === 'generated' ? '🎨 AI设计' : '🌐 联网搜索';
+                        fullResponse += `**${index + 1}. ${game.title}** ${sourceTag}\n`;
+                        fullResponse += `📝 ${game.summary}\n`;
+                        fullResponse += `💡 ${game.reason}\n`;
                         fullResponse += `⏱️ ${game.duration} | 难度：${'⭐'.repeat(game.difficulty)} | 材料：${game.materials.join('、')}\n\n`;
                       });
                       
-                      fullResponse += `您想试试哪个？`;
+                      fullResponse += `您想试试哪个？选定后我会为您设计详细的实施方案。`;
                       
                       // 保存候选游戏数据供后续使用，并添加时间戳
                       const candidateGamesData = {
@@ -1108,7 +1099,14 @@ const PageAIChat = ({
                     );
                     
                     fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
-                    fullResponse += `\n\n检索游戏时出现错误，请稍后重试。`;
+                    
+                    // 检查是否是上下文缺失错误
+                    if (error instanceof Error && error.message.includes('未找到游戏推荐上下文')) {
+                      fullResponse += `\n\n抱歉，游戏推荐会话已过期。请重新开始推荐流程。`;
+                    } else {
+                      fullResponse += `\n\n检索游戏时出现错误，请稍后重试。`;
+                    }
+                    
                     setMessages(prev => 
                       prev.map(msg => 
                         msg.id === tempMsgId 
@@ -1229,27 +1227,10 @@ const PageAIChat = ({
                     }
                     
                     const { generateImplementationPlan } = await import('./services/gameRecommendConversationalAgent');
-                    const { getLatestAssessment } = await import('./services/assessmentStorage');
                     
-                    const latestAssessment = getLatestAssessment();
-                    if (!currentChildProfile) {
-                      fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
-                      fullResponse += `\n\n需要先完善孩子的档案信息。`;
-                      setMessages(prev => 
-                        prev.map(msg => 
-                          msg.id === tempMsgId 
-                            ? { ...msg, text: fullResponse }
-                            : msg
-                        )
-                      );
-                      return;
-                    }
-                    
-                    // 使用完整的游戏对象生成实施方案
+                    // 调用生成实施方案函数（不再传递 childProfile 和 latestAssessment，工具内部会从 sessionStorage 读取）
                     const plan = await generateImplementationPlan(
                       fullGame,
-                      currentChildProfile,
-                      latestAssessment,
                       args.customizations || [],
                       getConversationHistory()  // 传入对话历史
                     );
@@ -1305,7 +1286,14 @@ const PageAIChat = ({
                     );
                     
                     fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
-                    fullResponse += `\n\n生成游戏方案时出现错误，请稍后重试。`;
+                    
+                    // 检查是否是上下文缺失错误
+                    if (error instanceof Error && error.message.includes('未找到游戏推荐上下文')) {
+                      fullResponse += `\n\n抱歉，游戏推荐会话已过期。请重新开始推荐流程。`;
+                    } else {
+                      fullResponse += `\n\n生成游戏方案时出现错误，请稍后重试。`;
+                    }
+                    
                     setMessages(prev => 
                       prev.map(msg => 
                         msg.id === tempMsgId 

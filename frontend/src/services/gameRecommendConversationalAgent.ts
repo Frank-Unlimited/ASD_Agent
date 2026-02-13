@@ -19,50 +19,12 @@ import {
   HistoricalDataSummary,
   Game
 } from '../types';
-
-const CONVERSATIONAL_SYSTEM_PROMPT = `
-你是一位温暖、专业的 DIR/Floortime 游戏推荐专家。
-
-重要：游戏推荐采用"协商式对话"流程，分为3个阶段：
-
-阶段1 - 需求探讨（纯文字对话）：
-- 当用户提出游戏推荐需求时，先分析孩子档案
-- 提出3-5个游戏方向，每个方向包含：方向名称、推荐理由、预期目标、适合场景
-- 理由必须结合孩子的兴趣维度（高分维度作为切入点）和能力维度（低分维度作为目标）
-- 必须引用具体的维度分数（如"辰辰的Visual维度82分，说明视觉兴趣很强"）
-- 用自然语言讨论，不显示卡片
-- 使用温暖鼓励的语气，询问家长倾向哪个方向
-- 如果家长对推荐的方向不满意，要倾听家长的具体需求和顾虑，然后调整推荐
-
-阶段2 - 方案细化（纯文字对话）：
-- 家长选择方向后，从游戏库检索3-5个候选游戏
-- 为每个游戏提供：名称、玩法概述、个性化理由、材料、时长难度、挑战应对
-- 用自然语言介绍，不显示卡片
-- 使用表情符号和清晰的格式，让信息易于阅读
-- 询问家长选择哪个游戏或需要调整
-- 如果家长不满意，询问具体原因（时长？难度？材料？），然后调整推荐
-
-阶段3 - 生成游戏卡片：
-- 家长选择具体游戏后，生成完整实施方案
-- 这时才显示游戏卡片，包含：详细步骤（准备-游戏-结束）、家长指导、预期效果、问题应对
-- 使用编号和清晰的结构，方便家长理解
-- 询问是否开始实施
-- 如果家长有顾虑，提供调整建议或替代方案
-
-灵活对话：
-- 家长可以随时提出自己的想法和需求
-- 如果家长说"都不太合适"、"有没有其他的"等，要询问具体原因，然后提供新的建议
-- 如果家长描述了具体需求（如"想要户外的"、"时间短一点的"），要根据需求重新推荐
-- 保持对话的连贯性，不要只依赖按钮交互
-
-记住：
-- 前两个阶段都是纯文字对话，不显示卡片
-- 只有第三阶段才显示游戏卡片
-- 理由必须个性化，引用孩子的具体数据（如"{孩子名}的Visual维度82分"）
-- 语气温暖鼓励，避免说教
-- 使用表情符号增加亲和力（🎯 🎮 👨‍👩‍👧 🔧 等）
-- 要能灵活应对家长的各种反馈，不只是等待按钮点击
-`;
+import {
+  CONVERSATIONAL_SYSTEM_PROMPT,
+  buildGameDirectionsPrompt,
+  buildGenerateGamesPrompt,
+  buildImplementationPlanPrompt
+} from '../prompts';
 
 /**
  * 阶段1：生成游戏方向建议
@@ -81,6 +43,16 @@ export const generateGameDirections = async (
   conversationHistory?: string
 ): Promise<GameDirection[]> => {
   try {
+    // TODO: 查询最近的地板游戏实施数据（只查询已实施的）
+    // 用于避免重复推荐相同类型的游戏，提供更多样化的建议
+    // 数据结构示例：
+    // const recentGames = await getRecentImplementedGames(childProfile.id, 5);
+    // recentGames = [
+    //   { title: "彩虹手指画", category: "感官探索", implementedDate: "2024-01-15" },
+    //   { title: "积木高塔", category: "建构游戏", implementedDate: "2024-01-14" }
+    // ]
+    const recentGames: any[] = []; // 暂时为空，等待数据接口
+    
     // 获取所有兴趣维度的详细数据
     const interestDetails = Object.entries(historicalData.interestTrends)
       .map(([dim, score]) => `${dim}: ${score.toFixed(0)}分`)
@@ -104,6 +76,17 @@ export const generateGameDirections = async (
       .sort(([, a], [, b]) => a - b)
       .slice(0, 3)
       .map(([dim, score]) => `${dim}(${score.toFixed(0)}分)`);
+
+    // 构建最近游戏历史信息
+    let recentGamesText = '';
+    if (recentGames.length > 0) {
+      recentGamesText = `
+【最近实施的游戏】
+${recentGames.map((g: any) => `- ${g.title}（${g.category}，${g.implementedDate}）`).join('\n')}
+
+⚠️ 重要：为了提供多样化的体验，请避免推荐与最近游戏相同类型的方向。尝试推荐不同的游戏类型和训练目标。
+`;
+    }
 
     // 构建用户偏好说明
     let preferencesText = '';
@@ -165,68 +148,18 @@ ${latestAssessment.currentProfile}
 这是${childProfile.name}的首次使用，我们将根据基础信息和初步观察来推荐游戏方向。
 `;
 
-    const conversationContext = conversationHistory 
-      ? `
-【对话历史】
-${conversationHistory}
-
-请结合对话历史中用户的需求和反馈来生成游戏方向。
-`
-      : '';
-
-    const prompt = `
-${preferencesText}
-${conversationContext}
-
-请为以下儿童生成3个游戏方向建议（只要3个，不要太多）：
-
-【基本信息】
-姓名：${childProfile.name}
-性别：${childProfile.gender}
-年龄：${childProfile.birthDate ? `${new Date().getFullYear() - new Date(childProfile.birthDate).getFullYear()}岁` : '未知'}
-${assessmentInfo}
-
-【兴趣维度详细数据】
-${interestDetails || '暂无数据'}
-
-【能力维度详细数据】
-${abilityDetails || '暂无数据'}
-
-【分析要点】
-- 高兴趣维度（可作为切入点）：${highInterests.length > 0 ? highInterests.join(', ') : '暂无明显高兴趣'}
-- 需要提升的能力维度：${lowAbilities.length > 0 ? lowAbilities.join(', ') : '整体均衡'}
-
-${!latestAssessment ? '注意：这是首次使用，请基于基础信息和通用的ASD儿童发展需求来推荐游戏方向。' : ''}
-
-重要要求：
-1. 只生成3个方向，不要太多
-2. 推荐理由要充实但简洁（2-3句话）：
-   - 第一句：说明为什么适合这个年龄/性别的孩子
-   - 第二句：说明这个方向的特点和吸引力
-   - 第三句（可选）：说明对孩子发展的好处
-3. 如果所有维度都是50分（初始数据），基于年龄和性别推荐通用但实用的方向
-4. 方向名称要具体（如"玩水游戏"而不是"感官探索小达人"）
-5. 目标要明确具体（如"锻炼手眼协调和身体追踪能力"）
-6. 场景描述要实用（如"室内或阳台，10-15分钟"）
-
-请生成3个游戏方向，每个方向包含：
-1. name: 方向名称（具体实际，如"玩水游戏"、"搭积木"、"追泡泡"）
-2. reason: 推荐理由（2-3句话，充实但不冗长）
-3. goal: 预期目标（明确具体，如"锻炼手眼协调和身体追踪能力"）
-4. scene: 适合场景（实用，如"室内或阳台，10-15分钟"）
-
-返回 JSON 格式：
-{
-  "directions": [
-    {
-      "name": "具体游戏方向名称",
-      "reason": "简短实际的理由（1-2句话）",
-      "goal": "简短的目标",
-      "scene": "简短的场景描述"
-    }
-  ]
-}
-`;
+    const prompt = buildGameDirectionsPrompt({
+      childProfile,
+      latestAssessment,
+      historicalData,
+      interestDetails,
+      abilityDetails,
+      highInterests,
+      lowAbilities,
+      recentGames,
+      userPreferences,
+      conversationHistory
+    });
 
     const response = await qwenStreamClient.chat(
       [
@@ -259,17 +192,31 @@ ${!latestAssessment ? '注意：这是首次使用，请基于基础信息和通
  */
 export const searchCandidateGames = async (
   direction: GameDirection,
-  childProfile: ChildProfile,
-  latestAssessment: ComprehensiveAssessment | null,
   count: number = 3,
-  additionalRequirements?: string,  // 新增：额外要求
+  additionalRequirements?: string,
   conversationHistory?: string
 ): Promise<CandidateGame[]> => {
   try {
+    // 从 sessionStorage 读取上下文信息
+    const contextStr = sessionStorage.getItem('game_recommendation_context');
+    if (!contextStr) {
+      console.error('[searchCandidateGames] 未找到游戏推荐上下文');
+      throw new Error('未找到游戏推荐上下文，请先调用 suggest_game_directions');
+    }
+    
+    const context = JSON.parse(contextStr);
+    const childProfile = context.childProfile;
+    const latestAssessment = context.latestAssessment;
+    
+    console.log('[searchCandidateGames] 从 sessionStorage 读取上下文:', {
+      childName: childProfile?.name,
+      hasAssessment: !!latestAssessment
+    });
+    
     let candidateGames: CandidateGame[] = [];
     
-    // 步骤1：先从游戏库检索
-    console.log('[Hybrid Strategy] 步骤1：从游戏库检索...');
+    // 步骤1：先从联网搜索获取游戏概要
+    console.log('[Hybrid Strategy] 步骤1：联网搜索游戏概要...');
     try {
       const searchQuery = `${direction.name} ${direction.goal} 自闭症儿童 地板游戏`;
       const childContext = `
@@ -282,49 +229,55 @@ ${additionalRequirements ? `额外要求：${additionalRequirements}` : ''}
 
       const games = await searchGamesHybrid(searchQuery, childContext, count);
       
-      // 转换为候选游戏格式
+      // 转换为候选游戏格式（只保留概要信息）
       candidateGames = games.map((game) => {
-        const mainSteps = game.steps.slice(0, 3).map(s => s.instruction).join('，');
-        const abilities = game.target || direction.goal;
-        const description = `${mainSteps}。能锻炼${abilities}。`;
+        // 使用 summary 字段（如果有），否则从关键要点生成概要
+        const summary = game.summary || 
+          (game.steps.length > 0 
+            ? game.steps.slice(0, 3).map(s => s.instruction).join('，') 
+            : '暂无概要');
+        
+        // 使用 reason 字段作为适合理由
+        const reason = game.reason || `适合${childProfile.name}的${direction.name}训练`;
+        
+        // 提取材料
+        const materials = game.materials || extractMaterials(game);
         
         return {
           id: game.id,
           title: game.title,
-          summary: mainSteps,
-          reason: description,
-          materials: extractMaterials(game),
+          summary: summary, // 游戏玩法概要
+          reason: reason, // 适合理由
+          materials: materials, // 所需材料
           duration: game.duration,
           difficulty: estimateDifficulty(game),
           challenges: generateChallenges(game),
-          fullGame: game,
-          source: 'library' as const  // 标记来源
+          fullGame: game, // 保存完整游戏对象（包含关键要点，但不是详细步骤）
+          source: 'online' as const  // 标记来源
         };
       });
       
-      console.log(`[Hybrid Strategy] 从游戏库检索到 ${candidateGames.length} 个游戏`);
+      console.log(`[Hybrid Strategy] 联网搜索到 ${candidateGames.length} 个游戏概要`);
     } catch (error) {
-      console.warn('[Hybrid Strategy] 游戏库检索失败:', error);
+      console.warn('[Hybrid Strategy] 联网搜索失败:', error);
     }
     
-    // 步骤2：如果检索结果不足，或有特殊要求，调用 LLM 生成游戏
+    // 步骤2：如果检索结果不足，或有特殊要求，调用 LLM 生成游戏概要
     const needGenerate = candidateGames.length < count || additionalRequirements;
     
     if (needGenerate) {
       const generateCount = Math.max(1, count - candidateGames.length);
-      console.log(`[Hybrid Strategy] 步骤2：LLM 生成 ${generateCount} 个游戏...`);
+      console.log(`[Hybrid Strategy] 步骤2：LLM 生成 ${generateCount} 个游戏概要...`);
       
       try {
         const generatedGames = await generateGamesWithLLM(
           direction,
-          childProfile,
-          latestAssessment,
           generateCount,
           additionalRequirements,
           conversationHistory
         );
         
-        console.log(`[Hybrid Strategy] LLM 生成了 ${generatedGames.length} 个游戏`);
+        console.log(`[Hybrid Strategy] LLM 生成了 ${generatedGames.length} 个游戏概要`);
         candidateGames = [...candidateGames, ...generatedGames];
       } catch (error) {
         console.warn('[Hybrid Strategy] LLM 生成游戏失败:', error);
@@ -344,13 +297,21 @@ ${additionalRequirements ? `额外要求：${additionalRequirements}` : ''}
  */
 async function generateGamesWithLLM(
   direction: GameDirection,
-  childProfile: ChildProfile,
-  latestAssessment: ComprehensiveAssessment | null,
   count: number,
   additionalRequirements?: string,
   conversationHistory?: string
 ): Promise<CandidateGame[]> {
   try {
+    // 从 sessionStorage 读取上下文信息
+    const contextStr = sessionStorage.getItem('game_recommendation_context');
+    if (!contextStr) {
+      console.error('[generateGamesWithLLM] 未找到游戏推荐上下文');
+      throw new Error('未找到游戏推荐上下文');
+    }
+    
+    const context = JSON.parse(contextStr);
+    const childProfile = context.childProfile;
+    const latestAssessment = context.latestAssessment;
     const conversationContext = conversationHistory 
       ? `
 【对话历史】
@@ -363,7 +324,7 @@ ${conversationHistory}
     const prompt = `
 ${conversationContext}
 
-请为以下儿童设计 ${count} 个原创的 DIR/Floortime 地板游戏：
+请为以下儿童设计 ${count} 个原创的 DIR/Floortime 地板游戏概要（只需要概要，不需要详细步骤）：
 
 【游戏方向】
 方向名称：${direction.name}
@@ -389,12 +350,12 @@ ${additionalRequirements}
 【设计要求】
 1. 游戏必须原创，不要复制现有游戏
 2. 游戏必须符合 DIR/Floortime 理念（以儿童兴趣为起点，促进互动）
-3. 游戏步骤要具体可操作（至少5个步骤）
-4. 每个步骤要包含家长引导要点
+3. 只需要提供游戏概要，不需要详细步骤（详细步骤会在后续细化）
+4. 提供3-5个关键要点（简短的步骤提示，每个10-15字）
 5. 游戏要适合家庭环境，材料易获取
 6. 如果有特殊要求，必须严格遵守
 
-请设计 ${count} 个游戏，返回 JSON 格式：
+请设计 ${count} 个游戏概要，返回 JSON 格式：
 \`\`\`json
 {
   "games": [
@@ -403,23 +364,21 @@ ${additionalRequirements}
       "target": "训练目标（如：提升手眼协调和社交互动能力）",
       "duration": "游戏时长（如：10-15分钟）",
       "reason": "为什么这个游戏适合${childProfile.name}（结合孩子的具体情况，2-3句话）",
-      "materials": ["材料1", "材料2"],
-      "steps": [
-        {
-          "instruction": "步骤1的具体操作",
-          "guidance": "家长引导要点"
-        },
-        {
-          "instruction": "步骤2的具体操作",
-          "guidance": "家长引导要点"
-        }
+      "summary": "游戏玩法概要（2-3句话描述游戏的核心玩法和流程）",
+      "materials": ["材料1", "材料2", "材料3"],
+      "keyPoints": [
+        "关键要点1（10-15字）",
+        "关键要点2",
+        "关键要点3",
+        "关键要点4",
+        "关键要点5"
       ]
     }
   ]
 }
 \`\`\`
 
-只返回 JSON，不要其他说明。
+只返回 JSON，不要其他说明。注意：只需要概要信息，不要详细步骤。
 `;
 
     const response = await qwenStreamClient.chat(
@@ -429,7 +388,7 @@ ${additionalRequirements}
       ],
       {
         temperature: 0.8,  // 提高创造性
-        max_tokens: 3000
+        max_tokens: 2000
       }
     );
 
@@ -455,16 +414,22 @@ ${additionalRequirements}
     // 转换为 CandidateGame 格式
     const candidateGames: CandidateGame[] = data.games.map((game: any, index: number) => {
       const gameId = `generated_${Date.now()}_${index}`;
-      const mainSteps = game.steps.slice(0, 3).map((s: any) => s.instruction).join('，');
+      
+      // 将 keyPoints 转换为简单的步骤格式（用于临时存储）
+      const keyPoints = game.keyPoints || [];
+      const steps = keyPoints.map((point: string) => ({
+        instruction: point,
+        guidance: '' // 概要阶段不需要详细引导
+      }));
       
       return {
         id: gameId,
         title: game.title,
-        summary: mainSteps,
+        summary: game.summary || keyPoints.slice(0, 3).join('，'),
         reason: game.reason,
-        materials: game.materials || extractMaterialsFromSteps(game.steps),
+        materials: game.materials || [],
         duration: game.duration,
-        difficulty: estimateDifficultyFromSteps(game.steps),
+        difficulty: estimateDifficultyFromSteps(keyPoints),
         challenges: [
           '孩子可能一开始不感兴趣 → 先观察，找到切入点',
           '孩子可能不理解规则 → 用视觉提示和示范',
@@ -477,7 +442,9 @@ ${additionalRequirements}
           duration: game.duration,
           reason: game.reason,
           isVR: false,
-          steps: game.steps
+          steps: steps, // 只保存关键要点，不是详细步骤
+          summary: game.summary,
+          materials: game.materials
         },
         source: 'generated' as const  // 标记来源
       };
@@ -495,12 +462,25 @@ ${additionalRequirements}
  */
 export const generateImplementationPlan = async (
   selectedGame: Game,
-  childProfile: ChildProfile,
-  latestAssessment: ComprehensiveAssessment | null,
   customizations: string[] = [],
   conversationHistory?: string
 ): Promise<GameImplementationPlan> => {
   try {
+    // 从 sessionStorage 读取上下文信息
+    const contextStr = sessionStorage.getItem('game_recommendation_context');
+    if (!contextStr) {
+      console.error('[generateImplementationPlan] 未找到游戏推荐上下文');
+      throw new Error('未找到游戏推荐上下文，请先调用 suggest_game_directions');
+    }
+    
+    const context = JSON.parse(contextStr);
+    const childProfile = context.childProfile;
+    const latestAssessment = context.latestAssessment;
+    
+    console.log('[generateImplementationPlan] 从 sessionStorage 读取上下文:', {
+      childName: childProfile?.name,
+      hasAssessment: !!latestAssessment
+    });
     const conversationContext = conversationHistory 
       ? `
 【对话历史】
@@ -510,47 +490,150 @@ ${conversationHistory}
 `
       : '';
 
+    // 构建儿童详细信息
+    const childDetails = latestAssessment 
+      ? `
+姓名：${childProfile.name}
+性别：${childProfile.gender}
+年龄：${childProfile.birthDate ? `${new Date().getFullYear() - new Date(childProfile.birthDate).getFullYear()}岁` : '未知'}
+
+【当前画像】
+${latestAssessment.currentProfile}
+
+【评估摘要】
+${latestAssessment.summary}
+
+【发展建议】
+${latestAssessment.nextStepSuggestion}
+`
+      : `
+姓名：${childProfile.name}
+性别：${childProfile.gender}
+年龄：${childProfile.birthDate ? `${new Date().getFullYear() - new Date(childProfile.birthDate).getFullYear()}岁` : '未知'}
+（首次使用，请基于年龄和性别设计通用方案）
+`;
+
     const prompt = `
 ${conversationContext}
 
-请为以下游戏生成完整的实施方案：
+你是一位经验丰富的 DIR/Floortime 游戏设计师。现在需要为以下游戏设计一套完整、详细、可操作的实施方案。
 
-【游戏信息】
+【游戏概要】
 名称：${selectedGame.title}
-目标：${selectedGame.target}
+训练目标：${selectedGame.target}
 时长：${selectedGame.duration}
-步骤：${selectedGame.steps.map((s, i) => `${i + 1}. ${s.instruction}`).join('\n')}
+适合理由：${selectedGame.reason}
+${selectedGame.summary ? `玩法概要：${selectedGame.summary}` : ''}
+${selectedGame.materials && selectedGame.materials.length > 0 ? `所需材料：${selectedGame.materials.join('、')}` : ''}
+${selectedGame.steps && selectedGame.steps.length > 0 ? `关键要点：\n${selectedGame.steps.map((s, i) => `${i + 1}. ${s.instruction}`).join('\n')}` : ''}
 
-【儿童信息】
-姓名：${childProfile.name}
-${latestAssessment ? `当前画像：${latestAssessment.currentProfile}` : '首次使用'}
+【儿童详细信息】
+${childDetails}
 
-${customizations.length > 0 ? `【家长要求的调整】\n${customizations.join('\n')}` : ''}
+${customizations.length > 0 ? `
+【家长特殊要求】
+${customizations.join('\n')}
+⚠️ 重要：必须在设计中体现这些要求！
+` : ''}
 
-请生成实施方案，包含：
-1. steps: 游戏步骤（分为准备阶段、游戏阶段、结束阶段）
-2. parentGuidance: 家长指导要点（3-5条）
-3. expectedOutcome: 预期效果（3-5条）
-4. troubleshooting: 问题应对（3-5个常见问题及解决方案）
+【任务要求】
+请基于以上游戏概要，为 ${childProfile.name} 量身定制一套详细的实施方案。要求：
 
-返回 JSON 格式：
+1. **深度细化游戏步骤**：
+   - 将游戏分为三个阶段：准备阶段（2-3分钟）、游戏阶段（主体部分）、结束阶段（2-3分钟）
+   - 每个阶段包含3-5个具体、可操作的指令
+   - 每个指令要详细到家长可以直接照着做
+   - 考虑 ${childProfile.name} 的具体情况进行个性化调整
+
+2. **家长指导要点**（4-6条）：
+   - 如何观察孩子的反应
+   - 如何调整互动节奏
+   - 如何鼓励和引导
+   - 注意事项和安全提示
+
+3. **预期效果**（3-5条）：
+   - 具体可观察的行为改善
+   - 能力提升的表现
+   - 短期和长期效果
+
+4. **问题应对**（4-6个常见问题）：
+   - 孩子可能出现的各种反应
+   - 每个问题的具体解决方案
+   - 如何灵活调整游戏
+
+【返回格式】
+请严格按照以下 JSON 格式返回：
+
+\`\`\`json
 {
   "steps": [
     {
       "title": "准备阶段",
-      "duration": "2分钟",
-      "instructions": ["指令1", "指令2"]
+      "duration": "2-3分钟",
+      "instructions": [
+        "详细指令1（要具体到动作和语言）",
+        "详细指令2",
+        "详细指令3"
+      ]
+    },
+    {
+      "title": "游戏阶段",
+      "duration": "8-10分钟",
+      "instructions": [
+        "详细指令1",
+        "详细指令2",
+        "详细指令3",
+        "详细指令4",
+        "详细指令5"
+      ]
+    },
+    {
+      "title": "结束阶段",
+      "duration": "2-3分钟",
+      "instructions": [
+        "详细指令1",
+        "详细指令2",
+        "详细指令3"
+      ]
     }
   ],
-  "parentGuidance": ["要点1", "要点2"],
-  "expectedOutcome": ["效果1", "效果2"],
+  "parentGuidance": [
+    "指导要点1（具体可操作）",
+    "指导要点2",
+    "指导要点3",
+    "指导要点4"
+  ],
+  "expectedOutcome": [
+    "预期效果1（具体可观察）",
+    "预期效果2",
+    "预期效果3"
+  ],
   "troubleshooting": [
     {
-      "problem": "问题描述",
-      "solution": "解决方案"
+      "problem": "孩子可能出现的问题1",
+      "solution": "详细的解决方案1"
+    },
+    {
+      "problem": "孩子可能出现的问题2",
+      "solution": "详细的解决方案2"
+    },
+    {
+      "problem": "孩子可能出现的问题3",
+      "solution": "详细的解决方案3"
+    },
+    {
+      "problem": "孩子可能出现的问题4",
+      "solution": "详细的解决方案4"
     }
   ]
 }
+\`\`\`
+
+重要提示：
+- 步骤要详细到家长可以直接执行，不要模糊的描述
+- 要结合 ${childProfile.name} 的具体情况进行个性化设计
+- 语言要温暖、鼓励、易懂
+- 每个指令要包含具体的动作、语言、时机
 `;
 
     const response = await qwenStreamClient.chat(
@@ -560,7 +643,7 @@ ${customizations.length > 0 ? `【家长要求的调整】\n${customizations.joi
       ],
       {
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 3000 // 增加 token 限制以支持更详细的内容
       }
     );
 

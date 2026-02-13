@@ -374,7 +374,20 @@ export const SuggestGameDirectionsTool = {
   type: 'function' as const,
   function: {
     name: 'suggest_game_directions',
-    description: '基于孩子档案生成3-5个游戏方向建议。当家长询问"推荐游戏"、"今天玩什么"、"推荐今日游戏"等时调用此工具。这是游戏推荐的第一阶段：需求探讨。',
+    description: `基于孩子档案生成3-5个游戏方向建议。这是游戏推荐的第一阶段：需求探讨。
+
+⚠️ 重要调用条件（必须满足以下任一条件才能调用）：
+1. 已经通过对话收集到完整的 userPreferences（环境、时长、避免材料、偏好材料、其他要求都已明确）
+2. 用户明确表示不需要探讨，直接推荐（如"随便推荐"、"你决定就好"、"快点推荐"、"直接给我推荐"）
+3. 已经与用户探讨了3轮对话，但用户仍未明确所有偏好（此时使用已收集的信息和默认值）
+
+如果不满足以上条件，应该先与用户探讨需求：
+- 询问环境偏好：室内还是户外？
+- 询问时长偏好：短时间（10分钟内）、中等（10-20分钟）还是长时间（20分钟以上）？
+- 询问材料限制：有没有不方便使用的材料？
+- 询问其他要求：有什么特殊需求吗？
+
+只有在收集到足够信息或用户强烈要求时，才调用此工具。`,
     parameters: {
       type: 'object',
       properties: {
@@ -412,6 +425,11 @@ export const SuggestGameDirectionsTool = {
         conversationHistory: {
           type: 'string',
           description: '最近的对话历史（最多5轮），帮助理解上下文。格式：用户: xxx\\nAI: xxx'
+        },
+        discussionRounds: {
+          type: 'number',
+          description: '已经探讨的轮数（用于判断是否达到最大轮数3轮）',
+          default: 0
         }
       },
       required: ['userPreferences', 'conversationHistory']
@@ -424,7 +442,7 @@ export const SearchCandidateGamesTool = {
   type: 'function' as const,
   function: {
     name: 'search_candidate_games',
-    description: '根据家长选定的游戏方向检索3-5个候选游戏。这是游戏推荐的第二阶段：方案细化。只有在家长明确选择了某个方向后才调用。',
+    description: '根据家长选定的游戏方向，联网搜索并返回3-5个候选游戏的概要信息。这是游戏推荐的第二阶段：方案细化。只有在家长明确选择了某个方向后才调用。注意：此阶段只返回游戏概要（玩法概要、关键要点、材料），不包含详细步骤，详细步骤会在第三阶段生成。',
     parameters: {
       type: 'object',
       properties: {
@@ -456,7 +474,7 @@ export const RecommendGameFinalTool = {
   type: 'function' as const,
   function: {
     name: 'recommend_game_final',
-    description: '生成最终游戏卡片并准备实施。这是游戏推荐的第三阶段：实施确认。只有在家长明确确认要开始某个游戏后才调用此工具。',
+    description: '基于家长选定的游戏概要，深度细化游戏步骤，生成完整的实施方案并显示游戏卡片。这是游戏推荐的第三阶段：实施确认。只有在家长明确确认要开始某个游戏后才调用此工具。此工具会将游戏概要（关键要点）细化为详细的、可直接执行的步骤，并结合孩子的具体情况进行个性化调整。',
     parameters: {
       type: 'object',
       properties: {
