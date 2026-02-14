@@ -187,6 +187,7 @@ export interface GameDirection {
   reason: string;       // 推荐理由（必须引用具体数据）
   goal: string;         // 预期目标
   scene: string;        // 适合场景（室内/户外、时长、难度）
+  _analysis?: string;   // LLM 分析总结（可选，用于显示）
 }
 
 // 候选游戏信息
@@ -201,22 +202,21 @@ export interface CandidateGame {
   challenges: string[]; // 可能遇到的挑战和应对
   fullGame?: Game;      // 完整的游戏对象（可选）
   source?: 'library' | 'generated';  // 游戏来源：游戏库检索 or LLM生成
+  _analysis?: string;   // LLM 分析总结（可选，用于显示）
 }
 
 // 游戏实施方案
 export interface GameImplementationPlan {
-  gameId: string;
-  steps: Array<{
-    title: string;
-    duration: string;
-    instructions: string[];
+  gameId: string;                    // 游戏ID
+  gameTitle: string;                 // 游戏名称
+  summary: string;                   // 游戏概要（2-3句话描述游戏的核心玩法）
+  goal: string;                      // 游戏目标（明确的训练目标）
+  steps: Array<{                     // 游戏步骤
+    stepTitle: string;               // 步骤标题，如 "第一步：准备材料"
+    instruction: string;             // 详细指令（家长应该做什么）
+    expectedOutcome: string;         // 预期效果（这一步期望达到什么效果）
   }>;
-  parentGuidance: string[];   // 家长指导要点
-  expectedOutcome: string[];  // 预期效果
-  troubleshooting: Array<{    // 问题应对
-    problem: string;
-    solution: string;
-  }>;
+  _analysis?: string;                // LLM 分析总结（可选，用于显示）
 }
 
 // 家长偏好

@@ -847,11 +847,29 @@ const PageAIChat = ({
           );
         },
         onToolCall: (toolCall) => {
-          // 辅助函数：获取对话历史
+          // 辅助函数：获取对话历史（JSON 安全版本）
           const getConversationHistory = () => {
             return messages
-              .map(msg => `${msg.role === 'user' ? '用户' : 'AI'}: ${msg.text}`)
-              .join('\n');
+              .slice(-10) // 取最近10轮对话（增加到10轮，确保包含之前的推荐）
+              .map(msg => {
+                // 清理文本，但保留游戏方向名称
+                let cleanText = msg.text
+                  .replace(/:::TOOL_CALL_START:::.*?:::TOOL_CALL_END:::/gs, '') // 移除工具调用标记
+                  .replace(/:::GAME_RECOMMENDATION:.*?:::/gs, '') // 移除游戏推荐标记
+                  .replace(/:::GAME_IMPLEMENTATION_PLAN:.*?:::/gs, '') // 移除实施方案标记
+                  .replace(/💡[^💡🎯📍\n]+/g, '') // 移除 analysis 总结（保留游戏方向）
+                  .replace(/\n+/g, ' ') // 将换行符替换为空格
+                  .replace(/\s+/g, ' ') // 合并多个空格
+                  .trim();
+                
+                // 限制长度（但不要太短，确保包含游戏方向名称）
+                if (cleanText.length > 500) {
+                  cleanText = cleanText.substring(0, 500) + '...';
+                }
+                
+                return `${msg.role === 'user' ? '用户' : 'AI'}: ${cleanText}`;
+              })
+              .join('\\n'); // 使用转义的换行符
           };
           
           // 处理 Function Call
@@ -859,7 +877,46 @@ const PageAIChat = ({
           toolCallsReceived.push(toolCall);
           
           try {
-            const args = JSON.parse(toolCall.function.arguments);
+            // 尝试解析工具参数
+            let args;
+            try {
+              args = JSON.parse(toolCall.function.arguments);
+            } catch (parseError) {
+              console.error('❌ Failed to parse tool arguments:', parseError);
+              console.log('🔧 Tool name:', toolCall.function.name);
+              console.log('📄 Raw arguments (first 500 chars):', toolCall.function.arguments.substring(0, 500));
+              console.log('📄 Raw arguments (around position 493):', toolCall.function.arguments.substring(480, 510));
+              
+              // 尝试修复常见的 JSON 错误
+              let fixedArgs = toolCall.function.arguments;
+              
+              // 1. 移除尾随逗号
+              fixedArgs = fixedArgs.replace(/,(\s*[}\]])/g, '$1');
+              
+              // 2. 移除注释
+              fixedArgs = fixedArgs.replace(/\/\/.*$/gm, '');
+              fixedArgs = fixedArgs.replace(/\/\*[\s\S]*?\*\//g, '');
+              
+              // 3. 再次尝试解析
+              try {
+                args = JSON.parse(fixedArgs);
+                console.log('✓ JSON 修复成功');
+              } catch (secondError) {
+                console.error('❌ JSON 修复失败:', secondError);
+                console.log('💾 Fixed args (first 500 chars):', fixedArgs.substring(0, 500));
+                
+                // 显示错误信息给用户
+                fullResponse += `\n\n抱歉，工具调用参数格式错误。这可能是因为对话历史中包含特殊字符。请尝试重新开始对话。`;
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.id === tempMsgId 
+                      ? { ...msg, text: fullResponse }
+                      : msg
+                  )
+                );
+                return; // 跳过此工具调用
+              }
+            }
             
             switch (toolCall.function.name) {
               case 'suggest_game_directions':
@@ -962,6 +1019,13 @@ const PageAIChat = ({
                     if (directions.length > 0) {
                       console.log('[Tool Call] 生成方向成功:', directions);
                       
+                      // 提取并记录 LLM 分析总结（如果有）
+                      if (directions[0]._analysis) {
+                        console.log('[LLM Analysis] 游戏方向推荐分析:\n', directions[0]._analysis);
+                        // 可以选择将分析添加到响应中（供调试用）
+                        // fullResponse += `\n\n[内部分析]\n${directions[0]._analysis}\n`;
+                      }
+                      
                       // 更新工具调用状态为成功
                       fullResponse = fullResponse.replace(
                         /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
@@ -983,8 +1047,13 @@ const PageAIChat = ({
                       sessionStorage.removeItem('candidate_games'); // 清除旧的候选游戏
                       console.log('[SessionStorage] 清除旧的候选游戏:', { key: 'candidate_games' });
                       
-                      // 适度详细的文本，不要太简单也不要太冗长
-                      fullResponse += `\n\n根据${currentChildProfile.name}的情况，我推荐这几个方向：\n\n`;
+                      // 如果有 LLM 分析总结，先展示分析
+                      if (directions[0]._analysis) {
+                        fullResponse += `\n\n💡 ${directions[0]._analysis}\n`;
+                      }
+                      
+                      // 展示游戏方向
+                      fullResponse += `\n根据${currentChildProfile.name}的情况，我推荐这几个方向：\n\n`;
                       
                       directions.forEach((dir, index) => {
                         fullResponse += `**${index + 1}. ${dir.name}**\n`;
@@ -1064,6 +1133,11 @@ const PageAIChat = ({
                     if (candidateGames.length > 0) {
                       console.log('[Tool Call] 检索成功:', candidateGames);
                       
+                      // 提取并记录 LLM 分析总结（如果有）
+                      if (candidateGames[0]._analysis) {
+                        console.log('[LLM Analysis] 候选游戏生成分析:\n', candidateGames[0]._analysis);
+                      }
+                      
                       // 更新工具调用状态为成功
                       fullResponse = fullResponse.replace(
                         /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
@@ -1075,7 +1149,12 @@ const PageAIChat = ({
                       );
                       fullResponse = fullResponse.replace(/🔍 正在为您检索.*?游戏\.\.\./, '');
                       
-                      fullResponse += `\n\n找到了几个适合的游戏：\n\n`;
+                      // 如果有 LLM 分析总结，先展示分析
+                      if (candidateGames[0]._analysis) {
+                        fullResponse += `\n\n💡 ${candidateGames[0]._analysis}\n`;
+                      }
+                      
+                      fullResponse += `\n找到了几个适合的游戏：\n\n`;
                       
                       candidateGames.forEach((game, index) => {
                         // 添加来源标记
@@ -1277,6 +1356,11 @@ const PageAIChat = ({
                     
                     console.log('[Tool Call] 生成实施方案成功:', plan);
                     
+                    // 提取并记录 LLM 分析总结（如果有）
+                    if (plan._analysis) {
+                      console.log('[LLM Analysis] 实施方案生成分析:\n', plan._analysis);
+                    }
+                    
                     // 更新工具调用状态为成功
                     fullResponse = fullResponse.replace(
                       /:::TOOL_CALL_START:::.*?"tool":"recommend_game_final".*?"status":"running".*?:::TOOL_CALL_END:::/s,
@@ -1288,17 +1372,26 @@ const PageAIChat = ({
                     );
                     
                     fullResponse = fullResponse.replace('✨ 正在生成游戏实施方案...', '');
-                    fullResponse += `\n\n太棒了！我为"${fullGame.title}"制定了一套完整的实施方案：\n\n`;
                     
-                    // 显示游戏步骤概览
-                    fullResponse += `📋 **游戏流程**\n`;
+                    // 如果有 LLM 分析总结，先展示分析
+                    if (plan._analysis) {
+                      fullResponse += `\n\n💡 ${plan._analysis}\n`;
+                    }
+                    
+                    fullResponse += `\n太棒了！我为"${fullGame.title}"制定了一套完整的实施方案：\n\n`;
+                    
+                    // 显示游戏概要
+                    fullResponse += `📝 **游戏概要**\n${plan.summary}\n\n`;
+                    
+                    // 显示游戏目标
+                    fullResponse += `🎯 **游戏目标**\n${plan.goal}\n\n`;
+                    
+                    // 显示游戏步骤
+                    fullResponse += `📋 **游戏步骤**\n`;
                     plan.steps.forEach((step, index) => {
-                      fullResponse += `${index + 1}. ${step.title}（${step.duration}）\n`;
-                    });
-                    
-                    fullResponse += `\n👨‍👩‍👧 **家长指导要点**\n`;
-                    plan.parentGuidance.slice(0, 2).forEach((guide, index) => {
-                      fullResponse += `• ${guide}\n`;
+                      fullResponse += `\n**${step.stepTitle}**\n`;
+                      fullResponse += `${step.instruction}\n`;
+                      fullResponse += `✨ 预期效果：${step.expectedOutcome}\n`;
                     });
                     
                     fullResponse += `\n如果您觉得这个方案合适，我们就可以开始游戏了！\n\n`;
