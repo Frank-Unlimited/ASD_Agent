@@ -199,6 +199,12 @@ export const searchCandidateGames = async (
   try {
     // 从 sessionStorage 读取上下文信息
     const contextStr = sessionStorage.getItem('game_recommendation_context');
+    console.log('[SessionStorage] 读取游戏推荐上下文:', {
+      key: 'game_recommendation_context',
+      found: !!contextStr,
+      dataLength: contextStr?.length
+    });
+    
     if (!contextStr) {
       console.error('[searchCandidateGames] 未找到游戏推荐上下文');
       throw new Error('未找到游戏推荐上下文，请先调用 suggest_game_directions');
@@ -304,6 +310,12 @@ async function generateGamesWithLLM(
   try {
     // 从 sessionStorage 读取上下文信息
     const contextStr = sessionStorage.getItem('game_recommendation_context');
+    console.log('[SessionStorage] 读取游戏推荐上下文 (generateGamesWithLLM):', {
+      key: 'game_recommendation_context',
+      found: !!contextStr,
+      dataLength: contextStr?.length
+    });
+    
     if (!contextStr) {
       console.error('[generateGamesWithLLM] 未找到游戏推荐上下文');
       throw new Error('未找到游戏推荐上下文');
@@ -468,6 +480,12 @@ export const generateImplementationPlan = async (
   try {
     // 从 sessionStorage 读取上下文信息
     const contextStr = sessionStorage.getItem('game_recommendation_context');
+    console.log('[SessionStorage] 读取游戏推荐上下文 (generateImplementationPlan):', {
+      key: 'game_recommendation_context',
+      found: !!contextStr,
+      dataLength: contextStr?.length
+    });
+    
     if (!contextStr) {
       console.error('[generateImplementationPlan] 未找到游戏推荐上下文');
       throw new Error('未找到游戏推荐上下文，请先调用 suggest_game_directions');
