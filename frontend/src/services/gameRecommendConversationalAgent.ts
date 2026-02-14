@@ -43,6 +43,13 @@ export const generateGameDirections = async (
   conversationHistory?: string
 ): Promise<GameDirection[]> => {
   try {
+    console.log('[generateGameDirections] 开始生成游戏方向，使用以下数据:', {
+      childName: childProfile.name,
+      hasAssessment: !!latestAssessment,
+      hasUserPreferences: !!userPreferences,
+      historicalDataKeys: Object.keys(historicalData)
+    });
+    
     // 从 sessionStorage 读取完整上下文（如果有的话）
     const contextStr = sessionStorage.getItem('game_recommendation_context');
     let recentBehaviors: any[] = [];
@@ -52,10 +59,12 @@ export const generateGameDirections = async (
       const context = JSON.parse(contextStr);
       recentBehaviors = context.recentBehaviors || [];
       recentGames = context.recentGames || [];
-      console.log('[generateGameDirections] 从 sessionStorage 读取上下文:', {
+      console.log('[generateGameDirections] 从 sessionStorage 读取补充上下文:', {
         recentBehaviorsCount: recentBehaviors.length,
         recentGamesCount: recentGames.length
       });
+    } else {
+      console.log('[generateGameDirections] sessionStorage 中暂无补充上下文（首次调用或已清空）');
     }
     
     // 获取所有兴趣维度的详细数据
