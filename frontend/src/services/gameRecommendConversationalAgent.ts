@@ -330,6 +330,34 @@ async function generateGamesWithLLM(
     const context = JSON.parse(contextStr);
     const childProfile = context.childProfile;
     const latestAssessment = context.latestAssessment;
+    const recentBehaviors = context.recentBehaviors || [];
+    const recentGames = context.recentGames || [];
+    
+    // 构建最近行为记录信息
+    let recentBehaviorsText = '';
+    if (recentBehaviors.length > 0) {
+      recentBehaviorsText = `
+【最近行为记录】（供参考）
+${recentBehaviors.slice(0, 5).map((b: any) => {
+  const topDimensions = b.dimensions
+    .sort((a: any, b: any) => b.weight - a.weight)
+    .slice(0, 2)
+    .map((d: any) => `${d.dimension}(关联${(d.weight * 100).toFixed(0)}%，强度${d.intensity > 0 ? '+' : ''}${d.intensity.toFixed(1)})`)
+    .join('、');
+  return `- ${b.behavior}（${b.date}）→ ${topDimensions}`;
+}).join('\n')}
+`;
+    }
+    
+    // 构建最近游戏信息
+    let recentGamesText = '';
+    if (recentGames.length > 0) {
+      recentGamesText = `
+【最近实施的游戏】（供参考，避免重复）
+${recentGames.map((g: any) => `- ${g.title}（${g.category}，${g.implementedDate}）`).join('\n')}
+`;
+    }
+    
     const conversationContext = conversationHistory 
       ? `
 【对话历史】
@@ -341,6 +369,8 @@ ${conversationHistory}
 
     const prompt = `
 ${conversationContext}
+${recentBehaviorsText}
+${recentGamesText}
 
 请为以下儿童设计 ${count} 个原创的 DIR/Floortime 地板游戏概要（只需要概要，不需要详细步骤）：
 
@@ -500,11 +530,41 @@ export const generateImplementationPlan = async (
     const context = JSON.parse(contextStr);
     const childProfile = context.childProfile;
     const latestAssessment = context.latestAssessment;
+    const recentBehaviors = context.recentBehaviors || [];
+    const recentGames = context.recentGames || [];
     
     console.log('[generateImplementationPlan] 从 sessionStorage 读取上下文:', {
       childName: childProfile?.name,
-      hasAssessment: !!latestAssessment
+      hasAssessment: !!latestAssessment,
+      recentBehaviorsCount: recentBehaviors.length,
+      recentGamesCount: recentGames.length
     });
+    
+    // 构建最近行为记录信息
+    let recentBehaviorsText = '';
+    if (recentBehaviors.length > 0) {
+      recentBehaviorsText = `
+【最近行为记录】（供参考，了解孩子最近的兴趣表现）
+${recentBehaviors.slice(0, 5).map((b: any) => {
+  const topDimensions = b.dimensions
+    .sort((a: any, b: any) => b.weight - a.weight)
+    .slice(0, 2)
+    .map((d: any) => `${d.dimension}(关联${(d.weight * 100).toFixed(0)}%，强度${d.intensity > 0 ? '+' : ''}${d.intensity.toFixed(1)})`)
+    .join('、');
+  return `- ${b.behavior}（${b.date}）→ ${topDimensions}`;
+}).join('\n')}
+`;
+    }
+    
+    // 构建最近游戏信息
+    let recentGamesText = '';
+    if (recentGames.length > 0) {
+      recentGamesText = `
+【最近实施的游戏】（供参考）
+${recentGames.map((g: any) => `- ${g.title}（${g.category}，${g.implementedDate}）`).join('\n')}
+`;
+    }
+    
     const conversationContext = conversationHistory 
       ? `
 【对话历史】
@@ -539,6 +599,8 @@ ${latestAssessment.nextStepSuggestion}
 
     const prompt = `
 ${conversationContext}
+${recentBehaviorsText}
+${recentGamesText}
 
 你是一位经验丰富的 DIR/Floortime 游戏设计师。现在需要为以下游戏设计一套完整、详细、可操作的实施方案。
 
