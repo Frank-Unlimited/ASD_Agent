@@ -934,20 +934,38 @@ const PageAIChat = ({
                       );
                       fullResponse = fullResponse.replace(/🎯 正在分析.*?生成游戏方向建议\.\.\./, '');
                       
-                      // 保存上下文信息到 sessionStorage，供后续工具使用
+                      // 收集最近行为记录
+                      const recentBehaviors = behaviorStorageService.getAllBehaviors().slice(0, 10);
+                      
+                      // TODO: 收集最近游戏实施情况
+                      const recentGames: any[] = [];
+                      
+                      // 保存完整上下文信息到 sessionStorage，供后续工具使用
                       const gameRecommendationContext = {
                         childProfile: currentChildProfile,
                         latestAssessment: latestAssessment,
                         historicalData: historicalData,
                         userPreferences: args.userPreferences,
+                        recentBehaviors: recentBehaviors.map(b => ({
+                          behavior: b.behavior,
+                          date: b.date,
+                          dimensions: b.matches.map(m => ({
+                            dimension: m.dimension,
+                            weight: m.weight,
+                            intensity: m.intensity
+                          }))
+                        })),
+                        recentGames: recentGames,
                         timestamp: Date.now()
                       };
                       sessionStorage.setItem('game_recommendation_context', JSON.stringify(gameRecommendationContext));
-                      console.log('[SessionStorage] 保存游戏推荐上下文:', {
+                      console.log('[SessionStorage] 保存完整游戏推荐上下文:', {
                         key: 'game_recommendation_context',
                         childName: currentChildProfile?.name,
                         hasAssessment: !!latestAssessment,
                         hasUserPreferences: !!args.userPreferences,
+                        recentBehaviorsCount: recentBehaviors.length,
+                        recentGamesCount: recentGames.length,
                         timestamp: gameRecommendationContext.timestamp
                       });
                       

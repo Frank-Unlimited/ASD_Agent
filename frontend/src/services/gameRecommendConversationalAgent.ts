@@ -43,15 +43,20 @@ export const generateGameDirections = async (
   conversationHistory?: string
 ): Promise<GameDirection[]> => {
   try {
-    // TODO: 查询最近的地板游戏实施数据（只查询已实施的）
-    // 用于避免重复推荐相同类型的游戏，提供更多样化的建议
-    // 数据结构示例：
-    // const recentGames = await getRecentImplementedGames(childProfile.id, 5);
-    // recentGames = [
-    //   { title: "彩虹手指画", category: "感官探索", implementedDate: "2024-01-15" },
-    //   { title: "积木高塔", category: "建构游戏", implementedDate: "2024-01-14" }
-    // ]
-    const recentGames: any[] = []; // 暂时为空，等待数据接口
+    // 从 sessionStorage 读取完整上下文（如果有的话）
+    const contextStr = sessionStorage.getItem('game_recommendation_context');
+    let recentBehaviors: any[] = [];
+    let recentGames: any[] = [];
+    
+    if (contextStr) {
+      const context = JSON.parse(contextStr);
+      recentBehaviors = context.recentBehaviors || [];
+      recentGames = context.recentGames || [];
+      console.log('[generateGameDirections] 从 sessionStorage 读取上下文:', {
+        recentBehaviorsCount: recentBehaviors.length,
+        recentGamesCount: recentGames.length
+      });
+    }
     
     // 获取所有兴趣维度的详细数据
     const interestDetails = Object.entries(historicalData.interestTrends)
@@ -156,7 +161,8 @@ ${latestAssessment.currentProfile}
       abilityDetails,
       highInterests,
       lowAbilities,
-      recentGames,
+      recentBehaviors,  // 从 sessionStorage 读取
+      recentGames,      // 从 sessionStorage 读取
       userPreferences,
       conversationHistory
     });
