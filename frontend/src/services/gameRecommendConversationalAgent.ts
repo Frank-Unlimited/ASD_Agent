@@ -43,15 +43,29 @@ export const generateGameDirections = async (
   conversationHistory?: string
 ): Promise<GameDirection[]> => {
   try {
-    // TODO: 查询最近的地板游戏实施数据（只查询已实施的）
-    // 用于避免重复推荐相同类型的游戏，提供更多样化的建议
-    // 数据结构示例：
-    // const recentGames = await getRecentImplementedGames(childProfile.id, 5);
-    // recentGames = [
-    //   { title: "彩虹手指画", category: "感官探索", implementedDate: "2024-01-15" },
-    //   { title: "积木高塔", category: "建构游戏", implementedDate: "2024-01-14" }
-    // ]
-    const recentGames: any[] = []; // 暂时为空，等待数据接口
+    console.log('[generateGameDirections] 开始生成游戏方向，使用以下数据:', {
+      childName: childProfile.name,
+      hasAssessment: !!latestAssessment,
+      hasUserPreferences: !!userPreferences,
+      historicalDataKeys: Object.keys(historicalData)
+    });
+    
+    // 从 sessionStorage 读取完整上下文（如果有的话）
+    const contextStr = sessionStorage.getItem('game_recommendation_context');
+    let recentBehaviors: any[] = [];
+    let recentGames: any[] = [];
+    
+    if (contextStr) {
+      const context = JSON.parse(contextStr);
+      recentBehaviors = context.recentBehaviors || [];
+      recentGames = context.recentGames || [];
+      console.log('[generateGameDirections] 从 sessionStorage 读取补充上下文:', {
+        recentBehaviorsCount: recentBehaviors.length,
+        recentGamesCount: recentGames.length
+      });
+    } else {
+      console.log('[generateGameDirections] sessionStorage 中暂无补充上下文（首次调用或已清空）');
+    }
     
     // 获取所有兴趣维度的详细数据
     const interestDetails = Object.entries(historicalData.interestTrends)
@@ -156,7 +170,8 @@ ${latestAssessment.currentProfile}
       abilityDetails,
       highInterests,
       lowAbilities,
-      recentGames,
+      recentBehaviors,  // 从 sessionStorage 读取
+      recentGames,      // 从 sessionStorage 读取
       userPreferences,
       conversationHistory
     });
@@ -199,6 +214,12 @@ export const searchCandidateGames = async (
   try {
     // 从 sessionStorage 读取上下文信息
     const contextStr = sessionStorage.getItem('game_recommendation_context');
+    console.log('[SessionStorage] 读取游戏推荐上下文:', {
+      key: 'game_recommendation_context',
+      found: !!contextStr,
+      dataLength: contextStr?.length
+    });
+    
     if (!contextStr) {
       console.error('[searchCandidateGames] 未找到游戏推荐上下文');
       throw new Error('未找到游戏推荐上下文，请先调用 suggest_game_directions');
@@ -253,7 +274,7 @@ ${additionalRequirements ? `额外要求：${additionalRequirements}` : ''}
           difficulty: estimateDifficulty(game),
           challenges: generateChallenges(game),
           fullGame: game, // 保存完整游戏对象（包含关键要点，但不是详细步骤）
-          source: 'online' as const  // 标记来源
+          source: 'library' as const  // 标记来源（联网搜索视为游戏库）
         };
       });
       
@@ -304,6 +325,12 @@ async function generateGamesWithLLM(
   try {
     // 从 sessionStorage 读取上下文信息
     const contextStr = sessionStorage.getItem('game_recommendation_context');
+    console.log('[SessionStorage] 读取游戏推荐上下文 (generateGamesWithLLM):', {
+      key: 'game_recommendation_context',
+      found: !!contextStr,
+      dataLength: contextStr?.length
+    });
+    
     if (!contextStr) {
       console.error('[generateGamesWithLLM] 未找到游戏推荐上下文');
       throw new Error('未找到游戏推荐上下文');
@@ -312,6 +339,34 @@ async function generateGamesWithLLM(
     const context = JSON.parse(contextStr);
     const childProfile = context.childProfile;
     const latestAssessment = context.latestAssessment;
+    const recentBehaviors = context.recentBehaviors || [];
+    const recentGames = context.recentGames || [];
+    
+    // 构建最近行为记录信息
+    let recentBehaviorsText = '';
+    if (recentBehaviors.length > 0) {
+      recentBehaviorsText = `
+【最近行为记录】（供参考）
+${recentBehaviors.slice(0, 5).map((b: any) => {
+  const topDimensions = b.dimensions
+    .sort((a: any, b: any) => b.weight - a.weight)
+    .slice(0, 2)
+    .map((d: any) => `${d.dimension}(关联${(d.weight * 100).toFixed(0)}%，强度${d.intensity > 0 ? '+' : ''}${d.intensity.toFixed(1)})`)
+    .join('、');
+  return `- ${b.behavior}（${b.date}）→ ${topDimensions}`;
+}).join('\n')}
+`;
+    }
+    
+    // 构建最近游戏信息
+    let recentGamesText = '';
+    if (recentGames.length > 0) {
+      recentGamesText = `
+【最近实施的游戏】（供参考，避免重复）
+${recentGames.map((g: any) => `- ${g.title}（${g.category}，${g.implementedDate}）`).join('\n')}
+`;
+    }
+    
     const conversationContext = conversationHistory 
       ? `
 【对话历史】
@@ -323,6 +378,8 @@ ${conversationHistory}
 
     const prompt = `
 ${conversationContext}
+${recentBehaviorsText}
+${recentGamesText}
 
 请为以下儿童设计 ${count} 个原创的 DIR/Floortime 地板游戏概要（只需要概要，不需要详细步骤）：
 
@@ -468,6 +525,12 @@ export const generateImplementationPlan = async (
   try {
     // 从 sessionStorage 读取上下文信息
     const contextStr = sessionStorage.getItem('game_recommendation_context');
+    console.log('[SessionStorage] 读取游戏推荐上下文 (generateImplementationPlan):', {
+      key: 'game_recommendation_context',
+      found: !!contextStr,
+      dataLength: contextStr?.length
+    });
+    
     if (!contextStr) {
       console.error('[generateImplementationPlan] 未找到游戏推荐上下文');
       throw new Error('未找到游戏推荐上下文，请先调用 suggest_game_directions');
@@ -476,11 +539,41 @@ export const generateImplementationPlan = async (
     const context = JSON.parse(contextStr);
     const childProfile = context.childProfile;
     const latestAssessment = context.latestAssessment;
+    const recentBehaviors = context.recentBehaviors || [];
+    const recentGames = context.recentGames || [];
     
     console.log('[generateImplementationPlan] 从 sessionStorage 读取上下文:', {
       childName: childProfile?.name,
-      hasAssessment: !!latestAssessment
+      hasAssessment: !!latestAssessment,
+      recentBehaviorsCount: recentBehaviors.length,
+      recentGamesCount: recentGames.length
     });
+    
+    // 构建最近行为记录信息
+    let recentBehaviorsText = '';
+    if (recentBehaviors.length > 0) {
+      recentBehaviorsText = `
+【最近行为记录】（供参考，了解孩子最近的兴趣表现）
+${recentBehaviors.slice(0, 5).map((b: any) => {
+  const topDimensions = b.dimensions
+    .sort((a: any, b: any) => b.weight - a.weight)
+    .slice(0, 2)
+    .map((d: any) => `${d.dimension}(关联${(d.weight * 100).toFixed(0)}%，强度${d.intensity > 0 ? '+' : ''}${d.intensity.toFixed(1)})`)
+    .join('、');
+  return `- ${b.behavior}（${b.date}）→ ${topDimensions}`;
+}).join('\n')}
+`;
+    }
+    
+    // 构建最近游戏信息
+    let recentGamesText = '';
+    if (recentGames.length > 0) {
+      recentGamesText = `
+【最近实施的游戏】（供参考）
+${recentGames.map((g: any) => `- ${g.title}（${g.category}，${g.implementedDate}）`).join('\n')}
+`;
+    }
+    
     const conversationContext = conversationHistory 
       ? `
 【对话历史】
@@ -515,6 +608,8 @@ ${latestAssessment.nextStepSuggestion}
 
     const prompt = `
 ${conversationContext}
+${recentBehaviorsText}
+${recentGamesText}
 
 你是一位经验丰富的 DIR/Floortime 游戏设计师。现在需要为以下游戏设计一套完整、详细、可操作的实施方案。
 

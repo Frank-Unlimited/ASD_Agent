@@ -12,6 +12,7 @@ export interface GameDirectionsPromptParams {
   abilityDetails: string;
   highInterests: string[];
   lowAbilities: string[];
+  recentBehaviors?: any[];  // 新增：最近行为记录（可选，从 sessionStorage 读取）
   recentGames: any[];
   userPreferences?: {
     environment?: string;
@@ -31,10 +32,29 @@ export function buildGameDirectionsPrompt(params: GameDirectionsPromptParams): s
     abilityDetails,
     highInterests,
     lowAbilities,
+    recentBehaviors,  // 新增
     recentGames,
     userPreferences,
     conversationHistory
   } = params;
+
+  // 构建最近行为记录信息
+  let recentBehaviorsText = '';
+  if (recentBehaviors && recentBehaviors.length > 0) {
+    recentBehaviorsText = `
+【最近行为记录】（供参考，了解孩子最近的兴趣表现）
+${recentBehaviors.slice(0, 5).map((b: any) => {
+  const topDimensions = b.dimensions
+    .sort((a: any, b: any) => b.weight - a.weight)
+    .slice(0, 2)
+    .map((d: any) => `${d.dimension}(关联${(d.weight * 100).toFixed(0)}%，强度${d.intensity > 0 ? '+' : ''}${d.intensity.toFixed(1)})`)
+    .join('、');
+  return `- ${b.behavior}（${b.date}）→ ${topDimensions}`;
+}).join('\n')}
+
+💡 提示：这些行为记录可以帮助你了解孩子最近的兴趣倾向，但不要局限于此，也可以尝试新的方向。
+`;
+  }
 
   // 构建最近游戏历史信息
   let recentGamesText = '';
@@ -118,6 +138,7 @@ ${conversationHistory}
 
   return `
 ${preferencesText}
+${recentBehaviorsText}
 ${recentGamesText}
 ${conversationContext}
 

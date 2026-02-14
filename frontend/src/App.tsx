@@ -908,6 +908,45 @@ const PageAIChat = ({
                       return;
                     }
                     
+                    // ========== 在调用工具之前，先收集并保存完整上下文 ==========
+                    
+                    // 收集最近行为记录
+                    const recentBehaviors = behaviorStorageService.getAllBehaviors().slice(0, 10);
+                    
+                    // TODO: 收集最近游戏实施情况
+                    const recentGames: any[] = [];
+                    
+                    // 保存完整上下文信息到 sessionStorage，供工具使用
+                    const gameRecommendationContext = {
+                      childProfile: currentChildProfile,
+                      latestAssessment: latestAssessment,
+                      historicalData: historicalData,
+                      userPreferences: args.userPreferences,
+                      recentBehaviors: recentBehaviors.map(b => ({
+                        behavior: b.behavior,
+                        date: b.date,
+                        dimensions: b.matches.map(m => ({
+                          dimension: m.dimension,
+                          weight: m.weight,
+                          intensity: m.intensity
+                        }))
+                      })),
+                      recentGames: recentGames,
+                      timestamp: Date.now()
+                    };
+                    sessionStorage.setItem('game_recommendation_context', JSON.stringify(gameRecommendationContext));
+                    console.log('[SessionStorage] 保存完整游戏推荐上下文（调用工具前）:', {
+                      key: 'game_recommendation_context',
+                      childName: currentChildProfile?.name,
+                      hasAssessment: !!latestAssessment,
+                      hasUserPreferences: !!args.userPreferences,
+                      recentBehaviorsCount: recentBehaviors.length,
+                      recentGamesCount: recentGames.length,
+                      timestamp: gameRecommendationContext.timestamp
+                    });
+                    
+                    // ========== 现在调用工具，工具可以从 sessionStorage 读取完整上下文 ==========
+                    
                     // 提取用户偏好（从工具参数中获取）
                     const userPreferences = args.userPreferences || undefined;
                     
@@ -934,21 +973,15 @@ const PageAIChat = ({
                       );
                       fullResponse = fullResponse.replace(/🎯 正在分析.*?生成游戏方向建议\.\.\./, '');
                       
-                      // 保存上下文信息到 sessionStorage，供后续工具使用
-                      const gameRecommendationContext = {
-                        childProfile: currentChildProfile,
-                        latestAssessment: latestAssessment,
-                        historicalData: historicalData,
-                        userPreferences: args.userPreferences,
-                        timestamp: Date.now()
-                      };
-                      sessionStorage.setItem('game_recommendation_context', JSON.stringify(gameRecommendationContext));
-                      
                       // 保存当前的游戏方向到 sessionStorage（用于后续匹配）
                       sessionStorage.setItem('game_directions', JSON.stringify(directions));
+                      console.log('[SessionStorage] 保存游戏方向:', {
+                        key: 'game_directions',
+                        count: directions.length,
+                        directions: directions.map(d => d.name)
+                      });
                       sessionStorage.removeItem('candidate_games'); // 清除旧的候选游戏
-                      
-                      console.log('[Tool Call] 已保存上下文信息到 sessionStorage');
+                      console.log('[SessionStorage] 清除旧的候选游戏:', { key: 'candidate_games' });
                       
                       // 适度详细的文本，不要太简单也不要太冗长
                       fullResponse += `\n\n根据${currentChildProfile.name}的情况，我推荐这几个方向：\n\n`;
@@ -1062,6 +1095,13 @@ const PageAIChat = ({
                         directionName: args.directionName
                       };
                       sessionStorage.setItem('candidate_games', JSON.stringify(candidateGamesData));
+                      console.log('[SessionStorage] 保存候选游戏:', {
+                        key: 'candidate_games',
+                        count: candidateGames.length,
+                        directionName: args.directionName,
+                        games: candidateGames.map(g => ({ id: g.id, title: g.title, source: g.source })),
+                        timestamp: candidateGamesData.timestamp
+                      });
                     } else {
                       // 更新工具调用状态为失败
                       fullResponse = fullResponse.replace(
@@ -1769,6 +1809,10 @@ const PageAIChat = ({
                  // 清空游戏推荐相关的 sessionStorage 数据
                  sessionStorage.removeItem('game_directions');
                  sessionStorage.removeItem('candidate_games');
+                 sessionStorage.removeItem('game_recommendation_context');
+                 console.log('[SessionStorage] 清空对话时清除所有游戏推荐数据:', {
+                   keys: ['game_directions', 'candidate_games', 'game_recommendation_context']
+                 });
                  console.log('[Chat] 已清空对话历史和游戏推荐数据');
                }
              }}
