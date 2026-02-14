@@ -253,7 +253,7 @@ ${additionalRequirements ? `额外要求：${additionalRequirements}` : ''}
           difficulty: estimateDifficulty(game),
           challenges: generateChallenges(game),
           fullGame: game, // 保存完整游戏对象（包含关键要点，但不是详细步骤）
-          source: 'online' as const  // 标记来源
+          source: 'library' as const  // 标记来源（联网搜索视为游戏库）
         };
       });
       
