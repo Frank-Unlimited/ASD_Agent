@@ -11,7 +11,25 @@ class FloorGameStorageService {
   getAllGames(): FloorGame[] {
     try {
       const data = localStorage.getItem(FLOOR_GAMES_STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
+      if (!data) return [];
+      
+      const games = JSON.parse(data);
+      
+      // 数据迁移：将旧的 date 字段转换为 dtstart/dtend
+      const migratedGames = games.map((game: any) => {
+        if (game.date && !game.dtstart) {
+          // 旧数据迁移
+          return {
+            ...game,
+            dtstart: game.date,
+            dtend: game.status === 'completed' || game.status === 'aborted' ? game.date : '',
+            date: undefined // 删除旧字段
+          };
+        }
+        return game;
+      });
+      
+      return migratedGames;
     } catch (error) {
       console.error('Failed to load floor games:', error);
       return [];
@@ -22,8 +40,8 @@ class FloorGameStorageService {
     try {
       const games = this.getAllGames();
       games.push(game);
-      // 按 date 倒序
-      games.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      // 按 dtstart 倒序
+      games.sort((a, b) => new Date(b.dtstart).getTime() - new Date(a.dtstart).getTime());
       localStorage.setItem(FLOOR_GAMES_STORAGE_KEY, JSON.stringify(games));
     } catch (error) {
       console.error('Failed to save floor game:', error);
