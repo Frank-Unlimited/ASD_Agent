@@ -393,6 +393,13 @@ export const searchGamesOnline = async (
     );
 
     console.log('📡 API 响应:', response.substring(0, 200) + '...');
+    console.log('📡 完整响应长度:', response.length);
+    
+    // 如果响应太短，可能是错误
+    if (response.length < 50) {
+      console.warn('⚠️  API 响应内容过短，可能出错');
+      console.log('完整响应:', response);
+    }
     
     if (!response) {
       console.warn('⚠️  API 返回内容为空');
@@ -455,19 +462,61 @@ function parseGamesFromSearchResult(content: string): Game[] {
     console.log('原始内容长度:', content.length);
     
     // 尝试提取 JSON 内容
-    const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || 
-                     content.match(/\[[\s\S]*?\]/);
+    let jsonStr = '';
     
-    if (!jsonMatch) {
-      console.warn('⚠️  未找到 JSON 格式内容');
-      console.log('内容预览:', content.substring(0, 500));
-      return [];
+    // 方法1：尝试提取 ```json ... ``` 代码块
+    const codeBlockMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1];
+      console.log('✓ 从代码块中提取 JSON');
+    } else {
+      // 方法2：尝试提取 JSON 数组
+      const arrayMatch = content.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        jsonStr = arrayMatch[0];
+        console.log('✓ 从内容中提取 JSON 数组');
+      } else {
+        console.warn('⚠️  未找到 JSON 格式内容');
+        console.log('内容预览:', content.substring(0, 500));
+        return [];
+      }
     }
     
-    const jsonStr = jsonMatch[1] || jsonMatch[0];
-    console.log('提取的 JSON:', jsonStr.substring(0, 200) + '...');
+    // 清理 JSON 字符串
+    // 1. 移除注释（// 和 /* */）
+    jsonStr = jsonStr.replace(/\/\/.*$/gm, '');
+    jsonStr = jsonStr.replace(/\/\*[\s\S]*?\*\//g, '');
     
-    const gamesData = JSON.parse(jsonStr);
+    // 2. 移除尾随逗号（JSON 不允许）
+    jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
+    
+    console.log('清理后的 JSON 预览:', jsonStr.substring(0, 300) + '...');
+    
+    // 尝试解析 JSON
+    let gamesData;
+    try {
+      gamesData = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('❌ JSON 解析失败，尝试修复...');
+      console.log('解析错误:', parseError instanceof Error ? parseError.message : String(parseError));
+      
+      // 尝试修复常见问题
+      // 1. 替换单引号为双引号
+      let fixedJson = jsonStr.replace(/'/g, '"');
+      
+      // 2. 修复未转义的换行符
+      fixedJson = fixedJson.replace(/\n/g, '\\n');
+      
+      // 3. 再次尝试解析
+      try {
+        gamesData = JSON.parse(fixedJson);
+        console.log('✓ JSON 修复成功');
+      } catch (secondError) {
+        console.error('❌ JSON 修复失败:', secondError);
+        console.log('失败的 JSON:', fixedJson.substring(0, 500));
+        return [];
+      }
+    }
     
     if (!Array.isArray(gamesData)) {
       console.warn('⚠️  解析的数据不是数组');

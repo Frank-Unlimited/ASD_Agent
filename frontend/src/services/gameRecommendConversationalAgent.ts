@@ -182,20 +182,54 @@ ${latestAssessment.currentProfile}
         { role: 'user', content: prompt }
       ],
       {
-        temperature: 0.7,
-        max_tokens: 1500
+        temperature: 0.8,  // 提高创造性，避免重复推荐（从 0.7 提高到 0.8）
+        max_tokens: 1500,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'game_directions_with_analysis',
+            schema: {
+              type: 'object',
+              properties: {
+                analysis: {
+                  type: 'string',
+                  description: '一段简短的话（50-80字），总结当前阶段收集到的关键信息：孩子的基本情况、兴趣特点、能力水平、用户偏好、最近行为，以及基于这些信息的推荐思路'
+                },
+                directions: {
+                  type: 'array',
+                  description: '游戏方向列表',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string', description: '方向名称' },
+                      reason: { type: 'string', description: '推荐理由' },
+                      goal: { type: 'string', description: '预期目标' },
+                      scene: { type: 'string', description: '适合场景' }
+                    },
+                    required: ['name', 'reason', 'goal', 'scene']
+                  }
+                }
+              },
+              required: ['analysis', 'directions']
+            }
+          }
+        }
       }
     );
 
-    // 提取 JSON
-    let jsonContent = response;
-    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1];
+    const data = JSON.parse(response);
+    const directions = data.directions || [];
+    
+    // 将 analysis 附加到每个方向（供 chatbot 参考）
+    if (data.analysis && directions.length > 0) {
+      directions.forEach((dir: any) => {
+        dir._analysis = data.analysis; // 直接使用字符串
+      });
+      
+      console.log('[generateGameDirections] LLM 分析总结:', data.analysis);
     }
-
-    const data = JSON.parse(jsonContent);
-    return data.directions || [];
+    
+    return directions;
   } catch (error) {
     console.error('Generate Game Directions Failed:', error);
     return [];
@@ -203,7 +237,7 @@ ${latestAssessment.currentProfile}
 };
 
 /**
- * 阶段2：检索候选游戏（混合策略：检索 + 生成）
+ * 阶段2：检索候选游戏（并行策略：联网搜索 + LLM 生成同时进行）
  */
 export const searchCandidateGames = async (
   direction: GameDirection,
@@ -234,13 +268,18 @@ export const searchCandidateGames = async (
       hasAssessment: !!latestAssessment
     });
     
-    let candidateGames: CandidateGame[] = [];
+    console.log('[Parallel Strategy] 🚀 并行执行联网搜索和 LLM 生成...');
     
-    // 步骤1：先从联网搜索获取游戏概要
-    console.log('[Hybrid Strategy] 步骤1：联网搜索游戏概要...');
-    try {
-      const searchQuery = `${direction.name} ${direction.goal} 自闭症儿童 地板游戏`;
-      const childContext = `
+    // 🚀 并行执行：联网搜索 + LLM 生成
+    const [onlineGames, generatedGames] = await Promise.all([
+      // 线程1：联网搜索游戏
+      (async () => {
+        try {
+          console.log('[Thread 1] 🌐 开始联网搜索...');
+          const searchQuery = `${direction.name} ${direction.goal} 自闭症儿童 地板游戏`;
+          
+          // 构建更详细的儿童上下文，包含对话历史提示
+          let childContext = `
 儿童：${childProfile.name}
 ${latestAssessment ? `当前画像：${latestAssessment.currentProfile}` : '首次使用'}
 游戏方向：${direction.name}
@@ -248,65 +287,136 @@ ${latestAssessment ? `当前画像：${latestAssessment.currentProfile}` : '首�
 ${additionalRequirements ? `额外要求：${additionalRequirements}` : ''}
 `;
 
-      const games = await searchGamesHybrid(searchQuery, childContext, count);
+          // 如果有对话历史，添加避免重复的提示
+          if (conversationHistory && conversationHistory.includes('换一批')) {
+            childContext += `
+⚠️ 重要：用户要求"换一批"，说明对之前的推荐不满意。
+请推荐与之前完全不同的游戏，避免重复相似的游戏类型。
+尝试从不同的角度、不同的材料、不同的玩法出发。
+`;
+          }
+
+          const games = await searchGamesHybrid(searchQuery, childContext, count);
+          
+          // 转换为候选游戏格式（只保留概要信息）
+          const candidateGames = games.map((game) => {
+            // 使用 summary 字段（如果有），否则从关键要点生成概要
+            const summary = game.summary || 
+              (game.steps.length > 0 
+                ? game.steps.slice(0, 3).map(s => s.instruction).join('，') 
+                : '暂无概要');
+            
+            // 使用 reason 字段作为适合理由
+            const reason = game.reason || `适合${childProfile.name}的${direction.name}训练`;
+            
+            // 提取材料
+            const materials = game.materials || extractMaterials(game);
+            
+            return {
+              id: game.id,
+              title: game.title,
+              summary: summary, // 游戏玩法概要
+              reason: reason, // 适合理由
+              materials: materials, // 所需材料
+              duration: game.duration,
+              difficulty: estimateDifficulty(game),
+              challenges: generateChallenges(game),
+              fullGame: game, // 保存完整游戏对象（包含关键要点，但不是详细步骤）
+              source: 'library' as const  // 标记来源（联网搜索视为游戏库）
+            };
+          });
+          
+          console.log(`[Thread 1] ✅ 联网搜索完成，找到 ${candidateGames.length} 个游戏`);
+          return candidateGames;
+        } catch (error) {
+          console.warn('[Thread 1] ⚠️ 联网搜索失败:', error);
+          return []; // 失败时返回空数组，不影响其他线程
+        }
+      })(),
       
-      // 转换为候选游戏格式（只保留概要信息）
-      candidateGames = games.map((game) => {
-        // 使用 summary 字段（如果有），否则从关键要点生成概要
-        const summary = game.summary || 
-          (game.steps.length > 0 
-            ? game.steps.slice(0, 3).map(s => s.instruction).join('，') 
-            : '暂无概要');
-        
-        // 使用 reason 字段作为适合理由
-        const reason = game.reason || `适合${childProfile.name}的${direction.name}训练`;
-        
-        // 提取材料
-        const materials = game.materials || extractMaterials(game);
-        
-        return {
-          id: game.id,
-          title: game.title,
-          summary: summary, // 游戏玩法概要
-          reason: reason, // 适合理由
-          materials: materials, // 所需材料
-          duration: game.duration,
-          difficulty: estimateDifficulty(game),
-          challenges: generateChallenges(game),
-          fullGame: game, // 保存完整游戏对象（包含关键要点，但不是详细步骤）
-          source: 'library' as const  // 标记来源（联网搜索视为游戏库）
-        };
-      });
-      
-      console.log(`[Hybrid Strategy] 联网搜索到 ${candidateGames.length} 个游戏概要`);
-    } catch (error) {
-      console.warn('[Hybrid Strategy] 联网搜索失败:', error);
-    }
+      // 线程2：LLM 生成游戏
+      (async () => {
+        try {
+          console.log('[Thread 2] 🤖 开始 LLM 生成游戏...');
+          const games = await generateGamesWithLLM(
+            direction,
+            count, // 生成指定数量的游戏
+            additionalRequirements,
+            conversationHistory
+          );
+          console.log(`[Thread 2] ✅ LLM 生成完成，生成 ${games.length} 个游戏`);
+          return games;
+        } catch (error) {
+          console.warn('[Thread 2] ⚠️ LLM 生成失败:', error);
+          return []; // 失败时返回空数组，不影响其他线程
+        }
+      })()
+    ]);
     
-    // 步骤2：如果检索结果不足，或有特殊要求，调用 LLM 生成游戏概要
-    const needGenerate = candidateGames.length < count || additionalRequirements;
+    console.log('[Parallel Strategy] ✅ 并行执行完成');
+    console.log(`  - 联网搜索: ${onlineGames.length} 个游戏`);
+    console.log(`  - LLM 生成: ${generatedGames.length} 个游戏`);
     
-    if (needGenerate) {
-      const generateCount = Math.max(1, count - candidateGames.length);
-      console.log(`[Hybrid Strategy] 步骤2：LLM 生成 ${generateCount} 个游戏概要...`);
-      
-      try {
-        const generatedGames = await generateGamesWithLLM(
-          direction,
-          generateCount,
-          additionalRequirements,
-          conversationHistory
-        );
-        
-        console.log(`[Hybrid Strategy] LLM 生成了 ${generatedGames.length} 个游戏概要`);
-        candidateGames = [...candidateGames, ...generatedGames];
-      } catch (error) {
-        console.warn('[Hybrid Strategy] LLM 生成游戏失败:', error);
+    // 合并两个来源的游戏
+    let allGames: CandidateGame[] = [];
+    
+    // 策略1：如果两个来源都有结果，混合使用（交替选择，保证多样性）
+    if (onlineGames.length > 0 && generatedGames.length > 0) {
+      console.log('[Merge Strategy] 📊 混合模式：交替选择联网和生成的游戏');
+      const maxLength = Math.max(onlineGames.length, generatedGames.length);
+      for (let i = 0; i < maxLength && allGames.length < count; i++) {
+        // 优先选择联网搜索的游戏（更专业）
+        if (i < onlineGames.length && allGames.length < count) {
+          allGames.push(onlineGames[i]);
+        }
+        // 然后选择 LLM 生成的游戏（更个性化）
+        if (i < generatedGames.length && allGames.length < count) {
+          allGames.push(generatedGames[i]);
+        }
       }
     }
+    // 策略2：只有联网搜索有结果
+    else if (onlineGames.length > 0) {
+      console.log('[Merge Strategy] 🌐 仅使用联网搜索结果');
+      allGames = onlineGames;
+    }
+    // 策略3：只有 LLM 生成有结果
+    else if (generatedGames.length > 0) {
+      console.log('[Merge Strategy] 🤖 仅使用 LLM 生成结果');
+      allGames = generatedGames;
+    }
+    // 策略4：两个来源都失败
+    else {
+      console.error('[Merge Strategy] ❌ 所有来源都失败，无法获取游戏');
+      throw new Error('无法获取候选游戏，请稍后重试');
+    }
     
-    // 返回指定数量的候选游戏
-    return candidateGames.slice(0, count);
+    // 提取 LLM 分析总结（优先使用 LLM 生成的分析）
+    let llmAnalysis = '';
+    if (generatedGames.length > 0 && generatedGames[0]._analysis) {
+      llmAnalysis = generatedGames[0]._analysis;
+      console.log('[Analysis] 使用 LLM 生成的分析总结');
+    } else if (allGames.length > 0) {
+      // 如果没有 LLM 分析，生成一个简单的总结
+      const sources = [];
+      if (onlineGames.length > 0) sources.push('联网搜索');
+      if (generatedGames.length > 0) sources.push('AI生成');
+      llmAnalysis = `基于"${direction.name}"方向，通过${sources.join('和')}为${childProfile.name}找到${allGames.length}个候选游戏，涵盖不同玩法和材料，供家长选择。`;
+      console.log('[Analysis] 使用自动生成的分析总结');
+    }
+    
+    // 为所有候选游戏添加统一的分析总结
+    const finalGames = allGames.slice(0, count).map(game => ({
+      ...game,
+      _analysis: llmAnalysis
+    }));
+    
+    console.log(`[Final Result] 🎉 返回 ${finalGames.length} 个候选游戏`);
+    finalGames.forEach((game, index) => {
+      console.log(`  ${index + 1}. ${game.title} [${game.source === 'library' ? '联网' : 'AI生成'}]`);
+    });
+    
+    return finalGames;
   } catch (error) {
     console.error('Search Candidate Games Failed:', error);
     return [];
@@ -445,27 +555,61 @@ ${additionalRequirements}
       ],
       {
         temperature: 0.8,  // 提高创造性
-        max_tokens: 2000
+        max_tokens: 2000,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'games_with_analysis',
+            schema: {
+              type: 'object',
+              properties: {
+                analysis: {
+                  type: 'string',
+                  description: '一段简短的话（50-80字），总结当前阶段收集到的关键信息：选定的游戏方向、孩子的具体情况、用户的特殊要求、对话历史中的关键信息，以及基于这些信息的游戏设计思路'
+                },
+                games: {
+                  type: 'array',
+                  description: '游戏列表',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      title: { type: 'string', description: '游戏名称' },
+                      target: { type: 'string', description: '训练目标' },
+                      duration: { type: 'string', description: '游戏时长' },
+                      reason: { type: 'string', description: '适合理由' },
+                      summary: { type: 'string', description: '游戏玩法概要' },
+                      materials: { 
+                        type: 'array', 
+                        items: { type: 'string' },
+                        description: '所需材料' 
+                      },
+                      keyPoints: { 
+                        type: 'array', 
+                        items: { type: 'string' },
+                        description: '关键要点' 
+                      }
+                    },
+                    required: ['title', 'target', 'duration', 'reason', 'summary', 'materials', 'keyPoints']
+                  }
+                }
+              },
+              required: ['analysis', 'games']
+            }
+          }
+        }
       }
     );
 
-    // 提取 JSON
-    let jsonContent = response;
-    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1];
-    } else {
-      const arrayMatch = response.match(/\{[\s\S]*"games"[\s\S]*\}/);
-      if (arrayMatch) {
-        jsonContent = arrayMatch[0];
-      }
-    }
-
-    const data = JSON.parse(jsonContent);
+    const data = JSON.parse(response);
     
     if (!data.games || !Array.isArray(data.games)) {
       console.warn('LLM 返回的数据格式不正确');
       return [];
+    }
+
+    // 记录分析总结
+    if (data.analysis) {
+      console.log('[generateGamesWithLLM] LLM 分析总结:', data.analysis);
     }
 
     // 转换为 CandidateGame 格式
@@ -503,7 +647,8 @@ ${additionalRequirements}
           summary: game.summary,
           materials: game.materials
         },
-        source: 'generated' as const  // 标记来源
+        source: 'generated' as const,  // 标记来源
+        _analysis: data.analysis // 直接使用字符串
       };
     });
 
@@ -738,21 +883,74 @@ ${customizations.join('\n')}
       ],
       {
         temperature: 0.7,
-        max_tokens: 3000 // 增加 token 限制以支持更详细的内容
+        max_tokens: 3000,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'implementation_plan_with_analysis',
+            schema: {
+              type: 'object',
+              properties: {
+                analysis: {
+                  type: 'string',
+                  description: '一段简短的话（50-80字），总结当前阶段收集到的关键信息：游戏的核心内容、孩子的特点和发展需求、评估中的关键建议、家长的特殊要求、对话历史，以及基于这些信息的实施方案设计思路'
+                },
+                gameTitle: {
+                  type: 'string',
+                  description: '游戏名称'
+                },
+                summary: {
+                  type: 'string',
+                  description: '游戏概要（2-3句话描述游戏的核心玩法和流程）'
+                },
+                goal: {
+                  type: 'string',
+                  description: '游戏目标（明确的训练目标，如"提升双向沟通能力和触觉感知能力"）'
+                },
+                steps: {
+                  type: 'array',
+                  description: '游戏步骤列表（5-8个步骤）',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      stepTitle: {
+                        type: 'string',
+                        description: '步骤标题，如"第一步：准备材料"、"第二步：引导孩子触摸"'
+                      },
+                      instruction: {
+                        type: 'string',
+                        description: '详细指令（家长应该做什么，要具体到动作和语言，2-3句话）'
+                      },
+                      expectedOutcome: {
+                        type: 'string',
+                        description: '预期效果（这一步期望达到什么效果，1-2句话）'
+                      }
+                    },
+                    required: ['stepTitle', 'instruction', 'expectedOutcome']
+                  }
+                }
+              },
+              required: ['analysis', 'gameTitle', 'summary', 'goal', 'steps']
+            }
+          }
+        }
       }
     );
 
-    // 提取 JSON
-    let jsonContent = response;
-    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1];
+    const data = JSON.parse(response);
+    
+    // 记录分析总结
+    if (data.analysis) {
+      console.log('[generateImplementationPlan] LLM 分析总结:', data.analysis);
     }
-
-    const data = JSON.parse(jsonContent);
+    
     return {
       gameId: selectedGame.id,
-      ...data
+      gameTitle: data.gameTitle,
+      summary: data.summary,
+      goal: data.goal,
+      steps: data.steps,
+      _analysis: data.analysis
     };
   } catch (error) {
     console.error('Generate Implementation Plan Failed:', error);
