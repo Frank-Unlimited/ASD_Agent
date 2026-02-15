@@ -181,28 +181,33 @@ export type GameRecommendationState =
   | 'confirming'        // 实施确认阶段
   | 'generating';       // 生成游戏卡片
 
-// 游戏方向建议
-export interface GameDirection {
-  name: string;         // 方向名称
-  reason: string;       // 推荐理由（必须引用具体数据）
-  goal: string;         // 预期目标
-  scene: string;        // 适合场景（室内/户外、时长、难度）
-  _analysis?: string;   // LLM 分析总结（可选，用于显示）
+// 兴趣维度分析（单个维度）
+export interface DimensionAnalysis {
+  dimension: InterestDimensionType;
+  strength: number;           // 强度 0-100
+  exploration: number;        // 探索度 0-100
+  category: 'leverage' | 'explore' | 'avoid' | 'neutral';
+  specificObjects: string[];  // 从行为中提取的具体对象
+  reasoning: string;
 }
 
-// 候选游戏信息
-export interface CandidateGame {
-  id: string;
-  title: string;
-  summary: string;      // 玩法概述
-  reason: string;       // 为什么适合这个孩子
-  materials: string[];  // 需要准备的材料
-  duration: string;     // 预计时长
-  difficulty: number;   // 难度（1-5星）
-  challenges: string[]; // 可能遇到的挑战和应对
-  fullGame?: Game;      // 完整的游戏对象（可选）
-  source?: 'library' | 'generated';  // 游戏来源：游戏库检索 or LLM生成
-  _analysis?: string;   // LLM 分析总结（可选，用于显示）
+// 兴趣分析结果
+export interface InterestAnalysisResult {
+  summary: string;                           // 总体分析（100-150字）
+  dimensions: DimensionAnalysis[];           // 8个维度分析
+  leverageDimensions: string[];              // 可利用的维度
+  exploreDimensions: string[];               // 可探索的维度
+  avoidDimensions: string[];                 // 应避免的维度
+  interventionSuggestions: InterventionSuggestion[];  // 3-5条干预建议
+}
+
+// 干预建议
+export interface InterventionSuggestion {
+  targetDimension: InterestDimensionType;
+  strategy: 'leverage' | 'explore';
+  suggestion: string;
+  rationale: string;
+  exampleActivities: string[];
 }
 
 // 游戏实施方案
@@ -217,6 +222,27 @@ export interface GameImplementationPlan {
     expectedOutcome: string;         // 预期效果（这一步期望达到什么效果）
   }>;
   _analysis?: string;                // LLM 分析总结（可选，用于显示）
+}
+
+export type FloorGameStatus = 'pending' | 'completed' | 'aborted';
+
+export interface FloorGame {
+  id: string;                  // 如 floor_game_1739612345678
+  gameTitle: string;
+  summary: string;
+  goal: string;
+  steps: Array<{
+    stepTitle: string;
+    instruction: string;
+    expectedOutcome: string;
+  }>;
+  _analysis?: string;
+
+  status: FloorGameStatus;     // 未完成 / 已完成 / 中止
+  date: string;                // ISO string，创建时间
+  isVR: boolean;               // 是否VR游戏
+  result?: string;             // 实施结果（预留）
+  evaluation?: EvaluationResult; // 游戏结束后的评估结果
 }
 
 // 家长偏好

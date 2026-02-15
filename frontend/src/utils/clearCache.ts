@@ -11,7 +11,8 @@ export const clearAllCache = () => {
     'asd_floortime_medical_reports',
     'asd_floortime_child_profile',
     'asd_floortime_chat_history',
-    'asd_floortime_behavior_logs'
+    'asd_floortime_behavior_logs',
+    'asd_floor_games'
   ];
   
   keys.forEach(key => {

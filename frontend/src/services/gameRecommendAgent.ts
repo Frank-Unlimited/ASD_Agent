@@ -5,7 +5,7 @@
 
 import { qwenStreamClient } from './qwenStreamClient';
 import { GameRecommendationDetailedSchema } from './qwenSchemas';
-import { searchGamesHybrid } from './ragService';
+import { searchGamesOnline } from './onlineSearchService';
 import { 
   GameRecommendation, 
   ComprehensiveAssessment,
@@ -47,7 +47,7 @@ export const recommendGameForChild = async (
     // Step 1: 使用混合搜索（本地库 + 联网搜索）
     const searchQuery = buildSearchQuery(latestAssessment, historicalData, parentPreference);
     const childContext = buildChildContext(childProfile, latestAssessment);
-    const candidateGames = await searchGamesHybrid(searchQuery, childContext, 5);
+    const candidateGames = await searchGamesOnline(searchQuery, childContext, 5);
 
     // Step 2: LLM 选择最佳游戏并生成详细推荐
     const prompt = buildRecommendationPrompt(

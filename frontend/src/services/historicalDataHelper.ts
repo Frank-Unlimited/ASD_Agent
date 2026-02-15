@@ -3,16 +3,24 @@
  * 辅助函数：收集和整理历史数据用于Agent输入
  */
 
-import { 
+import {
   HistoricalDataSummary,
   InterestDimensionType,
   AbilityDimensionType,
   BehaviorAnalysis,
   EvaluationResult,
-  MedicalReport
 } from '../types';
+
+// 维度指标（用于兴趣分析 Agent）
+export interface DimensionMetrics {
+  dimension: InterestDimensionType;
+  strength: number;      // 强度 0-100
+  exploration: number;   // 探索度 0-100
+}
 import { getRecentAssessments } from './assessmentStorage';
 import { reportStorageService } from './reportStorage';
+import { floorGameStorageService } from './floorGameStorage';
+import { behaviorStorageService } from './behaviorStorage';
 
 /**
  * 收集历史数据摘要
@@ -20,23 +28,23 @@ import { reportStorageService } from './reportStorage';
 export const collectHistoricalData = (): HistoricalDataSummary => {
   // 获取最近的评估
   const recentAssessments = getRecentAssessments(3);
-  
+
   // 获取最近的报告
   const allReports = reportStorageService.getAllReports();
   const recentReports = allReports.slice(0, 3);
-  
-  // 获取最近的行为记录
-  const recentBehaviors = getRecentBehaviors(10);
-  
-  // 获取最近的游戏评估
-  const recentGames = getRecentGameEvaluations(5);
-  
+
+  // 获取最近的行为记录（统一从 behaviorStorageService 读取）
+  const recentBehaviors = behaviorStorageService.getRecentBehaviors(10);
+
+  // 获取最近的游戏评估（从 FloorGame 记录中提取 evaluation 字段）
+  const recentGames = getRecentGameEvaluationsFromFloorGames(5);
+
   // 计算兴趣趋势
   const interestTrends = calculateInterestTrends(recentBehaviors);
-  
+
   // 计算能力趋势
   const abilityTrends = calculateAbilityTrends(recentGames);
-  
+
   return {
     recentAssessments,
     recentReports,
@@ -48,35 +56,20 @@ export const collectHistoricalData = (): HistoricalDataSummary => {
 };
 
 /**
- * 获取最近的行为记录
+ * 从 FloorGame 记录中提取游戏评估
  */
-function getRecentBehaviors(count: number): BehaviorAnalysis[] {
-  const stored = localStorage.getItem('asd_behavior_analyses');
-  if (!stored) return [];
-  
-  try {
-    const behaviors: BehaviorAnalysis[] = JSON.parse(stored);
-    return behaviors.slice(0, count);
-  } catch (e) {
-    console.error('Failed to parse behavior analyses:', e);
-    return [];
-  }
-}
+function getRecentGameEvaluationsFromFloorGames(count: number): EvaluationResult[] {
+  const games = floorGameStorageService.getAllGames();
+  const evaluations: EvaluationResult[] = [];
 
-/**
- * 获取最近的游戏评估
- */
-function getRecentGameEvaluations(count: number): EvaluationResult[] {
-  const stored = localStorage.getItem('asd_game_evaluations');
-  if (!stored) return [];
-  
-  try {
-    const evaluations: EvaluationResult[] = JSON.parse(stored);
-    return evaluations.slice(0, count);
-  } catch (e) {
-    console.error('Failed to parse game evaluations:', e);
-    return [];
+  for (const game of games) {
+    if (game.evaluation && (game.status === 'completed' || game.status === 'aborted')) {
+      evaluations.push(game.evaluation);
+      if (evaluations.length >= count) break;
+    }
   }
+
+  return evaluations;
 }
 
 /**
@@ -90,7 +83,7 @@ function calculateInterestTrends(
     'Visual', 'Auditory', 'Tactile', 'Motor',
     'Construction', 'Order', 'Cognitive', 'Social'
   ];
-  
+
   const trends: Record<InterestDimensionType, number> = {
     Visual: 50,
     Auditory: 50,
@@ -101,18 +94,18 @@ function calculateInterestTrends(
     Cognitive: 50,
     Social: 50
   };
-  
+
   if (behaviors.length === 0) {
     return trends;
   }
-  
+
   // 累积每个维度的加权分数
   const accumulated: Record<string, { totalScore: number; totalWeight: number }> = {};
-  
+
   dimensions.forEach(dim => {
     accumulated[dim] = { totalScore: 0, totalWeight: 0 };
   });
-  
+
   behaviors.forEach(behavior => {
     behavior.matches.forEach(match => {
       const dim = match.dimension;
@@ -123,14 +116,14 @@ function calculateInterestTrends(
       accumulated[dim].totalWeight += match.weight;
     });
   });
-  
+
   // 计算加权平均
   dimensions.forEach(dim => {
     if (accumulated[dim].totalWeight > 0) {
       trends[dim] = accumulated[dim].totalScore / accumulated[dim].totalWeight;
     }
   });
-  
+
   return trends;
 }
 
@@ -149,77 +142,82 @@ function calculateAbilityTrends(
     '情绪思考': 50,
     '逻辑思维': 50
   };
-  
+
   if (evaluations.length === 0) {
     return trends;
   }
-  
+
   // 简化处理：使用综合得分作为基准
   // 实际应该从游戏评估中提取具体的能力维度分数
   const avgScore = evaluations.reduce((sum, e) => sum + e.score, 0) / evaluations.length;
-  
+
   // 根据反馈得分和探索得分调整不同维度
   const avgFeedback = evaluations.reduce((sum, e) => sum + e.feedbackScore, 0) / evaluations.length;
   const avgExploration = evaluations.reduce((sum, e) => sum + e.explorationScore, 0) / evaluations.length;
-  
+
   trends['自我调节'] = avgScore;
   trends['亲密感'] = avgFeedback;
   trends['双向沟通'] = (avgFeedback + avgExploration) / 2;
   trends['复杂沟通'] = avgFeedback;
   trends['情绪思考'] = avgFeedback;
   trends['逻辑思维'] = avgExploration;
-  
+
   return trends;
 }
 
 /**
- * 保存行为分析（供其他模块调用）
+ * 计算每个维度的强度和探索度指标
+ * - 强度 = intensity × weight 的加权平均，归一化到 0-100
+ * - 探索度 = 该维度所有行为记录中 weight 的累加，归一化到 0-100
  */
-export const saveBehaviorAnalysis = (analysis: BehaviorAnalysis): void => {
-  const stored = localStorage.getItem('asd_behavior_analyses');
-  let behaviors: BehaviorAnalysis[] = [];
-  
-  if (stored) {
-    try {
-      behaviors = JSON.parse(stored);
-    } catch (e) {
-      console.error('Failed to parse existing behaviors:', e);
-    }
-  }
-  
-  behaviors.unshift({
-    ...analysis,
-    timestamp: new Date().toISOString(),
-    id: `behavior_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  });
-  
-  // 只保留最近100条
-  behaviors = behaviors.slice(0, 100);
-  
-  localStorage.setItem('asd_behavior_analyses', JSON.stringify(behaviors));
-};
+export const calculateDimensionMetrics = (
+  behaviors: BehaviorAnalysis[]
+): DimensionMetrics[] => {
+  const dimensions: InterestDimensionType[] = [
+    'Visual', 'Auditory', 'Tactile', 'Motor',
+    'Construction', 'Order', 'Cognitive', 'Social'
+  ];
 
-/**
- * 保存游戏评估（供其他模块调用）
- */
-export const saveGameEvaluation = (evaluation: EvaluationResult): void => {
-  const stored = localStorage.getItem('asd_game_evaluations');
-  let evaluations: EvaluationResult[] = [];
-  
-  if (stored) {
-    try {
-      evaluations = JSON.parse(stored);
-    } catch (e) {
-      console.error('Failed to parse existing evaluations:', e);
+  // 每个维度预期的最大探索度累计值（用于归一化）
+  const maxExpectedExploration = 10; // 10条高关联行为约等于满分
+
+  const accumulated: Record<string, {
+    totalIntensityWeighted: number;
+    totalWeight: number;
+    explorationSum: number;
+  }> = {};
+
+  dimensions.forEach(dim => {
+    accumulated[dim] = { totalIntensityWeighted: 0, totalWeight: 0, explorationSum: 0 };
+  });
+
+  behaviors.forEach(behavior => {
+    behavior.matches.forEach(match => {
+      const dim = match.dimension;
+      if (!accumulated[dim]) return;
+      // 强度：intensity × weight 的加权累计
+      accumulated[dim].totalIntensityWeighted += match.intensity * match.weight;
+      accumulated[dim].totalWeight += match.weight;
+      // 探索度：weight 累加
+      accumulated[dim].explorationSum += match.weight;
+    });
+  });
+
+  return dimensions.map(dim => {
+    const acc = accumulated[dim];
+
+    // 强度：加权平均的 intensity [-1,1] 映射到 [0,100]
+    let strength = 50; // 默认中性
+    if (acc.totalWeight > 0) {
+      const avgIntensity = acc.totalIntensityWeighted / acc.totalWeight; // [-1, 1]
+      strength = Math.round((avgIntensity + 1) * 50); // [0, 100]
     }
-  }
-  
-  evaluations.unshift(evaluation);
-  
-  // 只保留最近50条
-  evaluations = evaluations.slice(0, 50);
-  
-  localStorage.setItem('asd_game_evaluations', JSON.stringify(evaluations));
+
+    // 探索度：累加 weight 归一化到 [0,100]
+    const exploration = Math.min(100, Math.round((acc.explorationSum / maxExpectedExploration) * 100));
+
+    return { dimension: dim, strength, exploration };
+  });
 };
 
 /**
@@ -234,14 +232,14 @@ export const checkDataCompleteness = (): {
   message: string;
 } => {
   const data = collectHistoricalData();
-  
+
   const hasAssessments = data.recentAssessments.length > 0;
   const hasReports = data.recentReports.length > 0;
   const hasBehaviors = data.recentBehaviors.length > 0;
   const hasGames = data.recentGames.length > 0;
-  
+
   const isReady = hasBehaviors || hasReports || hasGames;
-  
+
   let message = '';
   if (!isReady) {
     message = '暂无足够的历史数据。请先记录一些行为、导入报告或完成游戏评估。';
@@ -250,7 +248,7 @@ export const checkDataCompleteness = (): {
   } else {
     message = '数据充足，可以生成综合评估。';
   }
-  
+
   return {
     hasAssessments,
     hasReports,

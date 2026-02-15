@@ -12,15 +12,18 @@ import {
   ChatTools
 } from './qwenSchemas';
 import { ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate, Game } from '../types';
-import { getAllGames } from './ragService';
+import { floorGameStorageService } from './floorGameStorage';
 import { CHAT_SYSTEM_PROMPT } from '../prompts';
 
-// 动态生成游戏库描述
+// 动态生成游戏库描述（从 floorGameStorage 读取）
 const getGamesLibraryDescription = () => {
-  const games = getAllGames();
+  const games = floorGameStorageService.getAllGames();
+  if (games.length === 0) {
+    return '\n（当前游戏库为空，请通过聊天推荐生成游戏）\n';
+  }
   return `
-现有游戏库（ID - 名称 - 目标 - 适合特征）：
-${games.map(g => `${g.id} - ${g.title} - ${g.target} - ${g.reason}`).join('\n')}
+现有游戏库（ID - 名称 - 目标 - 概要）：
+${games.map(g => `${g.id} - ${g.gameTitle} - ${g.goal} - ${g.summary}`).join('\n')}
 `;
 };
 
@@ -58,8 +61,8 @@ export const recommendGame = async (
     console.log('[Recommend Agent] 搜索查询:', searchQuery);
     
     // 使用联网搜索获取候选游戏
-    const { searchGamesHybrid } = await import('./ragService');
-    const candidateGames = await searchGamesHybrid(searchQuery, profileContext, 5);
+    const { searchGamesOnline } = await import('./onlineSearchService');
+    const candidateGames = await searchGamesOnline(searchQuery, profileContext, 5);
     
     console.log(`[Recommend Agent] 搜索到 ${candidateGames.length} 个候选游戏`);
     

@@ -6,6 +6,7 @@
 // ==================== Agents ====================
 export { generateComprehensiveAssessment } from './assessmentAgent';
 export { recommendGameForChild } from './gameRecommendAgent';
+export { analyzeBehavior } from './behaviorAnalysisAgent';
 
 // ==================== Storage ====================
 export {
@@ -34,21 +35,13 @@ export {
 // ==================== Helpers ====================
 export {
   collectHistoricalData,
-  checkDataCompleteness,
-  saveBehaviorAnalysis,
-  saveGameEvaluation
+  checkDataCompleteness
 } from './historicalDataHelper';
 
-// ==================== RAG ====================
+// ==================== Online Search ====================
 export {
-  searchGamesFromLibrary,
-  searchGamesOnline,
-  searchGamesHybrid,
-  getAllGames,
-  getGameById,
-  getGamesByTarget,
-  searchGamesWithEmbedding
-} from './ragService';
+  searchGamesOnline
+} from './onlineSearchService';
 
 // ==================== Examples ====================
 export {

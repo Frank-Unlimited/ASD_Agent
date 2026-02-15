@@ -5,15 +5,15 @@
 
 import { generateComprehensiveAssessment } from './assessmentAgent';
 import { recommendGameForChild } from './gameRecommendAgent';
-import { 
-  collectHistoricalData, 
-  checkDataCompleteness,
-  saveBehaviorAnalysis,
-  saveGameEvaluation
+import {
+  collectHistoricalData,
+  checkDataCompleteness
 } from './historicalDataHelper';
 import { saveAssessment, saveRecommendation } from './assessmentStorage';
-import { 
-  ChildProfile, 
+import { behaviorStorageService } from './behaviorStorage';
+import { floorGameStorageService } from './floorGameStorage';
+import {
+  ChildProfile,
   ParentPreference,
   BehaviorAnalysis,
   EvaluationResult
@@ -66,7 +66,14 @@ export const createTestData = () => {
     }
   ];
   
-  testBehaviors.forEach(behavior => saveBehaviorAnalysis(behavior));
+  testBehaviors.forEach(behavior => {
+    const behaviorWithMeta = {
+      ...behavior,
+      timestamp: new Date().toISOString(),
+      id: behaviorStorageService.generateBehaviorId()
+    };
+    behaviorStorageService.saveBehavior(behaviorWithMeta);
+  });
   
   // 创建一些测试游戏评估
   const testEvaluations: EvaluationResult[] = [
@@ -93,7 +100,20 @@ export const createTestData = () => {
     }
   ];
   
-  testEvaluations.forEach(evaluation => saveGameEvaluation(evaluation));
+  testEvaluations.forEach((evaluation, i) => {
+    const gameId = `floor_game_test_${Date.now()}_${i}`;
+    floorGameStorageService.saveGame({
+      id: gameId,
+      gameTitle: `测试游戏 ${i + 1}`,
+      summary: evaluation.summary,
+      goal: '综合训练',
+      steps: [],
+      status: 'completed',
+      date: new Date().toISOString(),
+      isVR: false,
+      evaluation
+    });
+  });
   
   console.log('测试数据创建完成');
   console.log(`- 行为记录: ${testBehaviors.length} 条`);
