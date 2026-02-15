@@ -4,7 +4,7 @@ import { sendQwenMessage } from './services/qwenService';
 import { clearAllCache } from './utils/clearCache'; // 导入清空缓存功能
 import { generateComprehensiveAssessment } from './services/assessmentAgent';
 import { collectHistoricalData } from './services/historicalDataHelper';
-import { saveAssessment } from './services/assessmentStorage';
+import { saveAssessment, getRecentAssessments } from './services/assessmentStorage';
 import { 
   MessageCircle, 
   Calendar as CalendarIcon, 
@@ -52,7 +52,8 @@ import {
   ChevronDown,
   ChevronUp,
   Tag,
-  Keyboard
+  Keyboard,
+  Package
 } from 'lucide-react';
 import { 
   Radar, 
@@ -1083,6 +1084,25 @@ const PageAIChat = ({
 
                     const context = JSON.parse(contextStr);
 
+                    // 从兴趣分析结果中提取 specificObjects
+                    let specificObjects: Record<string, string[]> | undefined;
+                    const resultStr = sessionStorage.getItem('interest_analysis_result');
+                    if (resultStr) {
+                      try {
+                        const analysisResult = JSON.parse(resultStr);
+                        if (analysisResult.dimensions) {
+                          specificObjects = {};
+                          for (const dim of analysisResult.dimensions) {
+                            if (dim.specificObjects?.length > 0) {
+                              specificObjects[dim.dimension] = dim.specificObjects;
+                            }
+                          }
+                        }
+                      } catch (e) {
+                        console.warn('Failed to parse interest_analysis_result:', e);
+                      }
+                    }
+
                     const { generateFloorGamePlan } = await import('./services/gameRecommendConversationalAgent');
 
                     const plan = await generateFloorGamePlan(
@@ -1092,7 +1112,8 @@ const PageAIChat = ({
                       args.strategy,
                       context.recentBehaviors || [],
                       args.parentPreferences,
-                      getConversationHistory()
+                      getConversationHistory(),
+                      specificObjects
                     );
 
                     // 更新工具调用状态
@@ -1133,6 +1154,7 @@ const PageAIChat = ({
                         instruction: s.instruction,
                         expectedOutcome: s.expectedOutcome
                       })),
+                      materials: plan.materials || [],
                       _analysis: plan._analysis,
                       status: 'pending',
                       date: new Date().toISOString(),
@@ -1426,6 +1448,109 @@ const PageAIChat = ({
                     );
                   }
                 })();
+                break;
+
+              case 'query_child_profile':
+                if (currentChildProfile) {
+                  const birthDate = new Date(currentChildProfile.birthDate);
+                  const now = new Date();
+                  let ageYears = now.getFullYear() - birthDate.getFullYear();
+                  const monthDiff = now.getMonth() - birthDate.getMonth();
+                  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthDate.getDate())) {
+                    ageYears--;
+                  }
+                  fullResponse += `\n\n【孩子基础信息】\n`;
+                  fullResponse += `姓名：${currentChildProfile.name}\n`;
+                  fullResponse += `性别：${currentChildProfile.gender}\n`;
+                  fullResponse += `出生日期：${currentChildProfile.birthDate}（${ageYears}岁）\n`;
+                  fullResponse += `诊断/画像：${currentChildProfile.diagnosis || '暂无'}\n`;
+                  fullResponse += `创建时间：${currentChildProfile.createdAt}\n`;
+                } else {
+                  fullResponse += `\n\n尚未创建孩子档案。`;
+                }
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === tempMsgId
+                      ? { ...msg, text: fullResponse }
+                      : msg
+                  )
+                );
+                break;
+
+              case 'query_recent_assessments':
+                {
+                  const count = args.count || 3;
+                  const assessments = getRecentAssessments(count);
+                  if (assessments.length > 0) {
+                    fullResponse += `\n\n【最近评估记录】（共${assessments.length}条）\n`;
+                    assessments.forEach((a, i) => {
+                      const date = a.timestamp ? new Date(a.timestamp).toLocaleDateString('zh-CN') : '未知';
+                      fullResponse += `${i + 1}. [${date}] 摘要：${a.summary}\n`;
+                      fullResponse += `   画像：${a.currentProfile ? a.currentProfile.substring(0, 100) + (a.currentProfile.length > 100 ? '...' : '') : '暂无'}\n`;
+                      fullResponse += `   建议：${a.nextStepSuggestion ? a.nextStepSuggestion.substring(0, 100) + (a.nextStepSuggestion.length > 100 ? '...' : '') : '暂无'}\n`;
+                    });
+                  } else {
+                    fullResponse += `\n\n暂无评估记录。`;
+                  }
+                  setMessages(prev =>
+                    prev.map(msg =>
+                      msg.id === tempMsgId
+                        ? { ...msg, text: fullResponse }
+                        : msg
+                    )
+                  );
+                }
+                break;
+
+              case 'query_recent_behaviors':
+                {
+                  const count = args.count || 10;
+                  const behaviors = behaviorStorageService.getRecentBehaviors(count);
+                  if (behaviors.length > 0) {
+                    fullResponse += `\n\n【最近行为记录】（共${behaviors.length}条）\n`;
+                    behaviors.forEach((b, i) => {
+                      const date = b.timestamp ? new Date(b.timestamp).toLocaleDateString('zh-CN') : '未知';
+                      const dims = b.matches.map(m => `${m.dimension}(${m.intensity >= 0 ? '+' : ''}${m.intensity})`).join(', ');
+                      fullResponse += `${i + 1}. [${date}] ${b.behavior} → ${dims}\n`;
+                    });
+                  } else {
+                    fullResponse += `\n\n暂无行为记录。`;
+                  }
+                  setMessages(prev =>
+                    prev.map(msg =>
+                      msg.id === tempMsgId
+                        ? { ...msg, text: fullResponse }
+                        : msg
+                    )
+                  );
+                }
+                break;
+
+              case 'query_floor_games':
+                {
+                  const count = args.count || 5;
+                  const games = floorGameStorageService.getRecentGames(count);
+                  if (games.length > 0) {
+                    fullResponse += `\n\n【地板游戏记录】（共${games.length}条）\n`;
+                    games.forEach((g, i) => {
+                      const date = g.date ? new Date(g.date).toLocaleDateString('zh-CN') : '未知';
+                      const statusMap: Record<string, string> = { pending: '未开始', completed: '已完成', aborted: '已中止' };
+                      const statusText = statusMap[g.status] || g.status;
+                      fullResponse += `${i + 1}. [${date}] ${g.gameTitle} - ${statusText}\n`;
+                      fullResponse += `   概要：${g.summary ? g.summary.substring(0, 100) + (g.summary.length > 100 ? '...' : '') : '暂无'}\n`;
+                      fullResponse += `   目标：${g.goal ? g.goal.substring(0, 100) + (g.goal.length > 100 ? '...' : '') : '暂无'}\n`;
+                    });
+                  } else {
+                    fullResponse += `\n\n暂无地板游戏记录。`;
+                  }
+                  setMessages(prev =>
+                    prev.map(msg =>
+                      msg.id === tempMsgId
+                        ? { ...msg, text: fullResponse }
+                        : msg
+                    )
+                  );
+                }
                 break;
             }
           } catch (e) {
@@ -1842,7 +1967,8 @@ const PageAIChat = ({
                           neutral: '中性'
                         };
                         return (
-                          <div key={idx} className="flex items-center gap-2 text-xs">
+                          <React.Fragment key={idx}>
+                          <div className="flex items-center gap-2 text-xs">
                             <span className="w-20 text-gray-700 font-medium truncate">{getDimensionConfig(dim.dimension).label}</span>
                             <div className="flex-1 flex items-center gap-1">
                               <div className="flex-1 bg-gray-100 rounded-full h-3 relative overflow-hidden">
@@ -1857,6 +1983,14 @@ const PageAIChat = ({
                               {categoryLabels[dim.category] || dim.category}
                             </span>
                           </div>
+                          {dim.specificObjects?.length > 0 && (
+                            <div className="ml-20 mt-0.5 flex flex-wrap gap-1">
+                              {dim.specificObjects.map((obj: string, oi: number) => (
+                                <span key={oi} className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded text-[10px]">{obj}</span>
+                              ))}
+                            </div>
+                          )}
+                        </React.Fragment>
                         );
                       })}
                     </div>
@@ -1906,6 +2040,23 @@ const PageAIChat = ({
                         游戏概要
                       </h4>
                       <p className="text-xs text-gray-700">{card.plan.summary}</p>
+                    </div>
+                  )}
+
+                  {/* 准备材料 */}
+                  {card.plan.materials && card.plan.materials.length > 0 && (
+                    <div className="mb-4 bg-white rounded-xl p-4 shadow-sm">
+                      <h4 className="font-bold text-gray-800 mb-2 flex items-center">
+                        <Package className="w-4 h-4 text-orange-500 mr-2" />
+                        准备材料
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {card.plan.materials.map((m: string, idx: number) => (
+                          <span key={idx} className="bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-xs font-medium border border-orange-200">
+                            {m}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -2764,7 +2915,9 @@ const PageGames = ({
       guidance: s.expectedOutcome
     })),
     summary: fg.summary,
-    materials: []
+    materials: [],
+    status: fg.status,
+    date: fg.date
   }));
 
   const [internalActiveGame, setInternalActiveGame] = useState<Game | undefined>(
@@ -2873,7 +3026,7 @@ const PageGames = ({
       } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
   };
 
-  const handleStartGame = (game: Game) => { setInternalActiveGame(game); setGameState(GameState.PLAYING); setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false); };
+  const handleStartGame = (game: Game) => { floorGameStorageService.updateGame(game.id, { date: new Date().toISOString() }); setInternalActiveGame(game); setGameState(GameState.PLAYING); setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false); };
   const handleLog = (type: 'emoji' | 'voice', content: string) => { setLogs(prev => [...prev, { type, content, timestamp: new Date() }]); setClickedLog(content); setTimeout(() => setClickedLog(null), 300); };
   const formatTime = (seconds: number) => { const m = Math.floor(seconds / 60); const s = seconds % 60; return `${m}:${s < 10 ? '0' : ''}${s}`; };
 
@@ -2892,7 +3045,7 @@ const PageGames = ({
         </div>
         <h3 className="font-bold text-gray-700 mb-3 flex items-center justify-between mt-2"><span>推荐游戏库</span><span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{filteredGames.length} 个结果</span></h3>
         <div className="space-y-4 pb-20">
-          {filteredGames.length > 0 ? (filteredGames.map(game => (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full font-medium shrink-0 ml-2">{game.duration}</span></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div>))) : (<div className="text-center py-10 text-gray-400 flex flex-col items-center"><div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><Search className="w-8 h-8 text-gray-300" /></div><p>没有找到匹配的游戏</p><button onClick={() => {setSearchText(''); setActiveFilter('全部')}} className="mt-2 text-primary font-bold text-sm">清除筛选</button></div>)}
+          {filteredGames.length > 0 ? (filteredGames.map(game => { const statusConfig = game.status === 'completed' ? { label: '已完成', cls: 'bg-green-50 text-green-700' } : game.status === 'aborted' ? { label: '已中止', cls: 'bg-red-50 text-red-700' } : { label: '未开始', cls: 'bg-gray-100 text-gray-500' }; const dateStr = game.date ? new Date(game.date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/') : ''; return (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><div className="flex items-center space-x-2 shrink-0 ml-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>{dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}</div></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div>); })) : (<div className="text-center py-10 text-gray-400 flex flex-col items-center"><div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><Search className="w-8 h-8 text-gray-300" /></div><p>没有找到匹配的游戏</p><button onClick={() => {setSearchText(''); setActiveFilter('全部')}} className="mt-2 text-primary font-bold text-sm">清除筛选</button></div>)}
         </div>
       </div>
     );
@@ -2903,7 +3056,7 @@ const PageGames = ({
     const isLastStep = currentStepIndex === internalActiveGame.steps.length - 1;
     return (
       <div className="h-full flex flex-col bg-background">
-        <div className="w-full flex flex-col items-center py-4 bg-background z-0"><h3 className="font-bold text-sm text-gray-500 mb-1">{internalActiveGame.title}</h3><div className="text-green-600 font-mono text-3xl font-bold">{formatTime(timer)}</div></div>
+        <div className="w-full flex flex-col items-center py-4 bg-background z-0 relative"><button onClick={() => { if (window.confirm('确定要结束游戏吗？中途结束将标记为已中止。')) { floorGameStorageService.updateGame(internalActiveGame.id, { status: 'aborted' }); setGameState(GameState.LIST); } }} className="absolute right-4 top-4 text-xs text-red-500 bg-red-50 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100 transition">结束游戏</button><h3 className="font-bold text-sm text-gray-500 mb-1">{internalActiveGame.title}</h3><div className="text-green-600 font-mono text-3xl font-bold">{formatTime(timer)}</div></div>
         <div className="flex-1 px-4 pb-2 flex flex-col min-h-0"><div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar"><h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current"/> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
         <div className="flex items-center justify-between px-6 py-4 mb-2"><button onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))} disabled={currentStepIndex === 0} className={`flex items-center text-gray-400 font-bold transition px-4 py-3 ${currentStepIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-600'}`}><ChevronLeft className="w-5 h-5 mr-1" /> 上一步</button><div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-xs font-bold text-gray-500 tracking-wide">步骤 {currentStepIndex + 1} / {internalActiveGame.steps.length}</div>{isLastStep ? (<button onClick={() => setGameState(GameState.SUMMARY)} className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 flex items-center hover:bg-green-600 transition transform active:scale-95">完成 <CheckCircle2 className="w-5 h-5 ml-2" /></button>) : (<button onClick={() => setCurrentStepIndex(currentStepIndex + 1)} className="bg-secondary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-secondary/30 flex items-center hover:bg-blue-600 transition transform active:scale-95">下一步 <ChevronRight className="w-5 h-5 ml-1" /></button>)}</div>
         <div className="p-4 bg-white border-t border-gray-100 pb-8 rounded-t-3xl shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 relative"><p className="text-center text-[10px] text-gray-400 mb-3 uppercase tracking-widest font-bold">快速记录当前反应</p><div className="flex justify-between max-w-sm mx-auto mb-3 space-x-2">{[{ icon: Smile, label: '微笑', color: 'text-yellow-600 bg-yellow-100 ring-yellow-300' }, { icon: Eye, label: '眼神', color: 'text-blue-600 bg-blue-100 ring-blue-300' }, { icon: Handshake, label: '互动', color: 'text-green-600 bg-green-100 ring-green-300' }, { icon: Frown, label: '抗拒', color: 'text-red-500 bg-red-100 ring-red-300' }].map((btn, i) => (<button key={i} onClick={() => handleLog('emoji', btn.label)} className={`flex-1 py-3 rounded-xl shadow-sm active:scale-95 transition flex flex-col items-center justify-center ${btn.color} ${clickedLog === btn.label ? 'ring-4 ring-offset-2 scale-110 bg-opacity-100' : ''}`}><btn.icon className="w-5 h-5 mb-1" /><span className="text-[10px] font-bold">{btn.label}</span></button>))}</div><button onMouseDown={() => { setClickedLog('voice'); handleLog('voice', '录音开始...'); }} onMouseUp={() => handleLog('voice', '录音结束')} className={`w-full bg-gray-50 border border-gray-200 py-3 rounded-xl text-gray-600 font-bold flex items-center justify-center shadow-sm active:bg-gray-200 active:scale-98 transition text-sm ${clickedLog === 'voice' ? 'ring-2 ring-gray-300 bg-gray-100' : ''}`}><Mic className="w-4 h-4 mr-2" /> 按住说话 记录观察笔记</button></div>

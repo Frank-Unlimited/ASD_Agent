@@ -18,6 +18,7 @@ export interface FloorGamePlanPromptParams {
   };
   conversationHistory?: string;
   searchResults?: string; // RAG 搜索结果
+  specificObjects?: Record<string, string[]>; // 维度→具体对象
 }
 
 export function buildFloorGamePlanPrompt(params: FloorGamePlanPromptParams): string {
@@ -29,7 +30,8 @@ export function buildFloorGamePlanPrompt(params: FloorGamePlanPromptParams): str
     recentBehaviors,
     parentPreferences,
     conversationHistory,
-    searchResults
+    searchResults,
+    specificObjects
   } = params;
 
   const childAge = childProfile.birthDate
@@ -84,6 +86,17 @@ ${recentBehaviors.slice(0, 5).map(b => {
     }
   }
 
+  // 孩子感兴趣的具体对象
+  let specificObjectsText = '';
+  if (specificObjects && Object.keys(specificObjects).length > 0) {
+    const lines = Object.entries(specificObjects)
+      .filter(([, objs]) => objs.length > 0)
+      .map(([dim, objs]) => `${dim}：${objs.join('、')}`);
+    if (lines.length > 0) {
+      specificObjectsText = `\n【孩子感兴趣的具体对象】\n${lines.join('\n')}\n`;
+    }
+  }
+
   const strategyMap: Record<string, string> = {
     leverage: '利用已有兴趣作为切入点，在游戏中融入训练目标',
     explore: '引导孩子探索较少接触的维度，拓展兴趣范围',
@@ -111,7 +124,7 @@ ${searchContext}
 ${assessmentText}
 ${behaviorsText}
 ${prefsText}
-
+${specificObjectsText}
 【干预目标】
 目标维度：${targetDimensions.join('、')}
 策略：${strategyMap[strategy]}
@@ -123,12 +136,14 @@ ${prefsText}
 4. 结合${childProfile.name}的具体情况进行个性化调整
 5. 材料要易获取，适合家庭环境
 6. 游戏要有趣、互动性强，避免机械训练
+7. 请输出 "materials" 字段，列出游戏需要准备的材料清单（尽量利用孩子已感兴趣的对象）
 
 请严格按照以下 JSON 格式输出（这是示例，请根据实际情况填写）：
 
 \`\`\`json
 {
   "_analysis": "基于小明对视觉色彩的强烈兴趣，设计以彩色泡泡为媒介的互动游戏，在追泡泡过程中自然融入触觉探索...",
+  "materials": ["泡泡液", "泡泡棒", "彩色毛巾"],
   "gameTitle": "彩虹泡泡追逐",
   "summary": "通过彩色泡泡吸引孩子注意力，在追逐和触碰泡泡的过程中促进视觉追踪和触觉探索，同时增进亲子互动。",
   "goal": "利用视觉兴趣作为切入点，在自然互动中发展触觉感知和双向社交沟通能力",

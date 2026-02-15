@@ -58,6 +58,8 @@ export interface Game {
   steps: GameStep[]; // Changed from string[] to GameStep[]
   summary?: string;   // 游戏玩法概要（用于阶段2展示）
   materials?: string[]; // 所需材料列表（用于阶段2展示）
+  status?: FloorGameStatus;  // 游戏状态
+  date?: string;             // 日期（ISO string）
 }
 
 export interface CalendarEvent {
@@ -221,6 +223,7 @@ export interface GameImplementationPlan {
     instruction: string;             // 详细指令（家长应该做什么）
     expectedOutcome: string;         // 预期效果（这一步期望达到什么效果）
   }>;
+  materials?: string[];               // 所需材料清单
   _analysis?: string;                // LLM 分析总结（可选，用于显示）
 }
 
@@ -236,6 +239,7 @@ export interface FloorGame {
     instruction: string;
     expectedOutcome: string;
   }>;
+  materials?: string[];           // 所需材料清单
   _analysis?: string;
 
   status: FloorGameStatus;     // 未完成 / 已完成 / 中止

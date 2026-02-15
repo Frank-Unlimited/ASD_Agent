@@ -374,13 +374,86 @@ export const PlanFloorGameTool = {
   }
 };
 
+// 查询工具
+
+export const QueryChildProfileTool = {
+  type: 'function' as const,
+  function: {
+    name: 'query_child_profile',
+    description: '查询当前孩子的基础信息（姓名、性别、年龄、诊断画像等）。当家长询问孩子的基本资料、个人信息、档案信息时调用。',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  }
+};
+
+export const QueryRecentAssessmentsTool = {
+  type: 'function' as const,
+  function: {
+    name: 'query_recent_assessments',
+    description: '查询最近的综合评估报告。当家长询问"之前的评估结果"、"上次评估怎么样"、"最近的报告"等时调用。',
+    parameters: {
+      type: 'object',
+      properties: {
+        count: {
+          type: 'number',
+          description: '查询数量，默认3条'
+        }
+      },
+      required: []
+    }
+  }
+};
+
+export const QueryRecentBehaviorsTool = {
+  type: 'function' as const,
+  function: {
+    name: 'query_recent_behaviors',
+    description: '查询最近记录的行为数据。当家长询问"最近记录了什么行为"、"孩子最近的表现"、"之前记录的行为"等时调用。',
+    parameters: {
+      type: 'object',
+      properties: {
+        count: {
+          type: 'number',
+          description: '查询数量，默认10条'
+        }
+      },
+      required: []
+    }
+  }
+};
+
+export const QueryFloorGamesTool = {
+  type: 'function' as const,
+  function: {
+    name: 'query_floor_games',
+    description: '查询数据库中已保存的地板游戏记录。当家长询问"之前玩过什么游戏"、"最近的游戏"、"游戏记录"、"做过哪些游戏"等时调用。',
+    parameters: {
+      type: 'object',
+      properties: {
+        count: {
+          type: 'number',
+          description: '查询数量，默认5条'
+        }
+      },
+      required: []
+    }
+  }
+};
+
 // 所有对话工具
 export const ChatTools = [
   AnalyzeInterestTool,
   PlanFloorGameTool,
   LogBehaviorTool,
   NavigatePageTool,
-  GenerateAssessmentTool
+  GenerateAssessmentTool,
+  QueryChildProfileTool,
+  QueryRecentAssessmentsTool,
+  QueryRecentBehaviorsTool,
+  QueryFloorGamesTool
 ];
 
 // --- Comprehensive Assessment Schema ---

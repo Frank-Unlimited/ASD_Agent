@@ -121,7 +121,8 @@ export const generateFloorGamePlan = async (
     duration?: string;
     otherRequirements?: string;
   },
-  conversationHistory?: string
+  conversationHistory?: string,
+  specificObjects?: Record<string, string[]>
 ): Promise<GameImplementationPlan> => {
   try {
     console.log('[generateFloorGamePlan] 开始生成游戏计划:', {
@@ -134,11 +135,19 @@ export const generateFloorGamePlan = async (
     // 并行：联网搜索参考资料 + 准备 prompt
     let searchResults = '';
     try {
-      const searchQuery = `${targetDimensions.join(' ')} 自闭症儿童 DIR Floortime 地板游戏 ${strategy === 'explore' ? '探索' : '互动'}`;
+      // 从 specificObjects 中提取与目标维度相关的具体对象
+      const objectKeywords = specificObjects
+        ? targetDimensions
+            .flatMap(dim => specificObjects[dim] || [])
+            .slice(0, 4) // 最多取4个，避免关键词过长
+            .join(' ')
+        : '';
+      const searchQuery = `${targetDimensions.join(' ')} ${objectKeywords} 自闭症儿童 DIR Floortime 地板游戏 ${strategy === 'explore' ? '探索' : '互动'}`.trim();
       const childContext = `
 儿童：${childProfile.name}，${childProfile.gender}
 ${latestAssessment ? `画像：${latestAssessment.currentProfile}` : '首次使用'}
 目标维度：${targetDimensions.join('、')}
+${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
 策略：${strategy}
 `;
       const games = await searchGamesOnline(searchQuery, childContext, 3);
@@ -160,7 +169,8 @@ ${latestAssessment ? `画像：${latestAssessment.currentProfile}` : '首次使�
       recentBehaviors,
       parentPreferences,
       conversationHistory,
-      searchResults: searchResults || undefined
+      searchResults: searchResults || undefined,
+      specificObjects
     });
 
     const response = await qwenStreamClient.chat(
@@ -192,6 +202,7 @@ ${latestAssessment ? `画像：${latestAssessment.currentProfile}` : '首次使�
       summary: data.summary || '',
       goal: data.goal || '',
       steps: data.steps || [],
+      materials: data.materials || [],
       _analysis: data._analysis || ''
     };
   } catch (error) {
