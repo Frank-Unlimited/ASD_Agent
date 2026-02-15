@@ -30,8 +30,8 @@ interface QwenStreamRequest {
   tools?: any[];
   tool_choice?: 'auto' | 'none' | { type: 'function'; function: { name: string } };
   response_format?: {
-    type: 'json_schema';
-    json_schema: {
+    type: 'json_schema' | 'json_object';
+    json_schema?: {
       name: string;
       schema: any;
       strict?: boolean;
@@ -221,8 +221,8 @@ class QwenStreamClient {
       temperature?: number;
       max_tokens?: number;
       response_format?: {
-        type: 'json_schema';
-        json_schema: {
+        type: 'json_schema' | 'json_object';
+        json_schema?: {
           name: string;
           schema: any;
         };
