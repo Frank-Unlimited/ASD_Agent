@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿﻿import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { sendQwenMessage } from './services/qwenService';
 import { clearAllCache } from './utils/clearCache'; // 导入清空缓存功能
@@ -82,6 +82,7 @@ import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
 import { PageRadar } from './components/RadarChartPage';
+import { PageCalendar } from './components/CalendarPage';
 import defaultAvatar from './img/cute_dog.jpg';
 
 // --- Helper Components ---
@@ -2160,28 +2161,7 @@ const PageAIChat = ({
   );
 };
 
-const PageCalendar = ({ navigateTo, onStartGame }: { navigateTo: (p: Page) => void, onStartGame: (gameId: string) => void }) => {
-  return (
-    <div className="p-4 space-y-6 h-full overflow-y-auto bg-background">
-      <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
-        <div className="relative z-10"><h3 className="text-green-100 text-sm font-medium uppercase tracking-wide mb-1">本周目标</h3><p className="text-xl font-bold mb-3">提升“持续眼神接触”的频率</p><div className="h-2 bg-green-800/30 rounded-full w-full overflow-hidden"><div className="h-full bg-white/90 w-[60%] rounded-full"></div></div><p className="text-xs mt-2 text-green-100">已完成 3/5 个互动单元</p></div><Award className="absolute -right-4 -bottom-4 w-32 h-32 text-white/10" />
-      </div>
-      <div>
-        <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-gray-800 text-lg">2025年 1月</h3><button className="text-sm text-primary font-bold bg-green-50 px-3 py-1 rounded-full">生成下周计划</button></div>
-        <div className="grid grid-cols-7 gap-2">
-          {['一', '二', '三', '四', '五', '六', '日'].map((d, i) => <div key={i} className="text-center text-xs text-gray-400 font-medium mb-2">{d}</div>)}
-          {WEEK_DATA.map((day) => {
-             let bgClass = 'bg-white border-gray-200'; let textClass = 'text-gray-600';
-             if (day.status === 'completed') { bgClass = 'bg-emerald-100 border-emerald-200'; textClass = 'text-emerald-700'; }
-             if (day.status === 'today') { bgClass = 'bg-blue-50 border-blue-200 ring-2 ring-blue-400 ring-offset-1'; textClass = 'text-blue-700'; }
-             return (<div key={day.day} onClick={() => { if(day.status === 'today' || day.day === 21) onStartGame('2'); }} className={`aspect-square rounded-xl border flex flex-col items-center justify-center p-1 cursor-pointer transition active:scale-95 ${bgClass}`}><span className={`text-xs font-bold mb-1 ${textClass}`}>{day.day}</span>{day.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}{day.status === 'today' && <CalendarIcon className="w-4 h-4 text-blue-500" />}</div>)
-          })}
-        </div>
-      </div>
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"><div className="flex justify-between items-start mb-4"><div><span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium">今日, 10:00</span><h3 className="text-lg font-bold text-gray-800 mt-2">感官泡泡追逐战</h3><p className="text-sm text-gray-500">目标: 自我调节</p></div><button onClick={() => onStartGame('2')} className="w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-lg text-white hover:bg-green-600 transition animate-pulse"><Play className="w-6 h-6 ml-1" /></button></div></div>
-    </div>
-  );
-};
+// PageCalendar 已移至 frontend/src/components/CalendarPage.tsx
 
 const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) => {
   const [behaviors, setBehaviors] = useState<BehaviorAnalysis[]>([]);
