@@ -76,22 +76,29 @@ analyze_interest            GamePage (App.tsx)
 plan_floor_game                  │
       │                          │
       ▼                          │
-FloorGame (pending)  ──────→  开始游戏
-      │                          │
-      │                     记录 LogEntry[]
+FloorGame (pending)  ──────→  开始游戏 (更新 dtstart)
+ dtstart: 当前时间                 │
+ dtend: ''                    记录 LogEntry[]
       │                          │
       │                     完成 → performAnalysis()
       │                          │
       │                     evaluateSession(logs)
       │                          │
       │                          ▼
-FloorGame (completed)  ←──  updateGame({ evaluation, status })
+FloorGame (completed)  ←──  updateGame({ 
+ dtend: 结束时间                evaluation, 
+                              status: 'completed',
+                              dtend: 当前时间 })
       │
       ▼
 collectHistoricalData()  ──→  从 FloorGame.evaluation 提取
 ```
 
-**关键**：`EvaluationResult` 存在 `FloorGame.evaluation` 字段中，不单独存储。
+**关键**：
+- `dtstart` 和 `dtend` 使用完整 ISO 时间字符串（含年月日时分秒）
+- 推荐时设置 `dtstart` 为当前时间，`dtend` 为空字符串
+- 开始游戏时更新 `dtstart`，结束时更新 `dtend`
+- `EvaluationResult` 存在 `FloorGame.evaluation` 字段中，不单独存储
 
 ---
 
@@ -223,7 +230,8 @@ frontend/src/
 │   └── multimodal-analysis.ts
 │
 ├── components/
-│   └── RadarChartPage.tsx        雷达图可视化
+│   ├── RadarChartPage.tsx        雷达图可视化
+│   └── CalendarPage.tsx          日历页面（周视图+月历+时间轴）
 │
 ├── hooks/
 │   └── useStreamChat.ts          流式对话 Hook
@@ -233,6 +241,93 @@ frontend/src/
     ├── clearCache.ts             缓存清理
     └── seedTestData.ts           测试数据生成
 ```
+
+---
+
+## Recent Updates
+
+### 2026-02-15: 日历页面重构与游戏时间字段改造
+
+#### 1. 游戏时间字段改造 (FloorGame)
+
+**问题**：原 `date: string` 字段无法准确记录游戏开始和结束时间，导致日历展示和时长计算不准确。
+
+**方案**：将单一 `date` 字段拆分为 `dtstart` 和 `dtend` 两个 ISO 时间字符串字段，分别记录游戏开始和结束的完整时间戳。
+
+**实施**：
+- 修改 `FloorGame` 类型定义，添加 `dtstart` 和 `dtend` 字段
+- 在 `floorGameStorage.ts` 中添加数据迁移逻辑，自动将旧数据的 `date` 转换为 `dtstart`
+- 游戏推荐时设置 `dtstart` 为当前时间，`dtend` 为空字符串
+- 游戏开始时更新 `dtstart`，游戏结束时更新 `dtend`
+- 显示规则：LIST 状态显示年月日，PLAYING 状态保持原样，SUMMARY 状态显示年月日+时分
+
+**影响范围**：`types/index.ts`、`floorGameStorage.ts`、`gameRecommendConversationalAgent.ts`、`App.tsx`
+
+#### 2. 日历页面全面重构 (CalendarPage.tsx)
+
+**问题**：原日历页面使用模拟数据，功能简陋，缺少时间轴视图和行为详情展示，视觉设计不够现代。
+
+**方案**：创建全新的 `CalendarPage.tsx` 组件，采用类似苹果日历的设计风格，集成真实数据源。
+
+**核心功能**：
+
+```
+日历页面架构
+├── 顶部日期栏
+│   ├── 当前日期显示（今天/具体日期）
+│   ├── 回到今天按钮（非今天时显示）
+│   └── 月历展开按钮
+│
+├── 周视图（周日-周六）
+│   ├── 当天标记（红色横线）
+│   ├── 选中日期高亮（圆形蓝紫渐变）
+│   └── 有事件日期标记（绿点）
+│
+├── 月历视图（可展开）
+│   ├── 年份切换（上下箭头）
+│   ├── 月份切换（左右箭头）
+│   └── 日期选择（点击跳转）
+│
+└── 时间轴视图（0:00-24:00）
+    ├── 游戏事件卡片
+    │   ├── 显示游戏标题、目标、时长
+    │   ├── 显示评分（如有）
+    │   └── 点击跳转到游戏详情
+    │
+    └── 行为事件卡片
+        ├── 扁平显示行为文本
+        └── 点击展开行为详情模态框
+            ├── 行为描述
+            ├── 兴趣维度分析（8维度）
+            │   ├── 关联度进度条
+            │   ├── 喜好强度双向进度条
+            │   └── 推理说明
+            └── 元数据（时间、来源）
+```
+
+**数据集成**：
+- 从 `behaviorStorageService` 读取行为数据
+- 从 `floorGameStorageService` 读取游戏数据
+- 只显示 `status: 'completed'` 的游戏
+- 根据 `dtstart` 和 `dtend` 计算游戏时长和位置
+
+**UI/UX 优化**：
+- 渐变背景（蓝色到紫色）+ 毛玻璃效果
+- 自定义滚动条（蓝紫渐变，悬停光晕）
+- 所有按钮添加悬停缩放和阴影动画
+- 进度条使用渐变色和内阴影
+- 模态框使用淡入和滑入动画
+- 切换日期时自动滚动到 0:00
+
+**技术实现**：
+- 使用 `React.useRef` 管理时间轴滚动位置
+- 使用 `React.useEffect` 监听日期变化并重置滚动
+- 使用 CSS-in-JS 注入自定义滚动条样式
+- 使用 Tailwind 渐变和动画类实现视觉效果
+
+**文件变更**：
+- 新增：`frontend/src/components/CalendarPage.tsx` (600+ 行)
+- 修改：`frontend/src/App.tsx`（导入新组件）
 
 ---
 
