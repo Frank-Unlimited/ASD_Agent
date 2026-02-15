@@ -1,0 +1,608 @@
+import React, { useState } from 'react';
+import {
+  CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Package,
+  Gamepad2,
+  Activity,
+  X
+} from 'lucide-react';
+import { BehaviorAnalysis, FloorGame, Page } from '../types';
+import { behaviorStorageService } from '../services/behaviorStorage';
+import { floorGameStorageService } from '../services/floorGameStorage';
+import { getDimensionConfig } from '../utils/helpers';
+
+// 自定义滚动条样式
+const scrollbarStyles = `
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: linear-gradient(to bottom, #f3f4f6, #e5e7eb);
+    border-radius: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(to bottom, #2563eb, #7c3aed);
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+  }
+  
+  /* Firefox */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #3b82f6 #f3f4f6;
+  }
+`;
+
+export const PageCalendar = ({ navigateTo, onStartGame }: { 
+  navigateTo: (p: Page) => void, 
+  onStartGame: (gameId: string) => void 
+}) => {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [expandedMonth, setExpandedMonth] = useState(false);
+  const [selectedBehavior, setSelectedBehavior] = useState<BehaviorAnalysis | null>(null);
+  const [showBehaviorDetail, setShowBehaviorDetail] = useState(false);
+  
+  // 时间轴容器的引用
+  const timelineRef = React.useRef<HTMLDivElement>(null);
+  
+  // 加载真实数据
+  const behaviors = behaviorStorageService.getAllBehaviors();
+  const games = floorGameStorageService.getAllGames();
+  
+  // 当选中日期改变时，滚动到顶部
+  React.useEffect(() => {
+    if (timelineRef.current) {
+      timelineRef.current.scrollTop = 0;
+    }
+  }, [selectedDate]);
+  
+  // 工具函数：判断是否是同一天
+  const isSameDay = (date1: Date, date2: Date) => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+  };
+  
+  // 工具函数：获取本周日期（周日到周六）
+  const getWeekDates = (date: Date) => {
+    const day = date.getDay();
+    const diff = date.getDate() - day;
+    const sunday = new Date(date.setDate(diff));
+    const weekDates = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sunday);
+      d.setDate(sunday.getDate() + i);
+      weekDates.push(d);
+    }
+    return weekDates;
+  };
+  
+  // 工具函数：获取当月所有日期
+  const getMonthDates = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const dates = [];
+    
+    // 补充上月末尾的日期
+    const firstDayOfWeek = firstDay.getDay();
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+      const d = new Date(firstDay);
+      d.setDate(firstDay.getDate() - i - 1);
+      dates.push(d);
+    }
+    
+    // 当月日期
+    for (let i = 1; i <= lastDay.getDate(); i++) {
+      dates.push(new Date(year, month, i));
+    }
+    
+    // 补充下月开头的日期
+    const remaining = 42 - dates.length;
+    for (let i = 1; i <= remaining; i++) {
+      dates.push(new Date(year, month + 1, i));
+    }
+    
+    return dates;
+  };
+  
+  // 获取选中日期的事件
+  const getDailyEvents = () => {
+    const events: any[] = [];
+    
+    // 筛选当天的行为记录
+    behaviors.forEach(behavior => {
+      if (behavior.timestamp && isSameDay(new Date(behavior.timestamp), selectedDate)) {
+        events.push({
+          id: behavior.id || `behavior_${Date.now()}`,
+          type: 'behavior',
+          time: new Date(behavior.timestamp),
+          data: behavior
+        });
+      }
+    });
+    
+    // 筛选当天已完成的游戏
+    games.forEach(game => {
+      if (game.status === 'completed' && game.dtstart) {
+        const gameDate = new Date(game.dtstart);
+        if (isSameDay(gameDate, selectedDate)) {
+          events.push({
+            id: game.id,
+            type: 'game',
+            time: gameDate,
+            endTime: game.dtend ? new Date(game.dtend) : null,
+            data: game
+          });
+        }
+      }
+    });
+    
+    // 按时间排序
+    return events.sort((a, b) => a.time.getTime() - b.time.getTime());
+  };
+  
+  // 检查某天是否有事件
+  const hasEventsOnDate = (date: Date) => {
+    const hasBehavior = behaviors.some(b => 
+      b.timestamp && isSameDay(new Date(b.timestamp), date)
+    );
+    const hasGame = games.some(g => 
+      g.status === 'completed' && g.dtstart && isSameDay(new Date(g.dtstart), date)
+    );
+    return hasBehavior || hasGame;
+  };
+  
+  const today = new Date();
+  const weekDates = getWeekDates(new Date(selectedDate));
+  const monthDates = getMonthDates(new Date(selectedDate));
+  const dailyEvents = getDailyEvents();
+  
+  // 格式化日期显示
+  const formatDateHeader = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const weekday = weekdays[date.getDay()];
+    return { year, month, day, weekday };
+  };
+  
+  const headerInfo = formatDateHeader(selectedDate);
+  
+  return (
+    <>
+      {/* 注入自定义滚动条样式 */}
+      <style>{scrollbarStyles}</style>
+      
+      <div className="h-full flex flex-col bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* 顶部日期栏 - 优化设计 */}
+      <div className="sticky top-0 bg-white/80 backdrop-blur-lg z-10 p-5 border-b border-gray-200/50 shadow-sm">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+              {isSameDay(selectedDate, today) ? '今天' : `${headerInfo.month}月${headerInfo.day}日`}
+            </h2>
+            <p className="text-sm text-gray-500 font-medium mt-1">
+              {headerInfo.year}年{headerInfo.month}月{headerInfo.day}日 {headerInfo.weekday}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {!isSameDay(selectedDate, today) && (
+              <button 
+                onClick={() => setSelectedDate(new Date())}
+                className="px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl hover:from-blue-600 hover:to-blue-700 transition shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                回到今天
+              </button>
+            )}
+            <button 
+              onClick={() => setExpandedMonth(!expandedMonth)}
+              className="p-2.5 rounded-xl hover:bg-gray-100 transition transform hover:scale-105 bg-white shadow-sm"
+            >
+              <Package className={`w-6 h-6 text-gray-600 transition-transform ${expandedMonth ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* 周视图 - 优化设计 */}
+      <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200/50 p-5 shadow-sm">
+        <div className="grid grid-cols-7 gap-3">
+          {['日', '一', '二', '三', '四', '五', '六'].map((day, i) => (
+            <div key={i} className="text-center text-xs text-gray-400 font-bold mb-2 uppercase tracking-wider">
+              {day}
+            </div>
+          ))}
+          {weekDates.map((date, i) => {
+            const isToday = isSameDay(date, today);
+            const isSelected = isSameDay(date, selectedDate);
+            const hasEvents = hasEventsOnDate(date);
+            
+            return (
+              <div key={i} className="flex flex-col items-center">
+                <button
+                  onClick={() => setSelectedDate(new Date(date))}
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-bold transition-all transform ${
+                    isSelected 
+                      ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg scale-110' 
+                      : isToday
+                      ? 'bg-gradient-to-br from-blue-50 to-purple-50 text-blue-600 ring-2 ring-blue-200'
+                      : 'text-gray-700 hover:bg-gray-100 hover:scale-105'
+                  }`}
+                >
+                  {date.getDate()}
+                </button>
+                {isToday && !isSelected && (
+                  <div className="w-8 h-1 rounded-full bg-gradient-to-r from-red-400 to-pink-500 mt-1.5 shadow-sm"></div>
+                )}
+                {hasEvents && !isToday && !isSelected && (
+                  <div className="flex gap-0.5 mt-1.5">
+                    <div className="w-1 h-1 rounded-full bg-green-500"></div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      
+      {/* 月历展开视图 - 优化设计 */}
+      {expandedMonth && (
+        <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 border-b border-gray-200/50 p-5 animate-in slide-in-from-top shadow-inner">
+          <div className="flex justify-between items-center mb-5">
+            <div className="flex items-center gap-4">
+              <h3 className="font-black text-xl text-transparent bg-clip-text bg-gradient-to-r from-gray-700 to-gray-900">
+                {selectedDate.getFullYear()}年 {selectedDate.getMonth() + 1}月
+              </h3>
+              {/* 年份切换按钮 - 优化设计 */}
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => {
+                    const newDate = new Date(selectedDate);
+                    newDate.setFullYear(newDate.getFullYear() + 1);
+                    setSelectedDate(newDate);
+                  }}
+                  className="group p-1.5 rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 transition-all shadow-sm hover:shadow-md transform hover:scale-110 border border-blue-100/50"
+                  title="下一年"
+                >
+                  <ChevronUp className="w-3.5 h-3.5 text-blue-600 group-hover:text-purple-600 transition" />
+                </button>
+                <button
+                  onClick={() => {
+                    const newDate = new Date(selectedDate);
+                    newDate.setFullYear(newDate.getFullYear() - 1);
+                    setSelectedDate(newDate);
+                  }}
+                  className="group p-1.5 rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 transition-all shadow-sm hover:shadow-md transform hover:scale-110 border border-blue-100/50"
+                  title="上一年"
+                >
+                  <ChevronDown className="w-3.5 h-3.5 text-blue-600 group-hover:text-purple-600 transition" />
+                </button>
+              </div>
+            </div>
+            {/* 月份切换按钮 - 优化设计 */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const newDate = new Date(selectedDate);
+                  newDate.setMonth(newDate.getMonth() - 1);
+                  setSelectedDate(newDate);
+                }}
+                className="group p-2.5 rounded-xl bg-gradient-to-br from-white to-blue-50 hover:from-blue-50 hover:to-purple-50 transition-all shadow-md hover:shadow-lg transform hover:scale-110 border border-gray-200/50"
+                title="上个月"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-600 group-hover:text-blue-600 transition" />
+              </button>
+              <button
+                onClick={() => {
+                  const newDate = new Date(selectedDate);
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  setSelectedDate(newDate);
+                }}
+                className="group p-2.5 rounded-xl bg-gradient-to-br from-white to-blue-50 hover:from-blue-50 hover:to-purple-50 transition-all shadow-md hover:shadow-lg transform hover:scale-110 border border-gray-200/50"
+                title="下个月"
+              >
+                <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-blue-600 transition" />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {['日', '一', '二', '三', '四', '五', '六'].map((day, i) => (
+              <div key={i} className="text-center text-xs text-gray-400 font-bold py-2 uppercase tracking-wider">
+                {day}
+              </div>
+            ))}
+            {monthDates.map((date, i) => {
+              const isCurrentMonth = date.getMonth() === selectedDate.getMonth();
+              const isToday = isSameDay(date, today);
+              const isSelected = isSameDay(date, selectedDate);
+              const hasEvents = hasEventsOnDate(date);
+              
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setSelectedDate(new Date(date));
+                    setExpandedMonth(false);
+                  }}
+                  className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm transition-all transform ${
+                    isSelected
+                      ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white font-bold shadow-lg scale-105'
+                      : isToday
+                      ? 'bg-gradient-to-br from-blue-50 to-purple-50 text-blue-600 font-bold ring-2 ring-blue-200'
+                      : isCurrentMonth
+                      ? 'text-gray-700 hover:bg-white/80 hover:shadow-md hover:scale-105 bg-white/40'
+                      : 'text-gray-300 bg-white/20'
+                  }`}
+                >
+                  <span>{date.getDate()}</span>
+                  {hasEvents && (
+                    <div className={`w-1.5 h-1.5 rounded-full mt-1 ${
+                      isSelected ? 'bg-white' : 'bg-green-500 shadow-sm'
+                    }`}></div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      
+      {/* 时间轴视图 - 优化设计 */}
+      <div ref={timelineRef} className="flex-1 overflow-y-auto">
+        <div className="relative px-2 py-4">
+          {Array.from({ length: 24 }).map((_, hour) => {
+            const hourEvents = dailyEvents.filter(event => 
+              event.time.getHours() === hour
+            );
+            
+            return (
+              <div key={hour} className="flex border-t border-gray-100/50 min-h-[64px] hover:bg-gray-50/30 transition">
+                <div className="w-16 text-xs text-gray-400 font-bold p-3 flex-shrink-0">
+                  {hour.toString().padStart(2, '0')}:00
+                </div>
+                <div className="flex-1 p-2 relative">
+                  {hourEvents.length === 0 ? (
+                    <div className="h-full flex items-center text-xs text-gray-300">
+                      {/* 空时段 */}
+                    </div>
+                  ) : (
+                    hourEvents.map(event => {
+                      if (event.type === 'game') {
+                        const game = event.data as FloorGame;
+                        const duration = event.endTime 
+                          ? Math.round((event.endTime.getTime() - event.time.getTime()) / (1000 * 60))
+                          : 15;
+                        
+                        return (
+                          <div
+                            key={event.id}
+                            onClick={() => onStartGame(game.id)}
+                            className="mb-2 p-4 rounded-2xl border-l-4 border-blue-500 bg-gradient-to-r from-blue-50 to-blue-50/50 cursor-pointer hover:from-blue-100 hover:to-blue-100/50 transition-all shadow-sm hover:shadow-md transform hover:scale-[1.02]"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center flex-wrap gap-2">
+                                  <div className="flex items-center">
+                                    <div className="p-1.5 rounded-lg bg-blue-100 mr-2">
+                                      <Gamepad2 className="w-4 h-4 text-blue-600" />
+                                    </div>
+                                    <span className="font-bold text-blue-900">{game.gameTitle}</span>
+                                  </div>
+                                  <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2.5 py-1 rounded-full">
+                                    {duration}分钟
+                                  </span>
+                                </div>
+                                <div className="text-sm text-gray-600 mt-2 flex items-center">
+                                  <span className="mr-1">🎯</span>
+                                  <span>{game.goal}</span>
+                                </div>
+                                {game.evaluation && (
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <div className="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full flex items-center">
+                                      ⭐ {game.evaluation.score}分
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-xs font-bold text-gray-500 whitespace-nowrap ml-3 bg-white px-2 py-1 rounded-lg">
+                                {event.time.getHours().toString().padStart(2, '0')}:
+                                {event.time.getMinutes().toString().padStart(2, '0')}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      } else {
+                        const behavior = event.data as BehaviorAnalysis;
+                        return (
+                          <div
+                            key={event.id}
+                            onClick={() => {
+                              setSelectedBehavior(behavior);
+                              setShowBehaviorDetail(true);
+                            }}
+                            className="mb-2 p-3 rounded-xl border-l-3 border-green-500 bg-gradient-to-r from-green-50 to-green-50/30 cursor-pointer hover:from-green-100 hover:to-green-100/30 transition-all shadow-sm hover:shadow-md transform hover:scale-[1.02]"
+                          >
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center flex-1 min-w-0">
+                                <div className="p-1 rounded-lg bg-green-100 mr-2 flex-shrink-0">
+                                  <Activity className="w-3.5 h-3.5 text-green-600" />
+                                </div>
+                                <span className="text-sm font-medium text-green-900 truncate">{behavior.behavior}</span>
+                              </div>
+                              <div className="text-xs font-bold text-gray-500 whitespace-nowrap ml-3 bg-white px-2 py-1 rounded-lg">
+                                {event.time.getHours().toString().padStart(2, '0')}:
+                                {event.time.getMinutes().toString().padStart(2, '0')}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      
+      {/* 行为详情模态框 - 优化设计 */}
+      {showBehaviorDetail && selectedBehavior && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-purple-600 p-6 rounded-t-3xl z-10">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-black text-white">行为详情</h3>
+                <button 
+                  onClick={() => setShowBehaviorDetail(false)}
+                  className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition backdrop-blur-sm"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(85vh-88px)] custom-scrollbar">
+              
+              {/* 行为描述 */}
+              <div className="mb-6 p-5 bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border-2 border-blue-100 shadow-sm">
+                <div className="flex items-start mb-3">
+                  <div className="p-2 rounded-xl bg-blue-100 mr-3">
+                    <Activity className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <h4 className="text-sm font-black text-blue-800 mt-2">行为描述</h4>
+                </div>
+                <p className="text-gray-800 leading-relaxed font-medium">{selectedBehavior.behavior}</p>
+              </div>
+              
+              {/* 兴趣维度分析 */}
+              <div className="mb-6 p-5 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border-2 border-green-100 shadow-sm">
+                <div className="flex items-center mb-5">
+                  <div className="p-2 rounded-xl bg-green-100 mr-3">
+                    <Package className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h4 className="text-sm font-black text-green-800">兴趣维度分析</h4>
+                </div>
+                <div className="space-y-4">
+                  {selectedBehavior.matches?.map((match, index) => {
+                    const config = getDimensionConfig(match.dimension);
+                    return (
+                      <div key={index} className="bg-white p-4 rounded-xl border-2 border-gray-100 shadow-sm hover:shadow-md transition">
+                        <div className="flex items-center mb-4">
+                          <div className={`p-2.5 rounded-xl ${config.color} shadow-sm`}>
+                            <config.icon className="w-5 h-5" />
+                          </div>
+                          <span className="font-black text-gray-800 ml-3 text-base">{config.label}</span>
+                        </div>
+                        
+                        {/* 关联度 */}
+                        <div className="mb-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-bold text-gray-600">关联度</span>
+                            <span className="text-sm font-black text-purple-600 bg-purple-50 px-2.5 py-1 rounded-lg">
+                              {(match.weight * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                          <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                            <div 
+                              className="h-full bg-gradient-to-r from-purple-400 to-purple-600 rounded-full transition-all shadow-sm"
+                              style={{ width: `${match.weight * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                        
+                        {/* 喜好强度 */}
+                        <div className="mb-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-bold text-gray-600">喜好强度</span>
+                            <span className={`text-sm font-black flex items-center px-2.5 py-1 rounded-lg ${
+                              match.intensity > 0 
+                                ? 'text-green-600 bg-green-50' 
+                                : match.intensity < 0 
+                                ? 'text-red-600 bg-red-50' 
+                                : 'text-gray-600 bg-gray-50'
+                            }`}>
+                              {match.intensity > 0 ? '😊 喜欢' : match.intensity < 0 ? '😞 讨厌' : '😐 中性'} 
+                              <span className="ml-1">{Math.abs(match.intensity * 100).toFixed(0)}%</span>
+                            </span>
+                          </div>
+                          <div className="relative w-full h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                            <div className="absolute inset-0 flex">
+                              <div className="flex-1 border-r-2 border-gray-300"></div>
+                            </div>
+                            <div 
+                              className={`absolute h-full rounded-full transition-all shadow-sm ${
+                                match.intensity > 0 
+                                  ? 'bg-gradient-to-r from-green-400 to-green-600' 
+                                  : match.intensity < 0 
+                                  ? 'bg-gradient-to-l from-red-400 to-red-600' 
+                                  : 'bg-gray-400'
+                              }`}
+                              style={{ 
+                                width: `${Math.abs(match.intensity) * 50}%`,
+                                left: match.intensity >= 0 ? '50%' : `${50 - Math.abs(match.intensity) * 50}%`
+                              }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs font-bold text-gray-400 mt-2">
+                            <span>讨厌</span>
+                            <span>中性</span>
+                            <span>喜欢</span>
+                          </div>
+                        </div>
+                        
+                        {/* 推理说明 */}
+                        {match.reasoning && (
+                          <div className="mt-3 p-3 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border-l-4 border-yellow-400 shadow-sm">
+                            <p className="text-xs text-gray-700 font-medium leading-relaxed flex items-start">
+                              <span className="mr-2 text-base">💡</span>
+                              <span>{match.reasoning}</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* 元数据 */}
+              <div className="flex justify-between text-xs font-medium text-gray-400 pt-5 border-t-2 border-gray-100">
+                <div className="flex items-center">
+                  {selectedBehavior.timestamp && (
+                    <div className="flex items-center bg-gray-50 px-3 py-1.5 rounded-lg">
+                      <span className="mr-1">🕐</span>
+                      {new Date(selectedBehavior.timestamp).toLocaleString('zh-CN')}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center">
+                  {selectedBehavior.source && (
+                    <div className="flex items-center bg-gray-50 px-3 py-1.5 rounded-lg">
+                      <span className="mr-1">📊</span>
+                      {selectedBehavior.source === 'GAME' ? 'AI对话' : selectedBehavior.source === 'REPORT' ? '报告' : 'AI对话'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+    </>
+  );
+};

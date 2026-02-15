@@ -109,7 +109,8 @@ export const createTestData = () => {
       goal: '综合训练',
       steps: [],
       status: 'completed',
-      date: new Date().toISOString(),
+      dtstart: new Date().toISOString(),
+      dtend: new Date().toISOString(),
       isVR: false,
       evaluation
     });
