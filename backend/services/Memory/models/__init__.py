@@ -1,5 +1,5 @@
 """
-Graphiti 数据模型
+数据模型
 """
 from .nodes import (
     Person,

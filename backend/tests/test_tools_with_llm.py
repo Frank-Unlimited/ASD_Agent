@@ -36,7 +36,7 @@ async def chat_with_tools():
     # 系统提示
     system_prompt = """你是一个 ASD 儿童干预助手，可以使用工具来：
 1. 查询和管理孩子的档案信息（SQLite）
-2. 保存和查询干预记忆（Graphiti）
+2. 保存和查询干预记忆（Memory）
 3. 分析干预视频（Video Analysis）
 4. 检索方法论、游戏、量表等知识（RAG）
 
@@ -80,7 +80,7 @@ async def chat_with_tools():
         if user_input.lower() == 'tools':
             print("\n📦 可用工具列表:")
             print("  SQLite: get_child_profile, save_child_profile, create_session, update_session, get_session_history, delete_child")
-            print("  Graphiti: save_memories, get_recent_memories, build_context, analyze_trends, detect_milestones, clear_memories")
+            print("  Memory: save_memories, get_recent_memories, build_context, analyze_trends, detect_milestones, clear_memories")
             print("  Video: analyze_video")
             print("  RAG: search_methodology, search_games, search_games_by_dimension, search_games_by_interest, get_game_details, search_scale, search_cases")
             print()

@@ -154,7 +154,7 @@ class AssessmentService:
         
         self.sqlite.save_assessment(assessment_data)
         
-        # 6. 保存到 Graphiti（使用新接口）
+        # 6. 保存到 Memory（使用新接口）
         # 构建评估文本
         assessment_text = self._build_assessment_text(
             profile=profile,

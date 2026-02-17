@@ -160,7 +160,7 @@ class GameRecommender:
         # 10. 保存到 SQLite
         await self._save_game_plan(game_plan)
         
-        # 11. 保存到 Memory（Graphiti）
+        # 11. 保存到 Memory
         await self._save_game_to_memory(game_plan)
         
         # 11. 构建响应
@@ -192,7 +192,7 @@ class GameRecommender:
     
     async def _save_game_to_memory(self, game_plan: GamePlan) -> None:
         """
-        保存游戏方案到 Memory（Graphiti）
+        保存游戏方案到 Memory
         
         Args:
             game_plan: 游戏方案

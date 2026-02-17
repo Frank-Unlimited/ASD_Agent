@@ -83,6 +83,7 @@ import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
 import { PageRadar } from './components/RadarChartPage';
 import { PageCalendar } from './components/CalendarPage';
+import AIVideoCall from './components/AIVideoCall';
 import defaultAvatar from './img/cute_dog.jpg';
 
 // --- Helper Components ---
@@ -2871,7 +2872,8 @@ const PageGames = ({
   trendData,
   onUpdateTrend,
   onProfileUpdate, 
-  activeGame 
+  activeGame,
+  childProfile
 }: { 
   initialGameId?: string, 
   gameState: GameState, 
@@ -2880,7 +2882,8 @@ const PageGames = ({
   trendData: any[],
   onUpdateTrend: (score: number) => void,
   onProfileUpdate: (u: ProfileUpdate) => void,
-  activeGame?: Game
+  activeGame?: Game,
+  childProfile: ChildProfile | null
 }) => {
   // 从 floorGameStorage 读取游戏并转换为 Game 类型
   const floorGames = floorGameStorageService.getAllGames();
@@ -2915,6 +2918,7 @@ const PageGames = ({
   const [hasUpdatedTrend, setHasUpdatedTrend] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('全部');
+  const [showVideoCall, setShowVideoCall] = useState(false); // AI 视频通话状态
   const FILTERS = ['全部', '共同注意', '自我调节', '亲密感', '双向沟通', '情绪思考', '创造力'];
   
   useEffect(() => {
@@ -3054,10 +3058,34 @@ const PageGames = ({
   if (gameState === GameState.PLAYING && internalActiveGame) {
     const currentStep = internalActiveGame.steps[currentStepIndex];
     const isLastStep = currentStepIndex === internalActiveGame.steps.length - 1;
+    
     return (
       <div className="h-full flex flex-col bg-background">
-        <div className="w-full flex flex-col items-center py-4 bg-background z-0 relative"><button onClick={() => { if (window.confirm('确定要结束游戏吗？中途结束将标记为已中止。')) { floorGameStorageService.updateGame(internalActiveGame.id, { status: 'aborted' }); setGameState(GameState.LIST); } }} className="absolute right-4 top-4 text-xs text-red-500 bg-red-50 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100 transition">结束游戏</button><h3 className="font-bold text-sm text-gray-500 mb-1">{internalActiveGame.title}</h3><div className="text-green-600 font-mono text-3xl font-bold">{formatTime(timer)}</div></div>
-        <div className="flex-1 px-4 pb-2 flex flex-col min-h-0"><div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar"><h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current"/> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
+        <div className="w-full flex flex-col items-center py-4 bg-background z-0 relative">
+          <button onClick={() => { if (window.confirm('确定要结束游戏吗？中途结束将标记为已中止。')) { floorGameStorageService.updateGame(internalActiveGame.id, { status: 'aborted' }); setGameState(GameState.LIST); } }} className="absolute right-4 top-4 text-xs text-red-500 bg-red-50 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100 transition">结束游戏</button>
+          <button 
+            onClick={() => setShowVideoCall(!showVideoCall)} 
+            className={`absolute left-4 top-4 text-xs px-3 py-1.5 rounded-lg font-bold transition flex items-center ${showVideoCall ? 'text-red-500 bg-red-50 hover:bg-red-100' : 'text-blue-500 bg-blue-50 hover:bg-blue-100'}`}
+          >
+            <Camera className="w-3 h-3 mr-1" />
+            {showVideoCall ? '关闭视频通话' : 'AI 视频通话'}
+          </button>
+          <h3 className="font-bold text-sm text-gray-500 mb-1">{internalActiveGame.title}</h3>
+          <div className="text-green-600 font-mono text-3xl font-bold">{formatTime(timer)}</div>
+        </div>
+        <div className="flex-1 px-4 pb-2 flex flex-col min-h-0">
+          {/* 视频通话组件 */}
+          {showVideoCall && (
+            <div className="mb-4 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+              <AIVideoCall 
+                childProfile={childProfile}
+                gameContext={`当前游戏: ${internalActiveGame.title}\n当前步骤: ${currentStep.instruction}\n互动提示: ${currentStep.guidance}`}
+                onClose={() => setShowVideoCall(false)}
+              />
+            </div>
+          )}
+          
+          <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar"><h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current"/> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
         <div className="flex items-center justify-between px-6 py-4 mb-2"><button onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))} disabled={currentStepIndex === 0} className={`flex items-center text-gray-400 font-bold transition px-4 py-3 ${currentStepIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-600'}`}><ChevronLeft className="w-5 h-5 mr-1" /> 上一步</button><div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-xs font-bold text-gray-500 tracking-wide">步骤 {currentStepIndex + 1} / {internalActiveGame.steps.length}</div>{isLastStep ? (<button onClick={() => setGameState(GameState.SUMMARY)} className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 flex items-center hover:bg-green-600 transition transform active:scale-95">完成 <CheckCircle2 className="w-5 h-5 ml-2" /></button>) : (<button onClick={() => setCurrentStepIndex(currentStepIndex + 1)} className="bg-secondary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-secondary/30 flex items-center hover:bg-blue-600 transition transform active:scale-95">下一步 <ChevronRight className="w-5 h-5 ml-1" /></button>)}</div>
         <div className="p-4 bg-white border-t border-gray-100 pb-8 rounded-t-3xl shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 relative"><p className="text-center text-[10px] text-gray-400 mb-3 uppercase tracking-widest font-bold">快速记录当前反应</p><div className="flex justify-between max-w-sm mx-auto mb-3 space-x-2">{[{ icon: Smile, label: '微笑', color: 'text-yellow-600 bg-yellow-100 ring-yellow-300' }, { icon: Eye, label: '眼神', color: 'text-blue-600 bg-blue-100 ring-blue-300' }, { icon: Handshake, label: '互动', color: 'text-green-600 bg-green-100 ring-green-300' }, { icon: Frown, label: '抗拒', color: 'text-red-500 bg-red-100 ring-red-300' }].map((btn, i) => (<button key={i} onClick={() => handleLog('emoji', btn.label)} className={`flex-1 py-3 rounded-xl shadow-sm active:scale-95 transition flex flex-col items-center justify-center ${btn.color} ${clickedLog === btn.label ? 'ring-4 ring-offset-2 scale-110 bg-opacity-100' : ''}`}><btn.icon className="w-5 h-5 mb-1" /><span className="text-[10px] font-bold">{btn.label}</span></button>))}</div><button onMouseDown={() => { setClickedLog('voice'); handleLog('voice', '录音开始...'); }} onMouseUp={() => handleLog('voice', '录音结束')} className={`w-full bg-gray-50 border border-gray-200 py-3 rounded-xl text-gray-600 font-bold flex items-center justify-center shadow-sm active:bg-gray-200 active:scale-98 transition text-sm ${clickedLog === 'voice' ? 'ring-2 ring-gray-300 bg-gray-100' : ''}`}><Mic className="w-4 h-4 mr-2" /> 按住说话 记录观察笔记</button></div>
       </div>
@@ -3397,7 +3425,7 @@ export default function App() {
         {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} onUpdateAvatar={handleUpdateAvatar} />}
         {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}
         {currentPage === Page.RADAR && <PageRadar />}
-        {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CALENDAR)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} />)}
+        {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CALENDAR)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} />)}
       </main>
     </div>
   );

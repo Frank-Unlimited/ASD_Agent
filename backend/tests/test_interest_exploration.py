@@ -30,7 +30,7 @@ async def test_calculate_exploration_score(memory_service):
     """测试单个兴趣维度的探索度计算"""
     child_id = "test_child_001"
     
-    # 直接在图中创建测试数据（模拟 Graphiti 创建的结构）
+    # 直接在图中创建测试数据（模拟 Memory 创建的结构）
     # 注意：使用 group_id 而不是 Child 节点
     
     behaviors_data = [
@@ -61,7 +61,7 @@ async def test_calculate_exploration_score(memory_service):
     ]
     
     for data in behaviors_data:
-        # 创建 Behavior Entity 节点（模拟 Graphiti 结构）
+        # 创建 Behavior Entity 节点（模拟 Memory 结构）
         query = """
         MERGE (i:InterestDimension {dimension: $dimension})
         CREATE (b:Entity:Behavior {

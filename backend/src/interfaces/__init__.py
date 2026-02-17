@@ -5,7 +5,6 @@
 from src.interfaces.base import BaseService
 from src.interfaces.infrastructure import (
     ISQLiteService,
-    IGraphitiService,
     IKnowledgeRAGService,
     IVideoAnalysisService,
     ISpeechService,
@@ -30,7 +29,6 @@ __all__ = [
     
     # Infrastructure (模块1-6)
     'ISQLiteService',
-    'IGraphitiService',
     'IKnowledgeRAGService',
     'IVideoAnalysisService',
     'ISpeechService',

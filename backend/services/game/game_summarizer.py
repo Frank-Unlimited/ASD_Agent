@@ -53,7 +53,7 @@ class GameSummarizer:
         6. 调用 LLM（带 Output Schema）
         7. 更新 GameSession
         8. 保存到 SQLite
-        9. 保存到 Graphiti（TODO）
+        9. 保存到 Memory
         10. 返回结果
         
         Args:
@@ -150,7 +150,7 @@ class GameSummarizer:
         # 11. 保存到 SQLite
         await self._save_session(session)
         
-        # 12. 保存到 Memory（Graphiti）
+        # 12. 保存到 Memory
         await self._save_summary_to_memory(session, summary)
         
         # 13. 构建响应
@@ -202,7 +202,7 @@ class GameSummarizer:
         summary: GameSessionSummary
     ) -> None:
         """
-        将总结保存到 Memory（Graphiti）记忆系统
+        将总结保存到 Memory 记忆系统
         
         新架构：
         1. Game Summarizer 生成总结文本（已完成）

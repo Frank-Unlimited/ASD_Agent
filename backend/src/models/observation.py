@@ -117,8 +117,8 @@ class Observation(BaseModel):
 
     # 元数据
     created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
-    processed: bool = Field(default=False, description="是否已处理（存入Graphiti）")
-    graphiti_saved: bool = Field(default=False, description="是否已保存到Graphiti")
+    processed: bool = Field(default=False, description="是否已处理（存入Memory）")
+    memory_saved: bool = Field(default=False, description="是否已保存到Memory")
 
     # 标签和备注
     tags: List[str] = Field(default_factory=list, description="标签")
