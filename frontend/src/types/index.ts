@@ -243,7 +243,8 @@ export interface FloorGame {
   _analysis?: string;
 
   status: FloorGameStatus;     // 未完成 / 已完成 / 中止
-  date: string;                // ISO string，创建时间
+  dtstart: string;             // ISO string，开始时间
+  dtend: string;               // ISO string，结束时间
   isVR: boolean;               // 是否VR游戏
   result?: string;             // 实施结果（预留）
   evaluation?: EvaluationResult; // 游戏结束后的评估结果

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿﻿import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { sendQwenMessage } from './services/qwenService';
 import { clearAllCache } from './utils/clearCache'; // 导入清空缓存功能
@@ -82,6 +82,7 @@ import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
 import { PageRadar } from './components/RadarChartPage';
+import { PageCalendar } from './components/CalendarPage';
 import defaultAvatar from './img/cute_dog.jpg';
 
 // --- Helper Components ---
@@ -1157,7 +1158,8 @@ const PageAIChat = ({
                       materials: plan.materials || [],
                       _analysis: plan._analysis,
                       status: 'pending',
-                      date: new Date().toISOString(),
+                      dtstart: new Date().toISOString(),
+                      dtend: '',
                       isVR: false
                     };
                     floorGameStorageService.saveGame(floorGame);
@@ -1533,7 +1535,7 @@ const PageAIChat = ({
                   if (games.length > 0) {
                     fullResponse += `\n\n【地板游戏记录】（共${games.length}条）\n`;
                     games.forEach((g, i) => {
-                      const date = g.date ? new Date(g.date).toLocaleDateString('zh-CN') : '未知';
+                      const date = g.dtstart ? new Date(g.dtstart).toLocaleDateString('zh-CN') : '未知';
                       const statusMap: Record<string, string> = { pending: '未开始', completed: '已完成', aborted: '已中止' };
                       const statusText = statusMap[g.status] || g.status;
                       fullResponse += `${i + 1}. [${date}] ${g.gameTitle} - ${statusText}\n`;
@@ -2159,28 +2161,7 @@ const PageAIChat = ({
   );
 };
 
-const PageCalendar = ({ navigateTo, onStartGame }: { navigateTo: (p: Page) => void, onStartGame: (gameId: string) => void }) => {
-  return (
-    <div className="p-4 space-y-6 h-full overflow-y-auto bg-background">
-      <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
-        <div className="relative z-10"><h3 className="text-green-100 text-sm font-medium uppercase tracking-wide mb-1">本周目标</h3><p className="text-xl font-bold mb-3">提升“持续眼神接触”的频率</p><div className="h-2 bg-green-800/30 rounded-full w-full overflow-hidden"><div className="h-full bg-white/90 w-[60%] rounded-full"></div></div><p className="text-xs mt-2 text-green-100">已完成 3/5 个互动单元</p></div><Award className="absolute -right-4 -bottom-4 w-32 h-32 text-white/10" />
-      </div>
-      <div>
-        <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-gray-800 text-lg">2025年 1月</h3><button className="text-sm text-primary font-bold bg-green-50 px-3 py-1 rounded-full">生成下周计划</button></div>
-        <div className="grid grid-cols-7 gap-2">
-          {['一', '二', '三', '四', '五', '六', '日'].map((d, i) => <div key={i} className="text-center text-xs text-gray-400 font-medium mb-2">{d}</div>)}
-          {WEEK_DATA.map((day) => {
-             let bgClass = 'bg-white border-gray-200'; let textClass = 'text-gray-600';
-             if (day.status === 'completed') { bgClass = 'bg-emerald-100 border-emerald-200'; textClass = 'text-emerald-700'; }
-             if (day.status === 'today') { bgClass = 'bg-blue-50 border-blue-200 ring-2 ring-blue-400 ring-offset-1'; textClass = 'text-blue-700'; }
-             return (<div key={day.day} onClick={() => { if(day.status === 'today' || day.day === 21) onStartGame('2'); }} className={`aspect-square rounded-xl border flex flex-col items-center justify-center p-1 cursor-pointer transition active:scale-95 ${bgClass}`}><span className={`text-xs font-bold mb-1 ${textClass}`}>{day.day}</span>{day.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}{day.status === 'today' && <CalendarIcon className="w-4 h-4 text-blue-500" />}</div>)
-          })}
-        </div>
-      </div>
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"><div className="flex justify-between items-start mb-4"><div><span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium">今日, 10:00</span><h3 className="text-lg font-bold text-gray-800 mt-2">感官泡泡追逐战</h3><p className="text-sm text-gray-500">目标: 自我调节</p></div><button onClick={() => onStartGame('2')} className="w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-lg text-white hover:bg-green-600 transition animate-pulse"><Play className="w-6 h-6 ml-1" /></button></div></div>
-    </div>
-  );
-};
+// PageCalendar 已移至 frontend/src/components/CalendarPage.tsx
 
 const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) => {
   const [behaviors, setBehaviors] = useState<BehaviorAnalysis[]>([]);
@@ -2917,7 +2898,7 @@ const PageGames = ({
     summary: fg.summary,
     materials: [],
     status: fg.status,
-    date: fg.date
+    date: fg.dtstart // 使用 dtstart 作为 date（向后兼容）
   }));
 
   const [internalActiveGame, setInternalActiveGame] = useState<Game | undefined>(
@@ -2998,7 +2979,11 @@ const PageGames = ({
           // 将评估结果写入 FloorGame 记录
           if (internalActiveGame?.id) {
             try {
-              floorGameStorageService.updateGame(internalActiveGame.id, { evaluation: result, status: 'completed' });
+              floorGameStorageService.updateGame(internalActiveGame.id, { 
+                evaluation: result, 
+                status: 'completed',
+                dtend: new Date().toISOString()
+              });
             } catch (e) { console.warn('Failed to save evaluation to FloorGame:', e); }
           }
 
@@ -3026,7 +3011,18 @@ const PageGames = ({
       } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
   };
 
-  const handleStartGame = (game: Game) => { floorGameStorageService.updateGame(game.id, { date: new Date().toISOString() }); setInternalActiveGame(game); setGameState(GameState.PLAYING); setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false); };
+  const handleStartGame = (game: Game) => { 
+    floorGameStorageService.updateGame(game.id, { 
+      dtstart: new Date().toISOString() 
+    }); 
+    setInternalActiveGame(game); 
+    setGameState(GameState.PLAYING); 
+    setCurrentStepIndex(0); 
+    setTimer(0); 
+    setLogs([]); 
+    setEvaluation(null); 
+    setHasUpdatedTrend(false); 
+  };
   const handleLog = (type: 'emoji' | 'voice', content: string) => { setLogs(prev => [...prev, { type, content, timestamp: new Date() }]); setClickedLog(content); setTimeout(() => setClickedLog(null), 300); };
   const formatTime = (seconds: number) => { const m = Math.floor(seconds / 60); const s = seconds % 60; return `${m}:${s < 10 ? '0' : ''}${s}`; };
 
@@ -3045,7 +3041,11 @@ const PageGames = ({
         </div>
         <h3 className="font-bold text-gray-700 mb-3 flex items-center justify-between mt-2"><span>推荐游戏库</span><span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{filteredGames.length} 个结果</span></h3>
         <div className="space-y-4 pb-20">
-          {filteredGames.length > 0 ? (filteredGames.map(game => { const statusConfig = game.status === 'completed' ? { label: '已完成', cls: 'bg-green-50 text-green-700' } : game.status === 'aborted' ? { label: '已中止', cls: 'bg-red-50 text-red-700' } : { label: '未开始', cls: 'bg-gray-100 text-gray-500' }; const dateStr = game.date ? new Date(game.date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/') : ''; return (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><div className="flex items-center space-x-2 shrink-0 ml-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>{dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}</div></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div>); })) : (<div className="text-center py-10 text-gray-400 flex flex-col items-center"><div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><Search className="w-8 h-8 text-gray-300" /></div><p>没有找到匹配的游戏</p><button onClick={() => {setSearchText(''); setActiveFilter('全部')}} className="mt-2 text-primary font-bold text-sm">清除筛选</button></div>)}
+          {filteredGames.length > 0 ? (filteredGames.map(game => { 
+            const statusConfig = game.status === 'completed' ? { label: '已完成', cls: 'bg-green-50 text-green-700' } : game.status === 'aborted' ? { label: '已中止', cls: 'bg-red-50 text-red-700' } : { label: '未开始', cls: 'bg-gray-100 text-gray-500' }; 
+            // LIST 状态：只显示年月日
+            const dateStr = game.date ? new Date(game.date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''; 
+            return (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><div className="flex items-center space-x-2 shrink-0 ml-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>{dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}</div></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div>); })) : (<div className="text-center py-10 text-gray-400 flex flex-col items-center"><div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><Search className="w-8 h-8 text-gray-300" /></div><p>没有找到匹配的游戏</p><button onClick={() => {setSearchText(''); setActiveFilter('全部')}} className="mt-2 text-primary font-bold text-sm">清除筛选</button></div>)}
         </div>
       </div>
     );
@@ -3065,13 +3065,32 @@ const PageGames = ({
   }
 
   if (gameState === GameState.SUMMARY) {
+    // SUMMARY 状态：显示游戏开始时间（年月日 时:分）
+    const gameStartTime = internalActiveGame?.date 
+      ? new Date(internalActiveGame.date).toLocaleString('zh-CN', { 
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).replace(/\//g, '-')
+      : new Date().toLocaleString('zh-CN', { 
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).replace(/\//g, '-');
+    
     return (
       <div className="h-full bg-background p-6 overflow-y-auto">
          {isAnalyzing ? (
            <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6 animate-in fade-in duration-700"><div className="relative"><div className="w-20 h-20 border-4 border-gray-200 rounded-full"></div><div className="w-20 h-20 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div><Activity className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-primary w-8 h-8" /></div><div><h2 className="text-xl font-bold text-gray-800">AI 正在复盘互动数据...</h2><p className="text-gray-500 text-sm mt-2">分析眼神接触频率、情绪稳定度及八大兴趣维度</p></div></div>
          ) : evaluation ? (
            <div className="animate-in slide-in-from-bottom-10 duration-700 fade-in pb-10">
-              <div className="text-center mb-8"><h2 className="text-2xl font-bold text-gray-800">本次互动评估</h2><p className="text-gray-400 text-xs mt-1">{new Date().toLocaleDateString()}</p></div>
+              <div className="text-center mb-8"><h2 className="text-2xl font-bold text-gray-800">本次互动评估</h2><p className="text-gray-400 text-xs mt-1">{gameStartTime}</p></div>
               <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 relative overflow-hidden text-center">
                   <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"></div>
                   <div className="mb-2 text-gray-500 font-bold text-sm uppercase tracking-wider">综合互动分</div>
