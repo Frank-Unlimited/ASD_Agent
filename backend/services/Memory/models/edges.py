@@ -1,5 +1,5 @@
 """
-Graphiti 边类型定义
+边类型定义
 定义节点之间的关系类型及其属性
 """
 from enum import Enum

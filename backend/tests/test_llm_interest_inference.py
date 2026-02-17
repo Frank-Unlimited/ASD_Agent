@@ -57,10 +57,10 @@ async def test_llm_infer_interest_from_behavior(memory_service):
     print(f"  - description: {result.get('description')}")
     print(f"  - event_type: {result.get('event_type')}")
     
-    # 2. 等待一下让 Graphiti 完成处理
+    # 2. 等待一下让 Memory 完成处理
     await asyncio.sleep(2)
     
-    # 3. 查询 Graphiti 创建的边（可能是 RELATES_TO 而不是 SHOWS_INTEREST）
+    # 3. 查询创建的边（可能是 RELATES_TO 而不是 SHOWS_INTEREST）
     # 先尝试查询 SHOWS_INTEREST，如果没有则查询 RELATES_TO
     query_shows_interest = """
     MATCH (b:Entity {group_id: $child_id})
@@ -107,7 +107,7 @@ async def test_llm_infer_interest_from_behavior(memory_service):
     if not edges:
         print("FAIL 没有找到任何边连接到 InterestDimension！")
         print("\n可能的原因：")
-        print("1. Graphiti 没有提取 InterestDimension 实体")
+        print("1. Memory 没有提取 InterestDimension 实体")
         print("2. 提取指令没有生效")
         print("3. LLM 没有识别出兴趣维度")
         
@@ -190,8 +190,8 @@ async def test_llm_infer_interest_from_behavior(memory_service):
         print(f"\nOK 测试通过（使用 RELATES_TO 边）！")
         print(f"  - 识别出 {len(edges)} 个兴趣维度")
         print(f"  - 边类型: {edge_type}")
-        print(f"  - 注意: Graphiti 使用了默认的 RELATES_TO 边，而不是 SHOWS_INTEREST")
-        print(f"  - 建议: 研究 Graphiti 的 edge_types 参数用法")
+        print(f"  - 注意: Memory 使用了默认的 RELATES_TO 边，而不是 SHOWS_INTEREST")
+        print(f"  - 建议: 研究 Memory 的 edge_types 参数用法")
     
     print(f"{'='*60}\n")
 

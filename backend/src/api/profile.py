@@ -110,7 +110,7 @@ async def import_profile_from_image(
         from datetime import datetime
         from src.models.profile import ChildProfile, Gender, DiagnosisLevel
         
-        # 从 Graphiti 获取解析后的信息
+        # 从 Memory 获取解析后的信息
         child_data = await memory_service.get_child(memory_result["child_id"]) or {}
         
         # 处理 child_data 为 None 的情况

@@ -1,5 +1,5 @@
 """
-Graphiti 节点模型定义
+节点模型定义
 基于记忆驱动架构的7种核心节点类型
 """
 from dataclasses import dataclass, field

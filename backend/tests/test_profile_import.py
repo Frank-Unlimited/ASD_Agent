@@ -94,11 +94,11 @@ async def test_text_import():
         print(f"   - 诊断: {child_profile.diagnosis}")
         print(f"   - 档案ID: {child_profile.child_id}")
     
-    # 5. 验证档案（Graphiti）
-    print("\n[4] 验证图数据（Graphiti）...")
+    # 5. 验证档案（Memory）
+    print("\n[4] 验证图数据（Memory）...")
     child_graph = await memory_service.get_child(result['child_id'])
     if child_graph:
-        print(f"✅ 图数据已保存到 Graphiti")
+        print(f"✅ 图数据已保存到 Memory")
         print(f"   - 姓名: {child_graph.get('name')}")
         
         # basic_info 可能是 JSON 字符串，需要解析

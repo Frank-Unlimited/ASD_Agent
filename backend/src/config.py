@@ -40,14 +40,14 @@ class Settings(BaseSettings):
     postgres_user: str = "postgres"
     postgres_password: str = ""
     
-    # Neo4j 配置（Graphiti）
+    # Neo4j 配置
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: str = "password"
     
     # 服务开关（Mock/Real）
     use_real_sqlite: bool = False
-    use_real_graphiti: bool = False
+    use_real_memory: bool = False
     use_real_rag: bool = False
     use_real_video_analysis: bool = False
     use_real_speech: bool = False

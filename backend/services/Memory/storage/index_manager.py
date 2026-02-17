@@ -21,7 +21,7 @@ class IndexManager:
         """
         创建所有必要的唯一约束和索引
         
-        注意：在完全 Graphiti 化架构中，大部分节点由 Graphiti 管理
+        注意：在Memory架构中，大部分节点由Memory服务管理
         这里只创建固定节点（InterestDimension）的约束
         """
         # 唯一约束（自动创建索引）
@@ -32,12 +32,12 @@ class IndexManager:
         
         # 额外的索引（用于查询优化）
         indexes = [
-            # Graphiti Entity 节点索引（由 Graphiti 自动创建，这里列出供参考）
-            # - Entity.uuid (由 Graphiti 创建)
-            # - Entity.name (由 Graphiti 创建)
-            # - Entity.group_id (由 Graphiti 创建)
-            # - Episodic.uuid (由 Graphiti 创建)
-            # - Episodic.group_id (由 Graphiti 创建)
+            # Entity 节点索引（供参考）
+            # - Entity.uuid
+            # - Entity.name
+            # - Entity.group_id
+            # - Episodic.uuid
+            # - Episodic.group_id
             
             # 注意：Neo4j 不支持在索引创建时使用 WHERE 子句
             # 如果需要特定类型的索引，应该使用标签（如 :Behavior）

@@ -126,7 +126,7 @@ async def test_complete_cycle():
         print("="*60)
         print("\n记忆驱动架构闭环:")
         print("  创建档案 → 记录行为 → 生成评估 → 保存游戏 → 游戏总结")
-        print("  ✓ 所有数据已保存到 Graphiti")
+        print("  ✓ 所有数据已保存到 Memory")
         print("  ✓ 关系图谱已建立")
         print("  ✓ 可以进行下一轮推荐")
         
