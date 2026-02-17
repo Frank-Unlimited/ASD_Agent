@@ -66,6 +66,38 @@ python src/main.py
 
 后端将在 `http://localhost:7860` 启动。
 
+#### 启动 AI 视频通话服务（可选）
+
+如果需要使用 AI 视频通话功能，需要额外启动 Qwen-Omni-Realtime WebSocket 服务器：
+
+```bash
+cd backend
+
+# 确保已安装视频通话依赖
+pip install dashscope websockets pyaudio
+
+# 配置阿里云 API Key（如果还没配置）
+# 在 .env 文件中添加：
+# DASHSCOPE_API_KEY=your-dashscope-api-key
+
+# 启动视频通话服务器（在新的终端窗口）
+python qwen_realtime_websocket.py
+```
+
+视频通话服务器将在 `ws://localhost:8766` 启动。
+
+**功能说明**：
+- 🎥 实时视频通话：AI 可以看到并理解视频画面
+- 🎤 语音交互：支持实时语音识别和 AI 语音回复
+- 🧠 行为观察：AI 实时观察儿童行为并提供干预建议
+- 📱 最小化模式：可缩小到右下角，不影响其他功能使用
+
+**注意事项**：
+- 需要摄像头和麦克风权限
+- 使用阿里云 Qwen-Omni-Turbo-Realtime 模型
+- 视频帧每 2 秒发送 1 帧
+- 详细调试信息见 `frontend/QWEN_REALTIME_DEBUG.md`
+
 ### 2. 启动前端
 
 ```bash
@@ -98,6 +130,7 @@ npm run dev
 - 🔗 **记忆网络**: Graphiti 时序知识图谱，长期记忆管理
 - 🎤 **语音交互**: 阿里云语音识别和合成
 - 📷 **多模态理解**: 图片和视频分析
+- 🎥 **AI 视频通话**: 实时视频观察和语音交互（基于 Qwen-Omni-Realtime）
 
 ## 技术栈
 
@@ -145,6 +178,9 @@ python scripts/init_graphiti_neo4j.py  # 初始化数据库
 LLM_API_KEY=your-api-key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_MODEL=qwen-plus
+
+# DashScope API Key (用于视频通话)
+DASHSCOPE_API_KEY=your-dashscope-api-key
 
 # Neo4j 配置
 NEO4J_URI=bolt://localhost:7688
