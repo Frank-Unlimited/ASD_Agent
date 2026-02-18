@@ -14,6 +14,20 @@ interface AIVideoCallProps {
   onClose: () => void;
 }
 
+/**
+ * 计算年龄
+ */
+const calculateAge = (birthDate: string): number => {
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, onClose }) => {
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -60,16 +74,30 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
         videoRef.current.srcObject = stream;
       }
       
-      // 3. 连接到 Qwen-Omni-Realtime（使用官方 Python SDK）
+      // 3. 准备初始化信息
+      const childInfo = {
+        name: childProfile?.name || '孩子',
+        age: childProfile?.birthDate ? calculateAge(childProfile.birthDate) + '岁' : undefined,
+        diagnosis: childProfile?.diagnosis
+      };
+      
+      const gameInfo = {
+        name: gameContext || '自由游戏',
+        description: '通过视频观察孩子的行为和互动',
+        goals: [
+          '观察孩子的兴趣点',
+          '识别孩子的情绪状态',
+          '提供实时干预建议'
+        ]
+      };
+      
+      // 4. 连接到 Qwen-Omni-Realtime（使用官方 Python SDK）
       await qwenRealtimeService.connect({
         onConnected: () => {
-          console.log('[AI Video Call] 已连接到服务器，等待会话配置...');
+          console.log('[AI Video Call] 已连接到服务器，等待会话初始化...');
         },
         onSessionCreated: () => {
-          console.log('[AI Video Call] 会话已创建，等待配置更新...');
-        },
-        onSessionUpdated: () => {
-          console.log('[AI Video Call] 会话配置已更新，开始音视频采集');
+          console.log('[AI Video Call] 会话已初始化，开始音视频采集');
           setIsActive(true);
           setIsConnecting(false);
           
@@ -78,6 +106,9 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
           
           // 启动视频帧采集（每1秒一帧）
           startFrameCapture();
+        },
+        onSessionUpdated: () => {
+          console.log('[AI Video Call] 会话配置已更新');
         },
         onDisconnected: () => {
           console.log('[AI Video Call] 连接已断开');
@@ -114,6 +145,9 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
         onSpeechStopped: () => {
           setIsSpeaking(false);
         }
+      }, {
+        childInfo,
+        gameInfo
       });
       
     } catch (error) {
@@ -122,43 +156,6 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
       setIsConnecting(false);
     }
   };
-  
-  /**
-   * 构建 AI 指令
-   */
-  const buildInstructions = (): string => {
-    // 临时简化版本用于测试
-    return '你是一个AI助手，请观察并提供建议。';
-    
-    /* 完整版本（暂时注释）
-    const childInfo = childProfile ? `
-孩子姓名：${childProfile.name}
-年龄：${calculateAge(childProfile.birthDate)}岁
-诊断：${childProfile.diagnosis || '暂无'}
-` : '';
-    
-    const context = gameContext ? `\n当前情境：${gameContext}` : '';
-    
-    return `你是一位专业的 DIR/Floortime 治疗师，正在通过视频实时观察孩子的行为。
-
-${childInfo}${context}
-
-你的任务：
-1. 实时观察孩子的动作、表情、注意力和互动方式
-2. 识别孩子的兴趣点和情绪状态
-3. 提供即时的、具体的干预建议
-4. 用温暖、鼓励的语气与家长交流
-
-注意事项：
-- 保持简洁，每次回复控制在2-3句话
-- 建议要具体可操作，避免空泛
-- 关注孩子的积极表现，及时给予肯定
-- 如果发现需要家长注意的情况，温和地提醒
-
-请用自然、口语化的方式交流，就像面对面聊天一样。`;
-    */
-  };
-  
   /**
    * 启动音频采集（完全复制官方 SDK 行为）
    */
