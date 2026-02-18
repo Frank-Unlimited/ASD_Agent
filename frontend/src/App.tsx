@@ -681,6 +681,8 @@ const PageAIChat = ({
   const [voiceMode, setVoiceMode] = useState(false); // 语音模式开关
   const [recognizing, setRecognizing] = useState(false); // 识别中状态
   const [showNoSpeechToast, setShowNoSpeechToast] = useState(false); // 显示"未识别到文字"提示
+  const [pendingFile, setPendingFile] = useState<File | null>(null); // 待发送文件
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null); // 预览URL
 
   const [checkInStep, setCheckInStep] = useState(0);
   const [targetGameId, setTargetGameId] = useState<string | null>(null);
@@ -764,9 +766,66 @@ const PageAIChat = ({
     }]);
   };
 
+  const clearPendingFile = () => {
+    if (previewUrl && previewUrl !== 'VIDEO_ICON') URL.revokeObjectURL(previewUrl);
+    setPendingFile(null);
+    setPreviewUrl(null);
+  };
+
   const handleSend = async (textOverride?: string) => {
     const textToSend = textOverride || input;
-    if (!textToSend.trim()) return;
+    if (!textToSend.trim() && !pendingFile) return;
+
+    // 如果有待发送文件，走多模态路径
+    if (pendingFile) {
+      const file = pendingFile;
+      const prompt = textToSend || "请分析这张图片/视频。";
+
+      // 显示用户发送的消息
+      const userMsg: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'user',
+        text: textToSend ? `[文件] ${textToSend}` : "[文件]",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, userMsg]);
+
+      clearPendingFile();
+      setInput('');
+      setLoading(true);
+
+      try {
+        const category = fileUploadService.categorizeFile(file);
+        let result;
+        if (category === 'image') {
+          result = await multimodalService.parseImage(file, prompt);
+        } else {
+          result = await multimodalService.parseVideo(file, prompt);
+        }
+
+        if (result.success) {
+          const replyText = `**${category === 'image' ? '📸' : '🎬'} 分析完成**\n\n${result.content}`;
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(),
+            role: 'model',
+            text: replyText,
+            timestamp: new Date()
+          }]);
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (err) {
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          role: 'model',
+          text: `❌ 分析失败: ${err instanceof Error ? err.message : '未知错误'}`,
+          timestamp: new Date()
+        }]);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: textToSend, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
@@ -1591,76 +1650,37 @@ const PageAIChat = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 检测文件类型
+    // 清除之前的预览
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+
     const category = fileUploadService.categorizeFile(file);
 
-    // 开始加载（不显示上传消息）
-    setLoading(true);
-
-    try {
-      // 处理图片文件
-      if (category === 'image') {
-        const result = await multimodalService.parseImage(file);
-
-        if (result.success) {
-          // 显示图片预览和分析结果
-          const replyText = `**📸 图片分析完成**\n\n${result.content}`;
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: 'model',
-            text: replyText,
-            timestamp: new Date()
-          }]);
-        } else {
-          throw new Error(result.error || '图片分析失败');
-        }
-      }
-      // 处理视频文件
-      else if (category === 'video') {
-        const result = await multimodalService.parseVideo(file);
-
-        if (result.success) {
-          const replyText = `**🎬 视频分析完成**\n\n${result.content}`;
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: 'model',
-            text: replyText,
-            timestamp: new Date()
-          }]);
-        } else {
-          throw new Error(result.error || '视频分析失败');
-        }
-      }
-      // 处理文档文件（原有逻辑）
-      else if (category === 'document') {
+    // 如果是文档，保持原有立即分析逻辑（因其不需要配合Prompt）
+    if (category === 'document') {
+      setLoading(true);
+      try {
         let textContent = file.type === "text/plain" ? await file.text() : `文件名: ${file.name}。假设这是一份医疗评估报告。`;
-
-        // *** Evaluation Agent Call (Report) ***
         const analysis = await api.analyzeReport(textContent);
         onProfileUpdate(analysis);
-
         const abilityChanges = analysis.abilityUpdates.map(u => `${u.dimension} ${u.scoreChange > 0 ? '+' : ''}${u.scoreChange}`).join('、');
         const replyText = `收到您的报告。我已经分析完毕并更新了孩子档案。\n\n**分析结果：**\n- 发现 ${analysis.interestUpdates.length} 个兴趣点\n- 能力维度调整：${abilityChanges || "无明显变化"}`;
-
         setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'model', text: replyText, timestamp: new Date() }]);
+      } catch (e) {
+        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `❌ 处理失败: ${e instanceof Error ? e.message : '未知错误'}`, timestamp: new Date() }]);
+      } finally {
+        setLoading(false);
       }
-      // 不支持的文件类型
-      else {
-        throw new Error('不支持的文件类型');
+    } else {
+      // 图片和视频进入 Pending 状态供后续组合 Prompt 发送
+      setPendingFile(file);
+      if (category === 'image') {
+        setPreviewUrl(URL.createObjectURL(file));
+      } else {
+        setPreviewUrl('VIDEO_ICON'); // 视频暂显图标
       }
-
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : "文件处理失败，请稍后再试。";
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        role: 'model',
-        text: `❌ ${errorMsg}`,
-        timestamp: new Date()
-      }]);
-    } finally {
-      setLoading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const parseMessageContent = (text: string) => {
@@ -2115,7 +2135,33 @@ const PageAIChat = ({
         </div>
       </div>
 
-      <div className="bg-white p-4 border-t border-gray-100">
+      <div className="bg-white p-4 border-t border-gray-100 relative">
+        {/* 文件预览区 */}
+        {previewUrl && (
+          <div className="absolute top-0 left-0 right-0 -translate-y-full px-4 py-2 bg-white/80 backdrop-blur-sm border-t border-gray-100 flex items-center animate-in slide-in-from-bottom">
+            <div className="relative group">
+              {previewUrl === 'VIDEO_ICON' ? (
+                <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center border-2 border-primary/20">
+                  <Camera className="w-8 h-8 text-primary" />
+                  <span className="absolute bottom-1 right-1 text-[8px] bg-primary text-white px-1 rounded">VIDEO</span>
+                </div>
+              ) : (
+                <img src={previewUrl} alt="Preview" className="w-16 h-16 object-cover rounded-lg border-2 border-primary/20 shadow-sm" />
+              )}
+              <button
+                onClick={clearPendingFile}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition active:scale-90"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-xs font-bold text-gray-700">{pendingFile?.name}</p>
+              <p className="text-[10px] text-gray-500">{(pendingFile?.size! / 1024 / 1024).toFixed(2)} MB • 等待发送</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center bg-gray-100 rounded-full px-2 py-2">
           <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp,.mp4,.avi,.mov" />
 
