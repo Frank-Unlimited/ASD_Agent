@@ -5,34 +5,34 @@ import { clearAllCache } from './utils/clearCache'; // 导入清空缓存功能
 import { generateComprehensiveAssessment } from './services/assessmentAgent';
 import { collectHistoricalData } from './services/historicalDataHelper';
 import { saveAssessment, getRecentAssessments } from './services/assessmentStorage';
-import { 
-  MessageCircle, 
-  Calendar as CalendarIcon, 
-  User, 
-  Gamepad2, 
-  Menu, 
-  ChevronLeft, 
-  ChevronRight, 
-  Mic, 
-  Camera, 
-  CheckCircle2, 
-  Play, 
-  Upload, 
-  TrendingUp, 
-  Activity, 
-  Award, 
-  ArrowRight, 
-  Smile, 
-  Eye, 
-  Handshake, 
-  Frown, 
-  Search, 
-  FileText, 
-  X, 
-  Flame, 
-  Lightbulb, 
-  Sparkles, 
-  Paperclip, 
+import {
+  MessageCircle,
+  Calendar as CalendarIcon,
+  User,
+  Gamepad2,
+  Menu,
+  ChevronLeft,
+  ChevronRight,
+  Mic,
+  Camera,
+  CheckCircle2,
+  Play,
+  Upload,
+  TrendingUp,
+  Activity,
+  Award,
+  ArrowRight,
+  Smile,
+  Eye,
+  Handshake,
+  Frown,
+  Search,
+  FileText,
+  X,
+  Flame,
+  Lightbulb,
+  Sparkles,
+  Paperclip,
   ArrowUpRight,
   RefreshCw,
   Zap,
@@ -53,21 +53,22 @@ import {
   ChevronUp,
   Tag,
   Keyboard,
-  Package
+  Package,
+  LogOut
 } from 'lucide-react';
-import { 
-  Radar, 
-  RadarChart, 
-  PolarGrid, 
-  PolarAngleAxis, 
-  PolarRadiusAxis, 
-  ResponsiveContainer, 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip 
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip
 } from 'recharts';
 import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame } from './types';
 import { api } from './services/api';
@@ -90,7 +91,7 @@ import defaultAvatar from './img/cute_dog.jpg';
 
 const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen: boolean, onClose: () => void, setPage: (p: Page) => void, onLogout: () => void, childProfile: ChildProfile | null }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  
+
   return (
     <div className={`fixed inset-0 z-50 transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
       <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
@@ -108,33 +109,33 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen:
           <button onClick={() => { setPage(Page.RADAR); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><TrendingUp className="w-5 h-5 text-primary" /><span>兴趣雷达图</span></button>
         </nav>
         <div className="mt-auto pt-6 border-t border-gray-100 relative">
-          <div 
-            className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition" 
+          <div
+            className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition"
             onClick={() => setShowProfileMenu(!showProfileMenu)}
           >
             <img src={childProfile?.avatar || defaultAvatar} alt="Profile" className="w-10 h-10 rounded-full" />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm truncate">{childProfile?.name || '未设置'}</p>
               <p className="text-xs text-gray-500 truncate">
-                {childProfile?.birthDate 
+                {childProfile?.birthDate
                   ? `${calculateAge(childProfile.birthDate)}岁 · ${childProfile.gender || ''}`
                   : '暂无信息'}
               </p>
             </div>
             <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${showProfileMenu ? 'rotate-90' : ''}`} />
           </div>
-          
+
           {/* 弹出菜单 */}
           {showProfileMenu && (
             <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-              <button 
+              <button
                 onClick={() => { setPage(Page.PROFILE); onClose(); setShowProfileMenu(false); }}
                 className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition text-left"
               >
                 <User className="w-4 h-4 text-gray-600" />
                 <span className="text-sm font-medium text-gray-700">查看档案</span>
               </button>
-              <button 
+              <button
                 onClick={() => { onLogout(); setShowProfileMenu(false); }}
                 className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-red-50 transition text-left border-t border-gray-100"
               >
@@ -156,7 +157,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
   const [name, setName] = useState('');
   const [gender, setGender] = useState('');
   const [birthDate, setBirthDate] = useState('');
-  
+
   // 第二步：导入报告或口述
   const [inputMode, setInputMode] = useState<'none' | 'report' | 'verbal'>('none');
   const [reportFile, setReportFile] = useState<File | null>(null);
@@ -166,7 +167,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
   const [reportSummary, setReportSummary] = useState<string>(''); // 报告摘要
   const [childDiagnosis, setChildDiagnosis] = useState<string>(''); // 孩子画像
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleNextStep = () => {
@@ -197,26 +198,26 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
     setOcrResult('');
     setReportSummary('');
     setChildDiagnosis('');
-    
+
     // 创建图片预览 URL
     const imageUrl = URL.createObjectURL(file);
     setReportImageUrl(imageUrl);
 
     try {
       const category = fileUploadService.categorizeFile(file);
-      
+
       if (category === 'image') {
         const result = await multimodalService.parseImage(
-          file, 
+          file,
           ASD_REPORT_ANALYSIS_PROMPT,
           true  // 使用 JSON 格式输出
         );
-        
+
         // 打印 AI 返回结果到控制台
         console.log('=== AI 返回结果 ===');
         console.log('原始内容:', result.content);
         console.log('==================');
-        
+
         if (result.success) {
           // 尝试解析 JSON 格式的结果
           try {
@@ -226,24 +227,24 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
             if (jsonMatch) {
               jsonContent = jsonMatch[1];
             }
-            
+
             const parsed = JSON.parse(jsonContent);
-            
+
             console.log('=== 解析后的 JSON ===');
             console.log('OCR:', parsed.ocr);
             console.log('Summary:', parsed.summary);
             console.log('Profile:', parsed.profile);
             console.log('====================');
-            
+
             // 确保转换为字符串
             const ocrText = typeof parsed.ocr === 'string' ? parsed.ocr : JSON.stringify(parsed.ocr, null, 2);
             const summaryText = typeof parsed.summary === 'string' ? parsed.summary : '';
             const profileText = typeof parsed.profile === 'string' ? parsed.profile : JSON.stringify(parsed.profile, null, 2);
-            
+
             setOcrResult(ocrText || '（未提取到文字）');
             setReportSummary(summaryText || '（未生成摘要）');
             setChildDiagnosis(profileText || '（未生成画像）');
-            
+
             // 保存报告到数据库
             const metadata = result.metadata;
             if (metadata?.base64) {
@@ -257,7 +258,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                 type: 'hospital',
                 createdAt: new Date().toISOString()
               };
-              
+
               reportStorageService.saveReport(report);
               console.log('报告已保存到数据库:', report.id);
             }
@@ -347,17 +348,15 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
               <div className="flex gap-4">
                 <button
                   onClick={() => setGender('男')}
-                  className={`flex-1 py-3 rounded-xl border-2 transition ${
-                    gender === '男' ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-gray-300 text-gray-600'
-                  }`}
+                  className={`flex-1 py-3 rounded-xl border-2 transition ${gender === '男' ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-gray-300 text-gray-600'
+                    }`}
                 >
                   男孩
                 </button>
                 <button
                   onClick={() => setGender('女')}
-                  className={`flex-1 py-3 rounded-xl border-2 transition ${
-                    gender === '女' ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-gray-300 text-gray-600'
-                  }`}
+                  className={`flex-1 py-3 rounded-xl border-2 transition ${gender === '女' ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-gray-300 text-gray-600'
+                    }`}
                 >
                   女孩
                 </button>
@@ -452,12 +451,11 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                       className="hidden"
                       accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt"
                     />
-                    
+
                     <div
                       onClick={() => !isAnalyzing && fileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-xl p-8 text-center transition ${
-                        isAnalyzing ? 'border-gray-300 bg-gray-50 cursor-not-allowed' : 'border-gray-300 hover:border-primary hover:bg-primary/5 cursor-pointer'
-                      }`}
+                      className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isAnalyzing ? 'border-gray-300 bg-gray-50 cursor-not-allowed' : 'border-gray-300 hover:border-primary hover:bg-primary/5 cursor-pointer'
+                        }`}
                     >
                       {isAnalyzing ? (
                         <div className="flex flex-col items-center">
@@ -517,9 +515,9 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                           报告原图
                         </h5>
                         {reportImageUrl && (
-                          <img 
-                            src={reportImageUrl} 
-                            alt="报告原图" 
+                          <img
+                            src={reportImageUrl}
+                            alt="报告原图"
                             className="w-full rounded-lg border border-gray-300 cursor-pointer hover:opacity-90 transition"
                             onClick={() => window.open(reportImageUrl, '_blank')}
                           />
@@ -631,7 +629,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                 <ChevronLeft className="w-5 h-5 mr-1" />
                 上一步
               </button>
-              
+
               {inputMode === 'none' && (
                 <button
                   onClick={handleSubmit}
@@ -644,11 +642,10 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className={`flex-1 py-3 rounded-xl font-medium transition ${
-                  canSubmit
-                    ? 'bg-gradient-to-r from-primary to-secondary text-white hover:shadow-lg'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                className={`flex-1 py-3 rounded-xl font-medium transition ${canSubmit
+                  ? 'bg-gradient-to-r from-primary to-secondary text-white hover:shadow-lg'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
               >
                 {childDiagnosis ? '完成并开始使用' : '开始使用'}
               </button>
@@ -660,15 +657,15 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
   );
 };
 
-const PageAIChat = ({ 
-  navigateTo, 
-  onStartGame, 
-  onProfileUpdate, 
+const PageAIChat = ({
+  navigateTo,
+  onStartGame,
+  onProfileUpdate,
   profileContext,
   childProfile
-}: { 
-  navigateTo: (p: Page) => void, 
-  onStartGame: (id: string) => void, 
+}: {
+  navigateTo: (p: Page) => void,
+  onStartGame: (id: string) => void,
   onProfileUpdate: (u: ProfileUpdate) => void,
   profileContext: string, // Passed from App parent
   childProfile: ChildProfile | null
@@ -677,15 +674,15 @@ const PageAIChat = ({
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     return chatStorageService.getChatHistory();
   });
-  
+
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false); // 语音模式开关
   const [recognizing, setRecognizing] = useState(false); // 识别中状态
   const [showNoSpeechToast, setShowNoSpeechToast] = useState(false); // 显示"未识别到文字"提示
-  
-  const [checkInStep, setCheckInStep] = useState(0); 
+
+  const [checkInStep, setCheckInStep] = useState(0);
   const [targetGameId, setTargetGameId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -701,7 +698,7 @@ const PageAIChat = ({
   // 处理语音按钮长按开始
   const handleVoiceStart = async () => {
     if (!voiceMode) return;
-    
+
     try {
       setIsRecording(true);
       await speechService.startRecording();
@@ -716,14 +713,14 @@ const PageAIChat = ({
   // 处理语音按钮松开
   const handleVoiceEnd = async () => {
     if (!voiceMode || !isRecording) return;
-    
+
     setIsRecording(false);
     setRecognizing(true);
-    
+
     try {
       console.log('[Voice] 停止录音，开始识别...');
       const result = await speechService.recordAndRecognize();
-      
+
       if (result.success && result.text) {
         console.log('[Voice] 识别成功:', result.text);
         // 自动发送识别结果
@@ -752,19 +749,19 @@ const PageAIChat = ({
   };
 
   const startCheckInFlow = (game: Game) => {
-      console.log('[Check-In Flow] 开始游戏流程:', game);
-      console.log('[Check-In Flow] 游戏步骤数:', game.steps?.length);
+    console.log('[Check-In Flow] 开始游戏流程:', game);
+    console.log('[Check-In Flow] 游戏步骤数:', game.steps?.length);
 
-      setTargetGameId(game.id);
+    setTargetGameId(game.id);
 
-      setCheckInStep(1);
-      setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          role: 'model',
-          text: `太棒了！我们准备开始玩 **${game.title}**。在此之前，为了确保互动效果，请先确认一下：\n\n**1. 孩子现在的情绪怎么样？**`,
-          timestamp: new Date(),
-          options: ["开心/兴奋", "平静/专注", "烦躁/低落"]
-      }]);
+    setCheckInStep(1);
+    setMessages(prev => [...prev, {
+      id: Date.now().toString(),
+      role: 'model',
+      text: `太棒了！我们准备开始玩 **${game.title}**。在此之前，为了确保互动效果，请先确认一下：\n\n**1. 孩子现在的情绪怎么样？**`,
+      timestamp: new Date(),
+      options: ["开心/兴奋", "平静/专注", "烦躁/低落"]
+    }]);
   };
 
   const handleSend = async (textOverride?: string) => {
@@ -776,42 +773,42 @@ const PageAIChat = ({
     setInput('');
 
     if (checkInStep > 0) {
-        if (checkInStep === 1) {
-            setTimeout(() => {
-                setCheckInStep(2);
-                setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
-                    role: 'model',
-                    text: "**2. 那他的能量水平（觉醒度）如何？**",
-                    timestamp: new Date(),
-                    options: ["低能量", "适中", "高亢/过载"]
-                }]);
-            }, 600);
-            return;
-        }
-        if (checkInStep === 2) {
-            setTimeout(() => {
-                setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "收到，状态确认完毕！正在为您进入游戏页面...", timestamp: new Date() }]);
-                setTimeout(() => {
-                    console.log('[Check-In Flow] 准备跳转到游戏页面，gameId:', targetGameId);
-                    if (targetGameId) {
-                        onStartGame(targetGameId);
-                    } else {
-                        console.error('[Check-In Flow] targetGameId 为空！');
-                    }
-                    setCheckInStep(0);
-                    setTargetGameId(null);
-                }, 1500);
-            }, 600);
-            return;
-        }
+      if (checkInStep === 1) {
+        setTimeout(() => {
+          setCheckInStep(2);
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            role: 'model',
+            text: "**2. 那他的能量水平（觉醒度）如何？**",
+            timestamp: new Date(),
+            options: ["低能量", "适中", "高亢/过载"]
+          }]);
+        }, 600);
+        return;
+      }
+      if (checkInStep === 2) {
+        setTimeout(() => {
+          setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "收到，状态确认完毕！正在为您进入游戏页面...", timestamp: new Date() }]);
+          setTimeout(() => {
+            console.log('[Check-In Flow] 准备跳转到游戏页面，gameId:', targetGameId);
+            if (targetGameId) {
+              onStartGame(targetGameId);
+            } else {
+              console.error('[Check-In Flow] targetGameId 为空！');
+            }
+            setCheckInStep(0);
+            setTargetGameId(null);
+          }, 1500);
+        }, 600);
+        return;
+      }
     }
 
     setLoading(true);
-    
+
     // 捕获当前的 childProfile 值，避免闭包问题
     const currentChildProfile = childProfile;
-    
+
     // 辅助函数：获取最近的对话历史（最多5轮）
     const getConversationHistory = () => {
       const recentMessages = messages.slice(-10); // 最近10条消息（5轮对话）
@@ -819,29 +816,29 @@ const PageAIChat = ({
         .map(msg => `${msg.role === 'user' ? '用户' : 'AI'}: ${msg.text}`)
         .join('\n');
     };
-    
+
     // 创建一个临时消息用于流式更新
     const tempMsgId = (Date.now() + 1).toString();
-    const tempMsg: ChatMessage = { 
-      id: tempMsgId, 
-      role: 'model', 
-      text: '', 
-      timestamp: new Date() 
+    const tempMsg: ChatMessage = {
+      id: tempMsgId,
+      role: 'model',
+      text: '',
+      timestamp: new Date()
     };
     setMessages(prev => [...prev, tempMsg]);
-    
+
     try {
       // *** 使用 Qwen 流式对话 ***
       let fullResponse = '';
       let toolCallsReceived: any[] = [];
-      
+
       await sendQwenMessage(textToSend, messages, profileContext, {
         onContent: (chunk) => {
           // 实时更新消息内容
           fullResponse += chunk;
-          setMessages(prev => 
-            prev.map(msg => 
-              msg.id === tempMsgId 
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === tempMsgId
                 ? { ...msg, text: fullResponse }
                 : msg
             )
@@ -863,21 +860,21 @@ const PageAIChat = ({
                   .replace(/\n+/g, ' ') // 将换行符替换为空格
                   .replace(/\s+/g, ' ') // 合并多个空格
                   .trim();
-                
+
                 // 限制长度（但不要太短，确保包含游戏方向名称）
                 if (cleanText.length > 500) {
                   cleanText = cleanText.substring(0, 500) + '...';
                 }
-                
+
                 return `${msg.role === 'user' ? '用户' : 'AI'}: ${cleanText}`;
               })
               .join('\\n'); // 使用转义的换行符
           };
-          
+
           // 处理 Function Call
           console.log('Tool called:', toolCall);
           toolCallsReceived.push(toolCall);
-          
+
           try {
             // 尝试解析工具参数
             let args;
@@ -888,17 +885,17 @@ const PageAIChat = ({
               console.log('🔧 Tool name:', toolCall.function.name);
               console.log('📄 Raw arguments (first 500 chars):', toolCall.function.arguments.substring(0, 500));
               console.log('📄 Raw arguments (around position 493):', toolCall.function.arguments.substring(480, 510));
-              
+
               // 尝试修复常见的 JSON 错误
               let fixedArgs = toolCall.function.arguments;
-              
+
               // 1. 移除尾随逗号
               fixedArgs = fixedArgs.replace(/,(\s*[}\]])/g, '$1');
-              
+
               // 2. 移除注释
               fixedArgs = fixedArgs.replace(/\/\/.*$/gm, '');
               fixedArgs = fixedArgs.replace(/\/\*[\s\S]*?\*\//g, '');
-              
+
               // 3. 再次尝试解析
               try {
                 args = JSON.parse(fixedArgs);
@@ -906,12 +903,12 @@ const PageAIChat = ({
               } catch (secondError) {
                 console.error('❌ JSON 修复失败:', secondError);
                 console.log('💾 Fixed args (first 500 chars):', fixedArgs.substring(0, 500));
-                
+
                 // 显示错误信息给用户
                 fullResponse += `\n\n抱歉，工具调用参数格式错误。这可能是因为对话历史中包含特殊字符。请尝试重新开始对话。`;
-                setMessages(prev => 
-                  prev.map(msg => 
-                    msg.id === tempMsgId 
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === tempMsgId
                       ? { ...msg, text: fullResponse }
                       : msg
                   )
@@ -919,7 +916,7 @@ const PageAIChat = ({
                 return; // 跳过此工具调用
               }
             }
-            
+
             switch (toolCall.function.name) {
               case 'analyze_interest':
                 // 步骤1：兴趣分析
@@ -1210,52 +1207,52 @@ const PageAIChat = ({
                 (async () => {
                   try {
                     console.log('[行为记录] 开始分析行为...', args);
-                    
+
                     // 添加工具调用卡片标记
                     fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
                       tool: 'log_behavior',
                       status: 'running',
                       params: args
                     })}:::TOOL_CALL_END:::\n`;
-                    
+
                     // 添加加载提示
                     fullResponse += `\n\n🔍 正在分析行为并关联兴趣维度...`;
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === tempMsgId 
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === tempMsgId
                           ? { ...msg, text: fullResponse }
                           : msg
                       )
                     );
-                    
+
                     // 调用行为分析Agent
                     const { analyzeBehavior } = await import('./services/behaviorAnalysisAgent');
-                    
+
                     // 获取对话上下文（最近3轮对话）
                     const recentContext = messages
                       .slice(-6) // 最近6条消息（3轮对话）
                       .map(msg => `${msg.role === 'user' ? '家长' : 'AI'}: ${msg.text}`)
                       .join('\n');
-                    
+
                     const behaviorAnalysis = await analyzeBehavior(
                       args.behaviorDescription,
                       currentChildProfile || undefined,
                       recentContext
                     );
-                    
+
                     console.log('[行为记录] 分析完成:', behaviorAnalysis);
-                    
+
                     // 通过 ProfileUpdate 统一处理（会自动保存到数据库并更新档案）
                     onProfileUpdate({
                       source: 'CHAT',
                       interestUpdates: [behaviorAnalysis],
                       abilityUpdates: []
                     });
-                    
+
                     // 获取最新保存的行为ID（最后一条记录）
                     const allBehaviors = behaviorStorageService.getAllBehaviors();
                     const latestBehaviorId = allBehaviors.length > 0 ? allBehaviors[0].id : null;
-                    
+
                     // 为了兼容旧的卡片格式，构造 tags 数组
                     const tags = behaviorAnalysis.matches.map(m => m.dimension);
                     const cardData = {
@@ -1264,7 +1261,7 @@ const PageAIChat = ({
                       analysis: behaviorAnalysis.matches[0]?.reasoning || '行为已记录',
                       behaviorId: latestBehaviorId
                     };
-                    
+
                     // 更新工具调用状态为成功
                     fullResponse = fullResponse.replace(
                       /:::TOOL_CALL_START:::.*?"tool":"log_behavior".*?"status":"running".*?:::TOOL_CALL_END:::/s,
@@ -1274,37 +1271,37 @@ const PageAIChat = ({
                         return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
                       }
                     );
-                    
+
                     // 移除加载提示
                     fullResponse = fullResponse.replace('🔍 正在分析行为并关联兴趣维度...', '');
-                    
+
                     // 添加行为记录卡片
                     fullResponse += `\n\n:::BEHAVIOR_LOG_CARD:${JSON.stringify(cardData)}:::`;
-                    
+
                     // 构建工具结果摘要，供 chatbot 继续对话
                     const dimensionNames = behaviorAnalysis.matches.map(m => {
                       const config = getDimensionConfig(m.dimension);
                       return config.label;
                     }).join('、');
-                    
-                    const strongestMatch = behaviorAnalysis.matches.reduce((prev, current) => 
+
+                    const strongestMatch = behaviorAnalysis.matches.reduce((prev, current) =>
                       (current.weight > prev.weight) ? current : prev
                     );
-                    
+
                     const toolResultSummary = `帮你记录下来孩子新的行为啦：${behaviorAnalysis.behavior}`;
-                    
+
                     fullResponse += toolResultSummary;
-                    
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === tempMsgId 
+
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === tempMsgId
                           ? { ...msg, text: fullResponse }
                           : msg
                       )
                     );
                   } catch (error) {
                     console.error('[行为记录] 分析失败:', error);
-                    
+
                     // 更新工具调用状态为失败
                     fullResponse = fullResponse.replace(
                       /:::TOOL_CALL_START:::.*?"tool":"log_behavior".*?"status":"running".*?:::TOOL_CALL_END:::/s,
@@ -1315,13 +1312,13 @@ const PageAIChat = ({
                         return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
                       }
                     );
-                    
+
                     fullResponse = fullResponse.replace('🔍 正在分析行为并关联兴趣维度...', '');
                     fullResponse += `\n\n❌ 行为分析失败：${error instanceof Error ? error.message : '未知错误'}`;
-                    
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === tempMsgId 
+
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === tempMsgId
                           ? { ...msg, text: fullResponse }
                           : msg
                       )
@@ -1329,7 +1326,7 @@ const PageAIChat = ({
                   }
                 })();
                 break;
-                
+
 
               case 'navigate_page':
                 // 添加工具调用卡片标记
@@ -1338,60 +1335,60 @@ const PageAIChat = ({
                   status: 'success',
                   params: args
                 })}:::TOOL_CALL_END:::\n`;
-                
+
                 // 添加导航卡片
                 fullResponse += `\n\n:::NAVIGATION_CARD:${JSON.stringify(args)}:::`;
-                setMessages(prev => 
-                  prev.map(msg => 
-                    msg.id === tempMsgId 
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === tempMsgId
                       ? { ...msg, text: fullResponse }
                       : msg
                   )
                 );
                 break;
-                
+
               case 'generate_assessment':
                 // 调用综合评估Agent
                 (async () => {
                   try {
                     console.log('[综合评估] 开始生成评估报告...');
-                    
+
                     // 添加工具调用卡片标记
                     fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
                       tool: 'generate_assessment',
                       status: 'running',
                       params: args
                     })}:::TOOL_CALL_END:::\n`;
-                    
+
                     // 添加加载提示
                     fullResponse += `\n\n🔄 正在生成综合评估报告，请稍候...`;
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === tempMsgId 
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === tempMsgId
                           ? { ...msg, text: fullResponse }
                           : msg
                       )
                     );
-                    
+
                     // 获取历史数据
                     const historicalData = collectHistoricalData();
-                    
+
                     // 使用外层已捕获的 currentChildProfile
                     if (!currentChildProfile) {
                       throw new Error('未找到孩子档案，请先完成初始设置');
                     }
-                    
+
                     // 调用综合评估Agent
                     const assessment = await generateComprehensiveAssessment(
                       currentChildProfile,
                       historicalData
                     );
-                    
+
                     console.log('[综合评估] 评估完成:', assessment);
-                    
+
                     // 保存评估结果到 assessmentStorage
                     saveAssessment(assessment);
-                    
+
                     // 同时将评估结果保存为 Report 到 reportStorage
                     const assessmentReport: Report = {
                       id: assessment.id,
@@ -1404,7 +1401,7 @@ const PageAIChat = ({
                     };
                     reportStorageService.saveReport(assessmentReport);
                     console.log('[综合评估] 已保存为报告:', assessmentReport.id);
-                    
+
                     // 更新工具调用状态为成功
                     fullResponse = fullResponse.replace(
                       /:::TOOL_CALL_START:::.*?"tool":"generate_assessment".*?"status":"running".*?:::TOOL_CALL_END:::/s,
@@ -1414,21 +1411,21 @@ const PageAIChat = ({
                         return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
                       }
                     );
-                    
+
                     // 移除加载提示，添加评估结果卡片
                     fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
                     fullResponse += `\n\n:::ASSESSMENT_CARD:${JSON.stringify(assessment)}:::`;
-                    
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === tempMsgId 
+
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === tempMsgId
                           ? { ...msg, text: fullResponse }
                           : msg
                       )
                     );
                   } catch (error) {
                     console.error('[综合评估] 生成失败:', error);
-                    
+
                     // 更新工具调用状态为失败
                     fullResponse = fullResponse.replace(
                       /:::TOOL_CALL_START:::.*?"tool":"generate_assessment".*?"status":"running".*?:::TOOL_CALL_END:::/s,
@@ -1439,12 +1436,12 @@ const PageAIChat = ({
                         return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
                       }
                     );
-                    
+
                     fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
                     fullResponse += `\n\n❌ 评估报告生成失败：${error instanceof Error ? error.message : '未知错误'}`;
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === tempMsgId 
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === tempMsgId
                           ? { ...msg, text: fullResponse }
                           : msg
                       )
@@ -1566,9 +1563,9 @@ const PageAIChat = ({
         },
         onError: (error) => {
           console.error('Stream error:', error);
-          setMessages(prev => 
-            prev.map(msg => 
-              msg.id === tempMsgId 
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === tempMsgId
                 ? { ...msg, text: '抱歉，我遇到了一些问题。请稍后再试。' }
                 : msg
             )
@@ -1576,12 +1573,12 @@ const PageAIChat = ({
           setLoading(false);
         }
       });
-      
+
     } catch (e) {
       console.error(e);
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === tempMsgId 
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === tempMsgId
             ? { ...msg, text: '我在听，请继续告诉我互动的细节。' }
             : msg
         )
@@ -1596,7 +1593,7 @@ const PageAIChat = ({
 
     // 检测文件类型
     const category = fileUploadService.categorizeFile(file);
-    
+
     // 开始加载（不显示上传消息）
     setLoading(true);
 
@@ -1604,15 +1601,15 @@ const PageAIChat = ({
       // 处理图片文件
       if (category === 'image') {
         const result = await multimodalService.parseImage(file);
-        
+
         if (result.success) {
           // 显示图片预览和分析结果
           const replyText = `**📸 图片分析完成**\n\n${result.content}`;
-          setMessages(prev => [...prev, { 
-            id: (Date.now() + 1).toString(), 
-            role: 'model', 
-            text: replyText, 
-            timestamp: new Date() 
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(),
+            role: 'model',
+            text: replyText,
+            timestamp: new Date()
           }]);
         } else {
           throw new Error(result.error || '图片分析失败');
@@ -1621,14 +1618,14 @@ const PageAIChat = ({
       // 处理视频文件
       else if (category === 'video') {
         const result = await multimodalService.parseVideo(file);
-        
+
         if (result.success) {
           const replyText = `**🎬 视频分析完成**\n\n${result.content}`;
-          setMessages(prev => [...prev, { 
-            id: (Date.now() + 1).toString(), 
-            role: 'model', 
-            text: replyText, 
-            timestamp: new Date() 
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(),
+            role: 'model',
+            text: replyText,
+            timestamp: new Date()
           }]);
         } else {
           throw new Error(result.error || '视频分析失败');
@@ -1637,14 +1634,14 @@ const PageAIChat = ({
       // 处理文档文件（原有逻辑）
       else if (category === 'document') {
         let textContent = file.type === "text/plain" ? await file.text() : `文件名: ${file.name}。假设这是一份医疗评估报告。`;
-        
+
         // *** Evaluation Agent Call (Report) ***
         const analysis = await api.analyzeReport(textContent);
         onProfileUpdate(analysis);
 
         const abilityChanges = analysis.abilityUpdates.map(u => `${u.dimension} ${u.scoreChange > 0 ? '+' : ''}${u.scoreChange}`).join('、');
         const replyText = `收到您的报告。我已经分析完毕并更新了孩子档案。\n\n**分析结果：**\n- 发现 ${analysis.interestUpdates.length} 个兴趣点\n- 能力维度调整：${abilityChanges || "无明显变化"}`;
-        
+
         setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'model', text: replyText, timestamp: new Date() }]);
       }
       // 不支持的文件类型
@@ -1654,11 +1651,11 @@ const PageAIChat = ({
 
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : "文件处理失败，请稍后再试。";
-      setMessages(prev => [...prev, { 
-        id: Date.now().toString(), 
-        role: 'model', 
-        text: `❌ ${errorMsg}`, 
-        timestamp: new Date() 
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'model',
+        text: `❌ ${errorMsg}`,
+        timestamp: new Date()
       }]);
     } finally {
       setLoading(false);
@@ -1675,93 +1672,93 @@ const PageAIChat = ({
     const interestAnalysisRegex = /:::INTEREST_ANALYSIS:\s*([\s\S]*?)\s*:::/;
     const implementationPlanRegex = /:::GAME_IMPLEMENTATION_PLAN:\s*([\s\S]*?)\s*:::/;
     const toolCallRegex = /:::TOOL_CALL_START:::([\s\S]*?):::TOOL_CALL_END:::/;
-    
+
     let cleanText = text;
     let card: any = null;
 
     // Check patterns in priority order, but ensure cleanText removes ALL patterns
     const gameMatch = text.match(gameRegex);
-    if (gameMatch?.[1]) { try { card = { ...JSON.parse(gameMatch[1]), type: 'GAME' }; } catch (e) {} }
+    if (gameMatch?.[1]) { try { card = { ...JSON.parse(gameMatch[1]), type: 'GAME' }; } catch (e) { } }
 
     const navMatch = text.match(navRegex);
-    if (navMatch?.[1] && !card) { try { card = { ...JSON.parse(navMatch[1]), type: 'NAV' }; } catch (e) {} }
+    if (navMatch?.[1] && !card) { try { card = { ...JSON.parse(navMatch[1]), type: 'NAV' }; } catch (e) { } }
 
     const behaviorMatch = text.match(behaviorRegex);
-    if (behaviorMatch?.[1] && !card) { try { card = { ...JSON.parse(behaviorMatch[1]), type: 'BEHAVIOR' }; } catch (e) {} }
+    if (behaviorMatch?.[1] && !card) { try { card = { ...JSON.parse(behaviorMatch[1]), type: 'BEHAVIOR' }; } catch (e) { } }
 
     const weeklyMatch = text.match(weeklyRegex);
-    if (weeklyMatch?.[1] && !card) { try { card = { ...JSON.parse(weeklyMatch[1]), type: 'WEEKLY' }; } catch (e) {} }
+    if (weeklyMatch?.[1] && !card) { try { card = { ...JSON.parse(weeklyMatch[1]), type: 'WEEKLY' }; } catch (e) { } }
 
     const assessmentMatch = text.match(assessmentRegex);
-    if (assessmentMatch?.[1] && !card) { try { card = { ...JSON.parse(assessmentMatch[1]), type: 'ASSESSMENT' }; } catch (e) {} }
+    if (assessmentMatch?.[1] && !card) { try { card = { ...JSON.parse(assessmentMatch[1]), type: 'ASSESSMENT' }; } catch (e) { } }
 
     const interestAnalysisMatch = text.match(interestAnalysisRegex);
-    if (interestAnalysisMatch?.[1] && !card) { try { card = { analysis: JSON.parse(interestAnalysisMatch[1]), type: 'INTEREST_ANALYSIS' }; } catch (e) {} }
+    if (interestAnalysisMatch?.[1] && !card) { try { card = { analysis: JSON.parse(interestAnalysisMatch[1]), type: 'INTEREST_ANALYSIS' }; } catch (e) { } }
 
     const implementationPlanMatch = text.match(implementationPlanRegex);
-    if (implementationPlanMatch?.[1] && !card) { try { card = { ...JSON.parse(implementationPlanMatch[1]), type: 'IMPLEMENTATION_PLAN' }; } catch (e) {} }
+    if (implementationPlanMatch?.[1] && !card) { try { card = { ...JSON.parse(implementationPlanMatch[1]), type: 'IMPLEMENTATION_PLAN' }; } catch (e) { } }
 
     const toolCallMatch = text.match(toolCallRegex);
-    if (toolCallMatch?.[1] && !card) { try { card = { ...JSON.parse(toolCallMatch[1]), type: 'TOOL_CALL' }; } catch (e) {} }
+    if (toolCallMatch?.[1] && !card) { try { card = { ...JSON.parse(toolCallMatch[1]), type: 'TOOL_CALL' }; } catch (e) { } }
 
     cleanText = cleanText
-        .replace(gameRegex, '')
-        .replace(navRegex, '')
-        .replace(behaviorRegex, '')
-        .replace(weeklyRegex, '')
-        .replace(assessmentRegex, '')
-        .replace(interestAnalysisRegex, '')
-        .replace(implementationPlanRegex, '')
-        .replace(toolCallRegex, '')
-        .trim();
-        
+      .replace(gameRegex, '')
+      .replace(navRegex, '')
+      .replace(behaviorRegex, '')
+      .replace(weeklyRegex, '')
+      .replace(assessmentRegex, '')
+      .replace(interestAnalysisRegex, '')
+      .replace(implementationPlanRegex, '')
+      .replace(toolCallRegex, '')
+      .trim();
+
     return { cleanText, card };
   };
 
   return (
     <div className="flex flex-col h-full bg-background relative">
-       {/* 未识别到文字的提示 Toast */}
-       {showNoSpeechToast && (
-         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-in fade-in">
-           <div className="bg-gray-800/40 text-white px-6 py-3 rounded-2xl shadow-lg backdrop-blur-sm">
-             <p className="text-base font-medium">未识别到文字</p>
-           </div>
-         </div>
-       )}
-       
-       {/* 清空历史按钮 */}
-       {messages.length > 1 && (
-         <div className="absolute top-2 right-2 z-10">
-           <button
-             onClick={() => {
-               if (confirm('确定要清空所有聊天记录吗？')) {
-                 chatStorageService.resetToDefault();
-                 setMessages(chatStorageService.getChatHistory());
-                 // 清空游戏推荐相关的 sessionStorage 数据
-                 sessionStorage.removeItem('interest_analysis_context');
-                 sessionStorage.removeItem('interest_analysis_result');
-                 console.log('[SessionStorage] 清空对话时清除游戏推荐数据:', {
-                   keys: ['interest_analysis_context', 'interest_analysis_result']
-                 });
-                 console.log('[Chat] 已清空对话历史和游戏推荐数据');
-               }
-             }}
-             className="bg-white/90 backdrop-blur-sm text-gray-600 hover:text-red-600 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm border border-gray-200 hover:border-red-300 transition flex items-center"
-             title="清空聊天历史"
-           >
-             <RefreshCw className="w-3 h-3 mr-1" />
-             清空
-           </button>
-         </div>
-       )}
-       
-       <div className="flex-1 overflow-y-auto p-4 space-y-5 pb-32">
+      {/* 未识别到文字的提示 Toast */}
+      {showNoSpeechToast && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-in fade-in">
+          <div className="bg-gray-800/40 text-white px-6 py-3 rounded-2xl shadow-lg backdrop-blur-sm">
+            <p className="text-base font-medium">未识别到文字</p>
+          </div>
+        </div>
+      )}
+
+      {/* 清空历史按钮 */}
+      {messages.length > 1 && (
+        <div className="absolute top-2 right-2 z-10">
+          <button
+            onClick={() => {
+              if (confirm('确定要清空所有聊天记录吗？')) {
+                chatStorageService.resetToDefault();
+                setMessages(chatStorageService.getChatHistory());
+                // 清空游戏推荐相关的 sessionStorage 数据
+                sessionStorage.removeItem('interest_analysis_context');
+                sessionStorage.removeItem('interest_analysis_result');
+                console.log('[SessionStorage] 清空对话时清除游戏推荐数据:', {
+                  keys: ['interest_analysis_context', 'interest_analysis_result']
+                });
+                console.log('[Chat] 已清空对话历史和游戏推荐数据');
+              }
+            }}
+            className="bg-white/90 backdrop-blur-sm text-gray-600 hover:text-red-600 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm border border-gray-200 hover:border-red-300 transition flex items-center"
+            title="清空聊天历史"
+          >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            清空
+          </button>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-5 pb-32">
         {messages.map((msg) => {
           const { cleanText, card } = parseMessageContent(msg.text);
           return (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div className={`max-w-[88%] p-4 rounded-2xl shadow-sm leading-relaxed text-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
-                {msg.role === 'user' ? cleanText : <ReactMarkdown components={{strong: ({node, ...props}) => <span className="font-bold text-gray-900" {...props} />}}>{cleanText}</ReactMarkdown>}
+                {msg.role === 'user' ? cleanText : <ReactMarkdown components={{ strong: ({ node, ...props }) => <span className="font-bold text-gray-900" {...props} /> }}>{cleanText}</ReactMarkdown>}
               </div>
               {msg.options && (
                 <div className="mt-3 flex flex-wrap gap-2 animate-in fade-in max-w-[90%]">
@@ -1770,7 +1767,7 @@ const PageAIChat = ({
                   ))}
                 </div>
               )}
-              
+
               {/* 工具调用卡片 */}
               {card && card.type === 'TOOL_CALL' && (
                 <div className="mt-2 max-w-[85%] bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-200 shadow-md animate-in fade-in">
@@ -1779,17 +1776,16 @@ const PageAIChat = ({
                       <Settings className="w-4 h-4 text-indigo-600 animate-spin-slow" />
                       <span className="text-xs font-bold text-indigo-700 uppercase">工具调用</span>
                     </div>
-                    <div className={`flex items-center space-x-1 text-xs font-medium px-2 py-1 rounded-full ${
-                      card.status === 'running' ? 'bg-yellow-100 text-yellow-700' :
+                    <div className={`flex items-center space-x-1 text-xs font-medium px-2 py-1 rounded-full ${card.status === 'running' ? 'bg-yellow-100 text-yellow-700' :
                       card.status === 'success' ? 'bg-green-100 text-green-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
+                        'bg-red-100 text-red-700'
+                      }`}>
                       {card.status === 'running' && <><div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div><span>执行中</span></>}
                       {card.status === 'success' && <><CheckCircle2 className="w-3 h-3" /><span>成功</span></>}
                       {card.status === 'error' && <><X className="w-3 h-3" /><span>失败</span></>}
                     </div>
                   </div>
-                  
+
                   <div className="bg-white/70 rounded-lg p-3 mb-2">
                     <div className="flex items-center space-x-2 mb-2">
                       <code className="text-xs font-mono text-indigo-900 bg-indigo-100 px-2 py-1 rounded">{card.tool}</code>
@@ -1808,26 +1804,26 @@ const PageAIChat = ({
                   </div>
                 </div>
               )}
-              
+
               {/* Card Rendering */}
               {card && card.type === 'GAME' && (
                 <div className="mt-2 max-w-[85%] bg-white p-3 rounded-xl border-l-4 border-secondary shadow-md animate-in fade-in">
-                   <div className="flex items-center space-x-2 mb-2"><Sparkles className="w-4 h-4 text-secondary" /><span className="text-xs font-bold text-secondary uppercase">推荐游戏 (基于分析)</span></div>
-                   <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
-                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
-                   <button onClick={() => startCheckInFlow(card)} className="w-full bg-secondary text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-blue-600 transition"><Play className="w-4 h-4 mr-2" /> 开始游戏</button>
+                  <div className="flex items-center space-x-2 mb-2"><Sparkles className="w-4 h-4 text-secondary" /><span className="text-xs font-bold text-secondary uppercase">推荐游戏 (基于分析)</span></div>
+                  <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
+                  <button onClick={() => startCheckInFlow(card)} className="w-full bg-secondary text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-blue-600 transition"><Play className="w-4 h-4 mr-2" /> 开始游戏</button>
                 </div>
               )}
               {card && card.type === 'NAV' && (
                 <div className="mt-2 max-w-[85%] bg-white p-3 rounded-xl border-l-4 border-primary shadow-md animate-in fade-in">
-                   <div className="flex items-center space-x-2 mb-2"><ArrowUpRight className="w-4 h-4 text-primary" /><span className="text-xs font-bold text-primary uppercase">建议操作</span></div>
-                   <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
-                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
-                   <button onClick={() => navigateTo(card.page === 'CALENDAR' ? Page.CALENDAR : Page.PROFILE)} className="w-full bg-primary/10 text-primary py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-primary/20 transition">前往查看</button>
+                  <div className="flex items-center space-x-2 mb-2"><ArrowUpRight className="w-4 h-4 text-primary" /><span className="text-xs font-bold text-primary uppercase">建议操作</span></div>
+                  <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
+                  <button onClick={() => navigateTo(card.page === 'CALENDAR' ? Page.CALENDAR : Page.PROFILE)} className="w-full bg-primary/10 text-primary py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-primary/20 transition">前往查看</button>
                 </div>
               )}
               {card && card.type === 'BEHAVIOR' && (
-                <div 
+                <div
                   onClick={() => {
                     if (card.behaviorId) {
                       // 跳转到行为页面
@@ -1844,51 +1840,51 @@ const PageAIChat = ({
                   }}
                   className="mt-2 max-w-[85%] bg-white p-4 rounded-xl border border-emerald-100 shadow-md animate-in fade-in cursor-pointer hover:border-emerald-300 hover:shadow-lg transition-all active:scale-98"
                 >
-                   <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
-                     <div className="flex items-center space-x-2">
-                       <div className="bg-emerald-100 p-1.5 rounded-full"><ClipboardCheck className="w-4 h-4 text-emerald-600" /></div>
-                       <span className="text-xs font-bold text-emerald-700 uppercase">行为已记录</span>
-                     </div>
-                     <ArrowUpRight className="w-4 h-4 text-emerald-500" />
-                   </div>
-                   <div className="mb-3">
-                     <p className="text-gray-800 font-bold text-base mb-1">"{card.behavior}"</p>
-                     <p className="text-xs text-gray-500">{card.analysis}</p>
-                   </div>
-                   {card.tags && (
-                     <div className="flex flex-wrap gap-1.5">
-                       {card.tags.map((t: string, i: number) => {
-                         const config = getDimensionConfig(t as InterestDimensionType);
-                         return (
-                           <span key={i} className={`flex items-center text-[10px] px-2 py-1 rounded-full font-medium ${config.color}`}>
-                             <config.icon className="w-3 h-3 mr-1" /> {config.label}
-                           </span>
-                         );
-                       })}
-                     </div>
-                   )}
-                   <div className="mt-3 pt-2 border-t border-gray-100">
-                     <p className="text-xs text-gray-400 text-center">点击查看详情</p>
-                   </div>
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                    <div className="flex items-center space-x-2">
+                      <div className="bg-emerald-100 p-1.5 rounded-full"><ClipboardCheck className="w-4 h-4 text-emerald-600" /></div>
+                      <span className="text-xs font-bold text-emerald-700 uppercase">行为已记录</span>
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="mb-3">
+                    <p className="text-gray-800 font-bold text-base mb-1">"{card.behavior}"</p>
+                    <p className="text-xs text-gray-500">{card.analysis}</p>
+                  </div>
+                  {card.tags && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {card.tags.map((t: string, i: number) => {
+                        const config = getDimensionConfig(t as InterestDimensionType);
+                        return (
+                          <span key={i} className={`flex items-center text-[10px] px-2 py-1 rounded-full font-medium ${config.color}`}>
+                            <config.icon className="w-3 h-3 mr-1" /> {config.label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="mt-3 pt-2 border-t border-gray-100">
+                    <p className="text-xs text-gray-400 text-center">点击查看详情</p>
+                  </div>
                 </div>
               )}
               {card && card.type === 'WEEKLY' && (
-                 <div className="mt-2 w-full max-w-[90%] bg-white p-4 rounded-xl border-t-4 border-accent shadow-md animate-in fade-in">
-                    <div className="flex items-center justify-between mb-3">
-                       <div className="flex items-center space-x-2"><CalendarClock className="w-5 h-5 text-accent" /><span className="font-bold text-gray-800">本周计划概览</span></div>
-                       <span className="text-[10px] bg-accent/10 text-accent px-2 py-1 rounded-full font-bold">{card.focus}</span>
-                    </div>
-                    <div className="space-y-2">
-                       {card.schedule?.map((item: any, i: number) => (
-                          <div key={i} className="flex items-center p-2 rounded-lg bg-gray-50 border border-gray-100">
-                             <span className="text-xs font-bold text-gray-400 w-10">{item.day}</span>
-                             <div className="h-4 w-[1px] bg-gray-200 mx-2"></div>
-                             <span className="text-sm text-gray-700 font-medium">{item.task}</span>
-                          </div>
-                       ))}
-                    </div>
-                    <button onClick={() => navigateTo(Page.CALENDAR)} className="w-full mt-3 text-xs font-bold text-gray-400 hover:text-accent transition flex items-center justify-center py-2">查看完整日历 <ChevronRight className="w-3 h-3 ml-1" /></button>
-                 </div>
+                <div className="mt-2 w-full max-w-[90%] bg-white p-4 rounded-xl border-t-4 border-accent shadow-md animate-in fade-in">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2"><CalendarClock className="w-5 h-5 text-accent" /><span className="font-bold text-gray-800">本周计划概览</span></div>
+                    <span className="text-[10px] bg-accent/10 text-accent px-2 py-1 rounded-full font-bold">{card.focus}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {card.schedule?.map((item: any, i: number) => (
+                      <div key={i} className="flex items-center p-2 rounded-lg bg-gray-50 border border-gray-100">
+                        <span className="text-xs font-bold text-gray-400 w-10">{item.day}</span>
+                        <div className="h-4 w-[1px] bg-gray-200 mx-2"></div>
+                        <span className="text-sm text-gray-700 font-medium">{item.task}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => navigateTo(Page.CALENDAR)} className="w-full mt-3 text-xs font-bold text-gray-400 hover:text-accent transition flex items-center justify-center py-2">查看完整日历 <ChevronRight className="w-3 h-3 ml-1" /></button>
+                </div>
               )}
               {card && card.type === 'ASSESSMENT' && (
                 <div className="mt-2 w-full max-w-[95%] bg-gradient-to-br from-purple-50 to-blue-50 p-5 rounded-2xl border border-purple-200 shadow-lg animate-in fade-in">
@@ -1929,7 +1925,7 @@ const PageAIChat = ({
                   </div>
 
                   {/* 查看详情按钮 */}
-                  <button 
+                  <button
                     onClick={() => navigateTo(Page.PROFILE)}
                     className="w-full mt-4 bg-white text-purple-600 py-2.5 rounded-xl font-bold hover:bg-purple-50 transition flex items-center justify-center shadow-sm"
                   >
@@ -1938,7 +1934,7 @@ const PageAIChat = ({
                   </button>
                 </div>
               )}
-              
+
               {/* 兴趣分析卡片 */}
               {card && card.type === 'INTEREST_ANALYSIS' && card.analysis && (
                 <div className="mt-2 w-full max-w-[95%] bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-2xl border border-purple-200 shadow-lg animate-in fade-in">
@@ -1971,29 +1967,29 @@ const PageAIChat = ({
                         };
                         return (
                           <React.Fragment key={idx}>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="w-20 text-gray-700 font-medium truncate">{getDimensionConfig(dim.dimension).label}</span>
-                            <div className="flex-1 flex items-center gap-1">
-                              <div className="flex-1 bg-gray-100 rounded-full h-3 relative overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${categoryColors[dim.category] || 'bg-gray-400'}`}
-                                  style={{ width: `${dim.strength}%` }}
-                                />
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="w-20 text-gray-700 font-medium truncate">{getDimensionConfig(dim.dimension).label}</span>
+                              <div className="flex-1 flex items-center gap-1">
+                                <div className="flex-1 bg-gray-100 rounded-full h-3 relative overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${categoryColors[dim.category] || 'bg-gray-400'}`}
+                                    style={{ width: `${dim.strength}%` }}
+                                  />
+                                </div>
+                                <span className="w-8 text-right text-gray-500">{dim.strength}</span>
                               </div>
-                              <span className="w-8 text-right text-gray-500">{dim.strength}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-white text-[10px] ${categoryColors[dim.category] || 'bg-gray-400'}`}>
+                                {categoryLabels[dim.category] || dim.category}
+                              </span>
                             </div>
-                            <span className={`px-1.5 py-0.5 rounded text-white text-[10px] ${categoryColors[dim.category] || 'bg-gray-400'}`}>
-                              {categoryLabels[dim.category] || dim.category}
-                            </span>
-                          </div>
-                          {dim.specificObjects?.length > 0 && (
-                            <div className="ml-20 mt-0.5 flex flex-wrap gap-1">
-                              {dim.specificObjects.map((obj: string, oi: number) => (
-                                <span key={oi} className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded text-[10px]">{obj}</span>
-                              ))}
-                            </div>
-                          )}
-                        </React.Fragment>
+                            {dim.specificObjects?.length > 0 && (
+                              <div className="ml-20 mt-0.5 flex flex-wrap gap-1">
+                                {dim.specificObjects.map((obj: string, oi: number) => (
+                                  <span key={oi} className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded text-[10px]">{obj}</span>
+                                ))}
+                              </div>
+                            )}
+                          </React.Fragment>
                         );
                       })}
                     </div>
@@ -2020,7 +2016,7 @@ const PageAIChat = ({
                   )}
                 </div>
               )}
-              
+
               {/* 游戏实施方案卡片 */}
               {card && card.type === 'IMPLEMENTATION_PLAN' && card.game && card.plan && (
                 <div className="mt-2 w-full max-w-[95%] bg-gradient-to-br from-green-50 to-blue-50 p-5 rounded-2xl border border-green-200 shadow-lg animate-in fade-in">
@@ -2096,7 +2092,7 @@ const PageAIChat = ({
                   </div>
 
                   {/* 开始游戏按钮 */}
-                  <button 
+                  <button
                     onClick={() => startCheckInFlow(card.game)}
                     className="w-full bg-gradient-to-r from-green-500 to-blue-500 text-white py-3 rounded-xl font-bold hover:shadow-lg transition flex items-center justify-center"
                   >
@@ -2122,7 +2118,7 @@ const PageAIChat = ({
       <div className="bg-white p-4 border-t border-gray-100">
         <div className="flex items-center bg-gray-100 rounded-full px-2 py-2">
           <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp,.mp4,.avi,.mov" />
-          
+
           {!voiceMode ? (
             // 普通输入模式
             <>
@@ -2140,13 +2136,12 @@ const PageAIChat = ({
                 onTouchStart={handleVoiceStart}
                 onTouchEnd={handleVoiceEnd}
                 disabled={recognizing}
-                className={`flex-1 py-1.5 rounded-full font-bold transition transform active:scale-95 flex items-center justify-center ${
-                  recognizing 
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                    : isRecording 
-                      ? 'bg-red-500 text-white animate-pulse' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`flex-1 py-1.5 rounded-full font-bold transition transform active:scale-95 flex items-center justify-center ${recognizing
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : isRecording
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 <Mic className="w-5 h-5 mr-2" />
                 {recognizing ? '识别中...' : isRecording ? '松开发送' : '按住说话'}
@@ -2193,19 +2188,19 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
 
   const loadBehaviors = () => {
     let allBehaviors = behaviorStorageService.getAllBehaviors();
-    
+
     // 按维度筛选
     if (filterDimension !== '全部') {
-      allBehaviors = allBehaviors.filter(b => 
+      allBehaviors = allBehaviors.filter(b =>
         b.matches.some(m => m.dimension === filterDimension)
       );
     }
-    
+
     // 按来源筛选
     if (filterSource !== '全部') {
       allBehaviors = allBehaviors.filter(b => b.source === filterSource);
     }
-    
+
     setBehaviors(allBehaviors);
     setStats(behaviorStorageService.getStatistics());
   };
@@ -2231,7 +2226,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
             <X className="w-5 h-5" />
           </button>
         </div>
-        
+
         <div className="p-6 space-y-4">
           {/* 行为描述 */}
           <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
@@ -2255,7 +2250,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
                 const intensity = match.intensity !== undefined ? match.intensity : 0;
                 const intensityPercentage = Math.abs(intensity * 100);
                 const isPositive = intensity >= 0;
-                
+
                 return (
                   <div key={idx} className="bg-white rounded-lg p-3 border border-gray-100">
                     <div className="flex items-center justify-between mb-2">
@@ -2264,7 +2259,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
                         {config.label}
                       </div>
                     </div>
-                    
+
                     {/* 关联度 */}
                     <div className="mb-3">
                       <div className="flex items-center justify-between mb-1">
@@ -2272,13 +2267,13 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
                         <span className="text-sm font-bold text-gray-800">{weightPercentage}%</span>
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className={`h-full ${config.color.split(' ')[0].replace('text', 'bg')} transition-all duration-500`}
                           style={{ width: `${weightPercentage}%` }}
                         ></div>
                       </div>
                     </div>
-                    
+
                     {/* 强度 */}
                     <div className="mb-2">
                       <div className="flex items-center justify-between mb-1">
@@ -2299,12 +2294,12 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
                         <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-300"></div>
                         {/* 强度条 */}
                         {isPositive ? (
-                          <div 
+                          <div
                             className="h-full bg-green-500 transition-all duration-500 absolute left-1/2"
                             style={{ width: `${intensityPercentage / 2}%` }}
                           ></div>
                         ) : (
-                          <div 
+                          <div
                             className="h-full bg-red-500 transition-all duration-500 absolute right-1/2"
                             style={{ width: `${intensityPercentage / 2}%` }}
                           ></div>
@@ -2316,7 +2311,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
                         <span>喜欢</span>
                       </div>
                     </div>
-                    
+
                     {match.reasoning && (
                       <p className="text-xs text-gray-500 mt-2 italic border-t border-gray-200 pt-2">💡 {match.reasoning}</p>
                     )}
@@ -2338,9 +2333,9 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
               <div>
                 <span className="text-gray-500">数据来源：</span>
                 <span className="font-medium text-gray-700 block mt-1">
-                  {behavior.source === 'GAME' ? '游戏互动' : 
-                   behavior.source === 'REPORT' ? '报告分析' : 
-                   behavior.source === 'CHAT' ? 'AI对话' : '未知'}
+                  {behavior.source === 'GAME' ? '游戏互动' :
+                    behavior.source === 'REPORT' ? '报告分析' :
+                      behavior.source === 'CHAT' ? 'AI对话' : '未知'}
                 </span>
               </div>
             </div>
@@ -2391,7 +2386,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
       {/* 筛选器 */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
         <h4 className="text-sm font-bold text-gray-700 mb-3">筛选条件</h4>
-        
+
         {/* 按兴趣维度筛选 */}
         <div className="mb-3">
           <p className="text-xs text-gray-500 mb-2">兴趣维度</p>
@@ -2400,11 +2395,10 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
               <button
                 key={dim}
                 onClick={() => setFilterDimension(dim)}
-                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${
-                  filterDimension === dim
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${filterDimension === dim
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
               >
                 {dim === '全部' ? dim : getDimensionConfig(dim as InterestDimensionType).label}
               </button>
@@ -2420,15 +2414,14 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
               <button
                 key={source}
                 onClick={() => setFilterSource(source)}
-                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${
-                  filterSource === source
-                    ? 'bg-secondary text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${filterSource === source
+                  ? 'bg-secondary text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
               >
                 {source === '全部' ? '全部' :
-                 source === 'GAME' ? '游戏' :
-                 source === 'REPORT' ? '报告' : '对话'}
+                  source === 'GAME' ? '游戏' :
+                    source === 'REPORT' ? '报告' : '对话'}
               </button>
             ))}
           </div>
@@ -2475,7 +2468,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
                 </p>
                 <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-2" />
               </div>
-              
+
               {/* 兴趣标签 */}
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {behavior.matches.slice(0, 3).map((match, idx) => {
@@ -2497,9 +2490,9 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
               {/* 元信息 */}
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>
-                  {behavior.source === 'GAME' ? '🎮 游戏' : 
-                   behavior.source === 'REPORT' ? '📄 报告' : 
-                   behavior.source === 'CHAT' ? '💬 对话' : '❓'}
+                  {behavior.source === 'GAME' ? '🎮 游戏' :
+                    behavior.source === 'REPORT' ? '📄 报告' :
+                      behavior.source === 'CHAT' ? '💬 对话' : '❓'}
                 </span>
                 <span>
                   {behavior.timestamp ? new Date(behavior.timestamp).toLocaleDateString('zh-CN') : ''}
@@ -2527,12 +2520,12 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
   const [showReportList, setShowReportList] = useState(false);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
-  
+
   // 加载报告列表
   useEffect(() => {
     setReports(reportStorageService.getAllReports());
   }, [showReportList]);
-  
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -2595,7 +2588,7 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
             <X className="w-5 h-5" />
           </button>
         </div>
-        
+
         <div className="p-6 space-y-4">
           {/* 报告摘要 - 必填字段，始终显示 */}
           <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
@@ -2613,9 +2606,9 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
                 <FileText className="w-4 h-4 mr-2 text-blue-600" />
                 报告原图
               </h5>
-              <img 
-                src={report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`} 
-                alt="报告原图" 
+              <img
+                src={report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`}
+                alt="报告原图"
                 className="w-full rounded-lg border border-gray-300 cursor-pointer hover:opacity-90 transition"
                 onClick={() => window.open(report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`, '_blank')}
               />
@@ -2670,9 +2663,9 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
               <div>
                 <span className="text-gray-500">报告类型：</span>
                 <span className="font-medium text-gray-700">
-                  {report.type === 'hospital' ? '医院报告' : 
-                   report.type === 'ai_generated' ? 'AI评估' : 
-                   report.type === 'assessment' ? '评估报告' : '其他'}
+                  {report.type === 'hospital' ? '医院报告' :
+                    report.type === 'ai_generated' ? 'AI评估' :
+                      report.type === 'assessment' ? '评估报告' : '其他'}
                 </span>
               </div>
               <div className="col-span-2">
@@ -2693,7 +2686,7 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
     return (
       <div className="p-4 space-y-4 h-full overflow-y-auto bg-background">
         <div className="flex items-center justify-between">
-          <button 
+          <button
             onClick={() => setShowReportList(false)}
             className="flex items-center text-gray-600 hover:text-gray-800"
           >
@@ -2712,7 +2705,7 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
         ) : (
           <div className="space-y-3">
             {reports.map((report) => (
-              <div 
+              <div
                 key={report.id}
                 onClick={() => setSelectedReport(report)}
                 className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-primary/30 transition"
@@ -2720,9 +2713,9 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
                 <div className="flex items-start space-x-3">
                   {/* 缩略图或默认图标 */}
                   {report.imageUrl ? (
-                    <img 
-                      src={report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`} 
-                      alt="报告缩略图" 
+                    <img
+                      src={report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`}
+                      alt="报告缩略图"
                       className="w-16 h-16 rounded-lg object-cover border border-gray-200 flex-shrink-0"
                     />
                   ) : (
@@ -2734,7 +2727,7 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
                       )}
                     </div>
                   )}
-                  
+
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-gray-800 truncate">{report.summary}</p>
                     <p className="text-xs text-gray-500 mt-1">
@@ -2750,9 +2743,9 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
         )}
 
         {selectedReport && (
-          <ReportDetailModal 
-            report={selectedReport} 
-            onClose={() => setSelectedReport(null)} 
+          <ReportDetailModal
+            report={selectedReport}
+            onClose={() => setSelectedReport(null)}
           />
         )}
       </div>
@@ -2766,10 +2759,10 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
       <div className="flex flex-col items-center space-y-4 bg-white p-6 rounded-2xl shadow-sm">
         {/* 头像容器 - 添加编辑功能 */}
         <div className="relative group">
-          <img 
-            src={childProfile?.avatar || defaultAvatar} 
-            className="w-24 h-24 rounded-full border-4 border-white shadow-lg" 
-            alt={childProfile?.name || '孩子'} 
+          <img
+            src={childProfile?.avatar || defaultAvatar}
+            className="w-24 h-24 rounded-full border-4 border-white shadow-lg"
+            alt={childProfile?.name || '孩子'}
           />
           {/* 编辑按钮 */}
           <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -2792,16 +2785,16 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
             </button>
           )}
         </div>
-        
+
         {/* 隐藏的头像上传input */}
-        <input 
-          type="file" 
-          ref={avatarInputRef} 
-          onChange={handleAvatarSelect} 
-          className="hidden" 
-          accept="image/*" 
+        <input
+          type="file"
+          ref={avatarInputRef}
+          onChange={handleAvatarSelect}
+          className="hidden"
+          accept="image/*"
         />
-        
+
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-800">{childProfile?.name || '未设置'}, {age}岁</h2>
           <p className="text-sm text-gray-500 mt-1">
@@ -2828,35 +2821,35 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
 
       {/* 底部按钮 */}
       <div className="space-y-3 pb-4">
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          onChange={handleFileSelect} 
-          className="hidden" 
-          accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp" 
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
+          className="hidden"
+          accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp"
         />
-        
-        <button 
+
+        <button
           onClick={() => setShowReportList(true)}
           className="w-full bg-white text-gray-700 py-3 rounded-xl font-bold flex items-center justify-center hover:bg-gray-50 transition shadow-sm border border-gray-200"
         >
-          <FileText className="w-5 h-5 mr-2" /> 
+          <FileText className="w-5 h-5 mr-2" />
           查看报告列表 ({reports.length})
         </button>
-        
-        <button 
-          onClick={() => fileInputRef.current?.click()} 
+
+        <button
+          onClick={() => fileInputRef.current?.click()}
           className="w-full bg-primary text-white py-3 rounded-xl font-bold flex items-center justify-center hover:bg-green-600 transition shadow-md"
         >
-          <Upload className="w-5 h-5 mr-2" /> 
+          <Upload className="w-5 h-5 mr-2" />
           导入报告
         </button>
-        
-        <button 
-          onClick={onExportReport} 
+
+        <button
+          onClick={onExportReport}
           className="w-full bg-blue-500 text-white py-3 rounded-xl font-bold flex items-center justify-center hover:bg-blue-600 transition shadow-md"
         >
-          <FileText className="w-5 h-5 mr-2" /> 
+          <FileText className="w-5 h-5 mr-2" />
           导出报告
         </button>
       </div>
@@ -2864,20 +2857,20 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
   );
 };
 
-const PageGames = ({ 
-  initialGameId, 
-  gameState, 
-  setGameState, 
-  onBack, 
+const PageGames = ({
+  initialGameId,
+  gameState,
+  setGameState,
+  onBack,
   trendData,
   onUpdateTrend,
-  onProfileUpdate, 
+  onProfileUpdate,
   activeGame,
   childProfile
-}: { 
-  initialGameId?: string, 
-  gameState: GameState, 
-  setGameState: (s: GameState) => void, 
+}: {
+  initialGameId?: string,
+  gameState: GameState,
+  setGameState: (s: GameState) => void,
   onBack: () => void,
   trendData: any[],
   onUpdateTrend: (score: number) => void,
@@ -2905,12 +2898,12 @@ const PageGames = ({
   }));
 
   const [internalActiveGame, setInternalActiveGame] = useState<Game | undefined>(
-      activeGame || (initialGameId ? GAMES_FROM_STORAGE.find(g => g.id === initialGameId) : undefined)
+    activeGame || (initialGameId ? GAMES_FROM_STORAGE.find(g => g.id === initialGameId) : undefined)
   );
-  
+
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [timer, setTimer] = useState(0);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0); 
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [clickedLog, setClickedLog] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -2920,51 +2913,51 @@ const PageGames = ({
   const [activeFilter, setActiveFilter] = useState('全部');
   const [showVideoCall, setShowVideoCall] = useState(false); // AI 视频通话状态
   const FILTERS = ['全部', '共同注意', '自我调节', '亲密感', '双向沟通', '情绪思考', '创造力'];
-  
+
   useEffect(() => {
     if (initialGameId && !internalActiveGame) {
-        console.log('[Game Page] 初始化游戏，ID:', initialGameId);
-        
-        // 先尝试从 floorGameStorage 获取待开始的游戏（来自聊天推荐）
-        const floorGame = floorGameStorageService.getGameById(initialGameId);
-        console.log('[Game Page] floorGame:', floorGame ? '存在' : '不存在');
+      console.log('[Game Page] 初始化游戏，ID:', initialGameId);
 
-        if (floorGame) {
-          console.log('[Game Page] ✅ 加载推荐的游戏:', floorGame.gameTitle);
-          // 转换为 Game 对象供游戏页面使用
-          const gameFromFloor: Game = {
-            id: floorGame.id,
-            title: floorGame.gameTitle,
-            target: floorGame.goal,
-            duration: '15-20分钟',
-            reason: floorGame.summary,
-            isVR: floorGame.isVR,
-            steps: floorGame.steps.map(s => ({
-              instruction: s.instruction,
-              guidance: s.expectedOutcome
-            })),
-            summary: floorGame.summary,
-            materials: []
-          };
-          setInternalActiveGame(gameFromFloor);
-          setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false);
-          return;
-        }
-        
-        // 如果没有待开始的游戏，从转换后的游戏列表中查找
-        const game = GAMES_FROM_STORAGE.find(g => g.id === initialGameId);
-        if (game) {
-            console.log('[Game Page] 从游戏库加载游戏:', game.title);
-            setInternalActiveGame(game);
-            setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false);
-        } else {
-            console.warn('[Game Page] ❌ 未找到游戏:', initialGameId);
-        }
+      // 先尝试从 floorGameStorage 获取待开始的游戏（来自聊天推荐）
+      const floorGame = floorGameStorageService.getGameById(initialGameId);
+      console.log('[Game Page] floorGame:', floorGame ? '存在' : '不存在');
+
+      if (floorGame) {
+        console.log('[Game Page] ✅ 加载推荐的游戏:', floorGame.gameTitle);
+        // 转换为 Game 对象供游戏页面使用
+        const gameFromFloor: Game = {
+          id: floorGame.id,
+          title: floorGame.gameTitle,
+          target: floorGame.goal,
+          duration: '15-20分钟',
+          reason: floorGame.summary,
+          isVR: floorGame.isVR,
+          steps: floorGame.steps.map(s => ({
+            instruction: s.instruction,
+            guidance: s.expectedOutcome
+          })),
+          summary: floorGame.summary,
+          materials: []
+        };
+        setInternalActiveGame(gameFromFloor);
+        setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false);
+        return;
+      }
+
+      // 如果没有待开始的游戏，从转换后的游戏列表中查找
+      const game = GAMES_FROM_STORAGE.find(g => g.id === initialGameId);
+      if (game) {
+        console.log('[Game Page] 从游戏库加载游戏:', game.title);
+        setInternalActiveGame(game);
+        setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false);
+      } else {
+        console.warn('[Game Page] ❌ 未找到游戏:', initialGameId);
+      }
     }
   }, [initialGameId, internalActiveGame]);
 
   useEffect(() => {
-    if (gameState === GameState.PLAYING) { timerRef.current = setInterval(() => setTimer(t => t + 1), 1000); } 
+    if (gameState === GameState.PLAYING) { timerRef.current = setInterval(() => setTimer(t => t + 1), 1000); }
     else { if (timerRef.current) clearInterval(timerRef.current); }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [gameState]);
@@ -2972,60 +2965,60 @@ const PageGames = ({
   useEffect(() => { if (gameState === GameState.SUMMARY && !evaluation && !isAnalyzing) performAnalysis(); }, [gameState]);
 
   const performAnalysis = async () => {
-      setIsAnalyzing(true);
-      try {
-          const logsToAnalyze = logs.length > 0 ? logs : [{type: 'emoji', content: '完成了游戏', timestamp: new Date()} as LogEntry];
-          
-          // *** Evaluation Agent Call (Session) ***
-          const result = await api.analyzeSession(logsToAnalyze);
-          setEvaluation(result);
+    setIsAnalyzing(true);
+    try {
+      const logsToAnalyze = logs.length > 0 ? logs : [{ type: 'emoji', content: '完成了游戏', timestamp: new Date() } as LogEntry];
 
-          // 将评估结果写入 FloorGame 记录
-          if (internalActiveGame?.id) {
-            try {
-              floorGameStorageService.updateGame(internalActiveGame.id, { 
-                evaluation: result, 
-                status: 'completed',
-                dtend: new Date().toISOString()
-              });
-            } catch (e) { console.warn('Failed to save evaluation to FloorGame:', e); }
-          }
+      // *** Evaluation Agent Call (Session) ***
+      const result = await api.analyzeSession(logsToAnalyze);
+      setEvaluation(result);
 
-          if (result.score > 0 && !hasUpdatedTrend) {
-             onUpdateTrend(result.score);
-             const target = internalActiveGame?.target || "";
-             let matchedDim: AbilityDimensionType | null = null;
-             if (target.includes('自我调节')) matchedDim = '自我调节';
-             else if (target.includes('共同注意')) matchedDim = '亲密感';
-             else if (target.includes('创造力')) matchedDim = '情绪思考';
+      // 将评估结果写入 FloorGame 记录
+      if (internalActiveGame?.id) {
+        try {
+          floorGameStorageService.updateGame(internalActiveGame.id, {
+            evaluation: result,
+            status: 'completed',
+            dtend: new Date().toISOString()
+          });
+        } catch (e) { console.warn('Failed to save evaluation to FloorGame:', e); }
+      }
 
-             const abilityUpdates = matchedDim ? [{
-                 dimension: matchedDim,
-                 scoreChange: Math.min(5, result.score / 20),
-                 reason: `游戏训练: ${internalActiveGame?.title}`
-             }] : [];
+      if (result.score > 0 && !hasUpdatedTrend) {
+        onUpdateTrend(result.score);
+        const target = internalActiveGame?.target || "";
+        let matchedDim: AbilityDimensionType | null = null;
+        if (target.includes('自我调节')) matchedDim = '自我调节';
+        else if (target.includes('共同注意')) matchedDim = '亲密感';
+        else if (target.includes('创造力')) matchedDim = '情绪思考';
 
-             onProfileUpdate({
-                 source: 'GAME',
-                 interestUpdates: result.interestAnalysis || [],
-                 abilityUpdates: abilityUpdates
-             });
-             setHasUpdatedTrend(true);
-          }
-      } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
+        const abilityUpdates = matchedDim ? [{
+          dimension: matchedDim,
+          scoreChange: Math.min(5, result.score / 20),
+          reason: `游戏训练: ${internalActiveGame?.title}`
+        }] : [];
+
+        onProfileUpdate({
+          source: 'GAME',
+          interestUpdates: result.interestAnalysis || [],
+          abilityUpdates: abilityUpdates
+        });
+        setHasUpdatedTrend(true);
+      }
+    } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
   };
 
-  const handleStartGame = (game: Game) => { 
-    floorGameStorageService.updateGame(game.id, { 
-      dtstart: new Date().toISOString() 
-    }); 
-    setInternalActiveGame(game); 
-    setGameState(GameState.PLAYING); 
-    setCurrentStepIndex(0); 
-    setTimer(0); 
-    setLogs([]); 
-    setEvaluation(null); 
-    setHasUpdatedTrend(false); 
+  const handleStartGame = (game: Game) => {
+    floorGameStorageService.updateGame(game.id, {
+      dtstart: new Date().toISOString()
+    });
+    setInternalActiveGame(game);
+    setGameState(GameState.PLAYING);
+    setCurrentStepIndex(0);
+    setTimer(0);
+    setLogs([]);
+    setEvaluation(null);
+    setHasUpdatedTrend(false);
   };
   const handleLog = (type: 'emoji' | 'voice', content: string) => { setLogs(prev => [...prev, { type, content, timestamp: new Date() }]); setClickedLog(content); setTimeout(() => setClickedLog(null), 300); };
   const formatTime = (seconds: number) => { const m = Math.floor(seconds / 60); const s = seconds % 60; return `${m}:${s < 10 ? '0' : ''}${s}`; };
@@ -3040,16 +3033,17 @@ const PageGames = ({
     return (
       <div className="h-full bg-background p-4 overflow-y-auto">
         <div className="sticky top-0 bg-background z-10 pb-2 -mx-4 px-4 pt-2">
-            <div className="relative mb-3"><Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" /><input value={searchText} onChange={(e) => setSearchText(e.target.value)} className="w-full bg-white pl-10 pr-4 py-3 rounded-xl shadow-sm outline-none border border-transparent focus:border-primary/30 transition" placeholder="搜索游戏（如：积木）" /></div>
-            <div className="flex space-x-2 overflow-x-auto pb-2 no-scrollbar">{FILTERS.map(f => (<button key={f} onClick={() => setActiveFilter(f)} className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition border ${activeFilter === f ? 'bg-primary text-white border-primary shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>{f}</button>))}</div>
+          <div className="relative mb-3"><Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" /><input value={searchText} onChange={(e) => setSearchText(e.target.value)} className="w-full bg-white pl-10 pr-4 py-3 rounded-xl shadow-sm outline-none border border-transparent focus:border-primary/30 transition" placeholder="搜索游戏（如：积木）" /></div>
+          <div className="flex space-x-2 overflow-x-auto pb-2 no-scrollbar">{FILTERS.map(f => (<button key={f} onClick={() => setActiveFilter(f)} className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition border ${activeFilter === f ? 'bg-primary text-white border-primary shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>{f}</button>))}</div>
         </div>
         <h3 className="font-bold text-gray-700 mb-3 flex items-center justify-between mt-2"><span>推荐游戏库</span><span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{filteredGames.length} 个结果</span></h3>
         <div className="space-y-4 pb-20">
-          {filteredGames.length > 0 ? (filteredGames.map(game => { 
-            const statusConfig = game.status === 'completed' ? { label: '已完成', cls: 'bg-green-50 text-green-700' } : game.status === 'aborted' ? { label: '已中止', cls: 'bg-red-50 text-red-700' } : { label: '未开始', cls: 'bg-gray-100 text-gray-500' }; 
+          {filteredGames.length > 0 ? (filteredGames.map(game => {
+            const statusConfig = game.status === 'completed' ? { label: '已完成', cls: 'bg-green-50 text-green-700' } : game.status === 'aborted' ? { label: '已中止', cls: 'bg-red-50 text-red-700' } : { label: '未开始', cls: 'bg-gray-100 text-gray-500' };
             // LIST 状态：只显示年月日
-            const dateStr = game.date ? new Date(game.date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''; 
-            return (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><div className="flex items-center space-x-2 shrink-0 ml-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>{dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}</div></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div>); })) : (<div className="text-center py-10 text-gray-400 flex flex-col items-center"><div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><Search className="w-8 h-8 text-gray-300" /></div><p>没有找到匹配的游戏</p><button onClick={() => {setSearchText(''); setActiveFilter('全部')}} className="mt-2 text-primary font-bold text-sm">清除筛选</button></div>)}
+            const dateStr = game.date ? new Date(game.date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '';
+            return (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><div className="flex items-center space-x-2 shrink-0 ml-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>{dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}</div></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div>);
+          })) : (<div className="text-center py-10 text-gray-400 flex flex-col items-center"><div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><Search className="w-8 h-8 text-gray-300" /></div><p>没有找到匹配的游戏</p><button onClick={() => { setSearchText(''); setActiveFilter('全部') }} className="mt-2 text-primary font-bold text-sm">清除筛选</button></div>)}
         </div>
       </div>
     );
@@ -3058,13 +3052,12 @@ const PageGames = ({
   if (gameState === GameState.PLAYING && internalActiveGame) {
     const currentStep = internalActiveGame.steps[currentStepIndex];
     const isLastStep = currentStepIndex === internalActiveGame.steps.length - 1;
-    
+
     return (
       <div className="h-full flex flex-col bg-background">
         <div className="w-full flex flex-col items-center py-4 bg-background z-0 relative">
-          <button onClick={() => { if (window.confirm('确定要结束游戏吗？中途结束将标记为已中止。')) { floorGameStorageService.updateGame(internalActiveGame.id, { status: 'aborted' }); setGameState(GameState.LIST); } }} className="absolute right-4 top-4 text-xs text-red-500 bg-red-50 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100 transition">结束游戏</button>
-          <button 
-            onClick={() => setShowVideoCall(!showVideoCall)} 
+          <button
+            onClick={() => setShowVideoCall(!showVideoCall)}
             className={`absolute left-4 top-4 text-xs px-3 py-1.5 rounded-lg font-bold transition flex items-center ${showVideoCall ? 'text-red-500 bg-red-50 hover:bg-red-100' : 'text-blue-500 bg-blue-50 hover:bg-blue-100'}`}
           >
             <Camera className="w-3 h-3 mr-1" />
@@ -3077,15 +3070,15 @@ const PageGames = ({
           {/* 视频通话组件 */}
           {showVideoCall && (
             <div className="mb-4 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-              <AIVideoCall 
+              <AIVideoCall
                 childProfile={childProfile}
                 gameContext={`当前游戏: ${internalActiveGame.title}\n当前步骤: ${currentStep.instruction}\n互动提示: ${currentStep.guidance}`}
                 onClose={() => setShowVideoCall(false)}
               />
             </div>
           )}
-          
-          <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar"><h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current"/> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
+
+          <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar"><h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current" /> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
         <div className="flex items-center justify-between px-6 py-4 mb-2"><button onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))} disabled={currentStepIndex === 0} className={`flex items-center text-gray-400 font-bold transition px-4 py-3 ${currentStepIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-600'}`}><ChevronLeft className="w-5 h-5 mr-1" /> 上一步</button><div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-xs font-bold text-gray-500 tracking-wide">步骤 {currentStepIndex + 1} / {internalActiveGame.steps.length}</div>{isLastStep ? (<button onClick={() => setGameState(GameState.SUMMARY)} className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 flex items-center hover:bg-green-600 transition transform active:scale-95">完成 <CheckCircle2 className="w-5 h-5 ml-2" /></button>) : (<button onClick={() => setCurrentStepIndex(currentStepIndex + 1)} className="bg-secondary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-secondary/30 flex items-center hover:bg-blue-600 transition transform active:scale-95">下一步 <ChevronRight className="w-5 h-5 ml-1" /></button>)}</div>
         <div className="p-4 bg-white border-t border-gray-100 pb-8 rounded-t-3xl shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 relative"><p className="text-center text-[10px] text-gray-400 mb-3 uppercase tracking-widest font-bold">快速记录当前反应</p><div className="flex justify-between max-w-sm mx-auto mb-3 space-x-2">{[{ icon: Smile, label: '微笑', color: 'text-yellow-600 bg-yellow-100 ring-yellow-300' }, { icon: Eye, label: '眼神', color: 'text-blue-600 bg-blue-100 ring-blue-300' }, { icon: Handshake, label: '互动', color: 'text-green-600 bg-green-100 ring-green-300' }, { icon: Frown, label: '抗拒', color: 'text-red-500 bg-red-100 ring-red-300' }].map((btn, i) => (<button key={i} onClick={() => handleLog('emoji', btn.label)} className={`flex-1 py-3 rounded-xl shadow-sm active:scale-95 transition flex flex-col items-center justify-center ${btn.color} ${clickedLog === btn.label ? 'ring-4 ring-offset-2 scale-110 bg-opacity-100' : ''}`}><btn.icon className="w-5 h-5 mb-1" /><span className="text-[10px] font-bold">{btn.label}</span></button>))}</div><button onMouseDown={() => { setClickedLog('voice'); handleLog('voice', '录音开始...'); }} onMouseUp={() => handleLog('voice', '录音结束')} className={`w-full bg-gray-50 border border-gray-200 py-3 rounded-xl text-gray-600 font-bold flex items-center justify-center shadow-sm active:bg-gray-200 active:scale-98 transition text-sm ${clickedLog === 'voice' ? 'ring-2 ring-gray-300 bg-gray-100' : ''}`}><Mic className="w-4 h-4 mr-2" /> 按住说话 记录观察笔记</button></div>
       </div>
@@ -3094,58 +3087,58 @@ const PageGames = ({
 
   if (gameState === GameState.SUMMARY) {
     // SUMMARY 状态：显示游戏开始时间（年月日 时:分）
-    const gameStartTime = internalActiveGame?.date 
-      ? new Date(internalActiveGame.date).toLocaleString('zh-CN', { 
-          year: 'numeric', 
-          month: '2-digit', 
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        }).replace(/\//g, '-')
-      : new Date().toLocaleString('zh-CN', { 
-          year: 'numeric', 
-          month: '2-digit', 
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        }).replace(/\//g, '-');
-    
+    const gameStartTime = internalActiveGame?.date
+      ? new Date(internalActiveGame.date).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).replace(/\//g, '-')
+      : new Date().toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).replace(/\//g, '-');
+
     return (
       <div className="h-full bg-background p-6 overflow-y-auto">
-         {isAnalyzing ? (
-           <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6 animate-in fade-in duration-700"><div className="relative"><div className="w-20 h-20 border-4 border-gray-200 rounded-full"></div><div className="w-20 h-20 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div><Activity className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-primary w-8 h-8" /></div><div><h2 className="text-xl font-bold text-gray-800">AI 正在复盘互动数据...</h2><p className="text-gray-500 text-sm mt-2">分析眼神接触频率、情绪稳定度及八大兴趣维度</p></div></div>
-         ) : evaluation ? (
-           <div className="animate-in slide-in-from-bottom-10 duration-700 fade-in pb-10">
-              <div className="text-center mb-8"><h2 className="text-2xl font-bold text-gray-800">本次互动评估</h2><p className="text-gray-400 text-xs mt-1">{gameStartTime}</p></div>
-              <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 relative overflow-hidden text-center">
-                  <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"></div>
-                  <div className="mb-2 text-gray-500 font-bold text-sm uppercase tracking-wider">综合互动分</div>
-                  <div className="text-6xl font-black text-gray-800 mb-2 tracking-tighter">{evaluation.score}</div>
-                  <div className="flex justify-center mb-4"><div className="flex space-x-1">{[1,2,3,4,5].map(star => (<div key={star} className={`w-2 h-2 rounded-full ${evaluation.score >= star * 18 ? 'bg-yellow-400' : 'bg-gray-200'}`}></div>))}</div></div>
-                  
-                  {/* New: Score Breakdown */}
-                  <div className="flex justify-center space-x-8 mt-6 border-t border-gray-100 pt-4">
-                    <div className="text-center">
-                        <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">反馈质量</div>
-                        <div className="text-2xl font-bold text-blue-600">{evaluation.feedbackScore || 0}</div>
-                    </div>
-                    <div className="w-px bg-gray-200"></div>
-                    <div className="text-center">
-                        <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">探索广度</div>
-                        <div className="text-2xl font-bold text-purple-600">{evaluation.explorationScore || 0}</div>
-                    </div>
-                  </div>
+        {isAnalyzing ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6 animate-in fade-in duration-700"><div className="relative"><div className="w-20 h-20 border-4 border-gray-200 rounded-full"></div><div className="w-20 h-20 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div><Activity className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-primary w-8 h-8" /></div><div><h2 className="text-xl font-bold text-gray-800">AI 正在复盘互动数据...</h2><p className="text-gray-500 text-sm mt-2">分析眼神接触频率、情绪稳定度及八大兴趣维度</p></div></div>
+        ) : evaluation ? (
+          <div className="animate-in slide-in-from-bottom-10 duration-700 fade-in pb-10">
+            <div className="text-center mb-8"><h2 className="text-2xl font-bold text-gray-800">本次互动评估</h2><p className="text-gray-400 text-xs mt-1">{gameStartTime}</p></div>
+            <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 relative overflow-hidden text-center">
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"></div>
+              <div className="mb-2 text-gray-500 font-bold text-sm uppercase tracking-wider">综合互动分</div>
+              <div className="text-6xl font-black text-gray-800 mb-2 tracking-tighter">{evaluation.score}</div>
+              <div className="flex justify-center mb-4"><div className="flex space-x-1">{[1, 2, 3, 4, 5].map(star => (<div key={star} className={`w-2 h-2 rounded-full ${evaluation.score >= star * 18 ? 'bg-yellow-400' : 'bg-gray-200'}`}></div>))}</div></div>
 
-                  <p className="text-gray-600 text-sm leading-relaxed px-2 mt-4">{evaluation.summary}</p>
+              {/* New: Score Breakdown */}
+              <div className="flex justify-center space-x-8 mt-6 border-t border-gray-100 pt-4">
+                <div className="text-center">
+                  <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">反馈质量</div>
+                  <div className="text-2xl font-bold text-blue-600">{evaluation.feedbackScore || 0}</div>
+                </div>
+                <div className="w-px bg-gray-200"></div>
+                <div className="text-center">
+                  <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">探索广度</div>
+                  <div className="text-2xl font-bold text-purple-600">{evaluation.explorationScore || 0}</div>
+                </div>
               </div>
-              {evaluation.interestAnalysis && evaluation.interestAnalysis.length > 0 && (<div className="bg-white p-5 rounded-2xl shadow-sm mb-6 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center"><Dna className="w-5 h-5 mr-2 text-indigo-500"/> 兴趣探索度分析</h3><div className="space-y-4">{evaluation.interestAnalysis.map((item, idx) => (<div key={idx} className="bg-gray-50 rounded-xl p-3 border border-gray-100"><p className="text-sm font-semibold text-gray-800 mb-2">"{item.behavior}"</p><div className="flex flex-wrap gap-2">{item.matches.map((match, mIdx) => { const config = getDimensionConfig(match.dimension); return (<div key={mIdx} className="flex flex-col"><div className={`flex items-center px-2 py-1 rounded-md text-xs font-bold ${config.color}`}><config.icon className="w-3 h-3 mr-1" />{config.label} {(match.weight * 100).toFixed(0)}%</div></div>) })}</div>{item.matches[0] && (<p className="text-[10px] text-gray-500 mt-2 italic border-t border-gray-200 pt-1">💡 {item.matches[0].reasoning}</p>)}</div>))}</div></div>)}
-              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg mb-6 relative overflow-hidden"><div className="relative z-10"><h3 className="font-bold flex items-center mb-3"><Lightbulb className="w-4 h-4 mr-2 text-yellow-300"/> 下一步建议</h3><p className="text-indigo-100 text-sm leading-relaxed font-medium">{evaluation.suggestion}</p></div><Sparkles className="absolute -right-2 -bottom-2 text-white/10 w-24 h-24 rotate-12" /></div>
-              <div className="bg-white p-4 rounded-2xl shadow-sm mb-20 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center justify-between"><span className="flex items-center"><TrendingUp className="w-4 h-4 mr-2 text-green-500"/> 成长曲线已更新</span><span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">+1 记录</span></h3><div className="h-40 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" /><XAxis dataKey="name" tick={{fontSize: 9, fill: '#9ca3af'}} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 100]} /><Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} /><Line type="monotone" dataKey="engagement" stroke="#10B981" strokeWidth={3} dot={(props: any) => { const isLast = props.index === trendData.length - 1; return (<circle cx={props.cx} cy={props.cy} r={isLast ? 6 : 4} fill={isLast ? "#10B981" : "#fff"} stroke="#10B981" strokeWidth={2} />); }} isAnimationActive={true} /></LineChart></ResponsiveContainer></div></div>
-              <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100"><button onClick={() => { setGameState(GameState.LIST); onBack(); }} className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-gray-800 transition active:scale-95 flex items-center justify-center"><RefreshCw className="w-4 h-4 mr-2" /> 返回游戏库</button></div>
-           </div>
-         ) : (<div className="text-center mt-20 text-gray-400"><p>无法生成评估结果</p><button onClick={() => setGameState(GameState.LIST)} className="mt-4 text-primary">返回</button></div>)}
+
+              <p className="text-gray-600 text-sm leading-relaxed px-2 mt-4">{evaluation.summary}</p>
+            </div>
+            {evaluation.interestAnalysis && evaluation.interestAnalysis.length > 0 && (<div className="bg-white p-5 rounded-2xl shadow-sm mb-6 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center"><Dna className="w-5 h-5 mr-2 text-indigo-500" /> 兴趣探索度分析</h3><div className="space-y-4">{evaluation.interestAnalysis.map((item, idx) => (<div key={idx} className="bg-gray-50 rounded-xl p-3 border border-gray-100"><p className="text-sm font-semibold text-gray-800 mb-2">"{item.behavior}"</p><div className="flex flex-wrap gap-2">{item.matches.map((match, mIdx) => { const config = getDimensionConfig(match.dimension); return (<div key={mIdx} className="flex flex-col"><div className={`flex items-center px-2 py-1 rounded-md text-xs font-bold ${config.color}`}><config.icon className="w-3 h-3 mr-1" />{config.label} {(match.weight * 100).toFixed(0)}%</div></div>) })}</div>{item.matches[0] && (<p className="text-[10px] text-gray-500 mt-2 italic border-t border-gray-200 pt-1">💡 {item.matches[0].reasoning}</p>)}</div>))}</div></div>)}
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg mb-6 relative overflow-hidden"><div className="relative z-10"><h3 className="font-bold flex items-center mb-3"><Lightbulb className="w-4 h-4 mr-2 text-yellow-300" /> 下一步建议</h3><p className="text-indigo-100 text-sm leading-relaxed font-medium">{evaluation.suggestion}</p></div><Sparkles className="absolute -right-2 -bottom-2 text-white/10 w-24 h-24 rotate-12" /></div>
+            <div className="bg-white p-4 rounded-2xl shadow-sm mb-20 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center justify-between"><span className="flex items-center"><TrendingUp className="w-4 h-4 mr-2 text-green-500" /> 成长曲线已更新</span><span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">+1 记录</span></h3><div className="h-40 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" /><XAxis dataKey="name" tick={{ fontSize: 9, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 100]} /><Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} /><Line type="monotone" dataKey="engagement" stroke="#10B981" strokeWidth={3} dot={(props: any) => { const isLast = props.index === trendData.length - 1; return (<circle cx={props.cx} cy={props.cy} r={isLast ? 6 : 4} fill={isLast ? "#10B981" : "#fff"} stroke="#10B981" strokeWidth={2} />); }} isAnimationActive={true} /></LineChart></ResponsiveContainer></div></div>
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100"><button onClick={() => { setGameState(GameState.LIST); onBack(); }} className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-gray-800 transition active:scale-95 flex items-center justify-center"><RefreshCw className="w-4 h-4 mr-2" /> 返回游戏库</button></div>
+          </div>
+        ) : (<div className="text-center mt-20 text-gray-400"><p>无法生成评估结果</p><button onClick={() => setGameState(GameState.LIST)} className="mt-4 text-primary">返回</button></div>)}
       </div>
     );
   }
@@ -3169,12 +3162,13 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>(() => {
     return isFirstTime ? Page.WELCOME : Page.CHAT;
   });
-  
+
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [activeGameId, setActiveGameId] = useState<string | undefined>(undefined);
   const [gameMode, setGameMode] = useState<GameState>(GameState.LIST);
   const [trendData, setTrendData] = useState(INITIAL_TREND_DATA);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false); // 退出互动确认
 
   // 加载真实的儿童档案
   const [childProfile, setChildProfile] = useState<ChildProfile | null>(() => {
@@ -3188,22 +3182,22 @@ export default function App() {
   });
 
   const [interestProfile, setInterestProfile] = useState<UserInterestProfile>(() => {
-    try { const saved = localStorage.getItem('asd_floortime_interests_v1'); if (saved) return JSON.parse(saved); } catch (e) {}
+    try { const saved = localStorage.getItem('asd_floortime_interests_v1'); if (saved) return JSON.parse(saved); } catch (e) { }
     return INITIAL_INTEREST_SCORES;
   });
 
   const [abilityProfile, setAbilityProfile] = useState<UserAbilityProfile>(() => {
-    try { const saved = localStorage.getItem('asd_floortime_abilities_v1'); if (saved) return JSON.parse(saved); } catch (e) {}
+    try { const saved = localStorage.getItem('asd_floortime_abilities_v1'); if (saved) return JSON.parse(saved); } catch (e) { }
     return INITIAL_ABILITY_SCORES;
   });
 
   // *** Serialize Profile Context for Agents ***
   const profileContextString = `
   [当前兴趣画像]
-  ${Object.entries(interestProfile).map(([k,v]) => `${k}: ${v}`).join(', ')}
+  ${Object.entries(interestProfile).map(([k, v]) => `${k}: ${v}`).join(', ')}
   
   [当前能力画像]
-  ${Object.entries(abilityProfile).map(([k,v]) => `${k}: ${v}`).join(', ')}
+  ${Object.entries(abilityProfile).map(([k, v]) => `${k}: ${v}`).join(', ')}
   `;
 
   useEffect(() => { localStorage.setItem('asd_floortime_interests_v1', JSON.stringify(interestProfile)); }, [interestProfile]);
@@ -3221,7 +3215,7 @@ export default function App() {
         };
         behaviorStorageService.saveBehavior(behaviorWithMeta);
       });
-      
+
       // 更新兴趣档案
       setInterestProfile(prev => {
         const next = { ...prev };
@@ -3229,7 +3223,7 @@ export default function App() {
         return next;
       });
     }
-    
+
     if (update.abilityUpdates?.length > 0) {
       setAbilityProfile(prev => {
         const next = { ...prev };
@@ -3240,15 +3234,15 @@ export default function App() {
   };
 
   const handleNavigate = (page: Page) => { setCurrentPage(page); setActiveGameId(undefined); setGameMode(GameState.LIST); };
-  const handleStartGame = (gameId: string) => { 
+  const handleStartGame = (gameId: string) => {
     console.log('[App] handleStartGame 被调用，gameId:', gameId);
-    setActiveGameId(gameId); 
-    setGameMode(GameState.PLAYING); 
+    setActiveGameId(gameId);
+    setGameMode(GameState.PLAYING);
     setCurrentPage(Page.GAMES);
     console.log('[App] 已设置 activeGameId:', gameId, 'gameMode: PLAYING, currentPage: GAMES');
   };
   const handleUpdateTrend = (newScore: number) => { setTrendData(prev => [...prev, { name: '本次', engagement: newScore }]); };
-  
+
   // 计算年龄的辅助函数
   const calculateAge = (birthDate: string): number => {
     const today = new Date();
@@ -3260,11 +3254,11 @@ export default function App() {
     }
     return age;
   };
-  
+
   // 导入报告处理（在档案页面）
   const handleImportReportFromProfile = async (file: File) => {
     const category = fileUploadService.categorizeFile(file);
-    
+
     try {
       if (category === 'image') {
         // 分析图片 - 使用统一的分析 prompt
@@ -3301,7 +3295,7 @@ export default function App() {
       alert('报告分析失败：' + (error instanceof Error ? error.message : '未知错误'));
     }
   };
-  
+
   // 导出报告处理
   const handleExportReport = () => {
     alert('导出报告功能待实现\n\n将生成包含以下内容的PDF报告：\n- 孩子基本信息\n- 兴趣热力图\n- 能力雷达图\n- 互动参与度趋势\n- 行为记录\n- 游戏推荐');
@@ -3311,17 +3305,17 @@ export default function App() {
   // 更新头像
   const handleUpdateAvatar = (avatarUrl: string) => {
     if (!childProfile) return;
-    
+
     const updatedProfile = {
       ...childProfile,
       avatar: avatarUrl
     };
-    
+
     setChildProfile(updatedProfile);
     localStorage.setItem('asd_floortime_child_profile', JSON.stringify(updatedProfile));
     console.log('[App] 头像已更新');
   };
-  
+
   // 欢迎页面完成处理
   const handleWelcomeComplete = async (childInfo: any) => {
     // 保存孩子信息到 localStorage
@@ -3333,62 +3327,74 @@ export default function App() {
       avatar: defaultAvatar,
       createdAt: childInfo.createdAt
     };
-    
+
     localStorage.setItem('asd_floortime_child_profile', JSON.stringify(profile));
     setChildProfile(profile);
-    
+
     // 标记不再是首次使用
     setIsFirstTime(false);
     setCurrentPage(Page.CHAT);
   };
-  
+
   // 退出登录处理（从侧边栏调用）
   const handleLogout = () => {
     setShowLogoutConfirm(true);
   };
-  
+
   const confirmLogout = () => {
     // 清空所有 localStorage 数据
     localStorage.clear();
-    
+
     // 清空所有 sessionStorage 数据
     sessionStorage.clear();
-    
+
     // 重置状态
     setInterestProfile(INITIAL_INTEREST_SCORES);
     setAbilityProfile(INITIAL_ABILITY_SCORES);
     setTrendData(INITIAL_TREND_DATA);
     setIsFirstTime(true);
-    
+
     console.log('[Logout] 已清空所有本地数据');
-    
+
     // 跳转到欢迎页面
     setCurrentPage(Page.WELCOME);
     setSidebarOpen(false);
     setShowLogoutConfirm(false);
   };
-  
+
   const cancelLogout = () => {
     setShowLogoutConfirm(false);
   };
-  
-  const getHeaderTitle = () => { 
-    switch (currentPage) { 
-      case Page.WELCOME: return "欢迎使用"; 
-      case Page.CHAT: return "AI 地板时光助手"; 
-      case Page.CALENDAR: return "游戏计划"; 
-      case Page.PROFILE: return `${childProfile?.name || '孩子'}的档案`; 
-      case Page.GAMES: return "游戏库"; 
-      case Page.BEHAVIORS: return "行为数据"; 
-      case Page.RADAR: return "兴趣雷达图"; 
-      default: return "App"; 
-    } 
+
+  const getHeaderTitle = () => {
+    switch (currentPage) {
+      case Page.WELCOME: return "欢迎使用";
+      case Page.CHAT: return "AI 地板时光助手";
+      case Page.CALENDAR: return "游戏计划";
+      case Page.PROFILE: return `${childProfile?.name || '孩子'}的档案`;
+      case Page.GAMES: return "游戏库";
+      case Page.BEHAVIORS: return "行为数据";
+      case Page.RADAR: return "兴趣雷达图";
+      default: return "App";
+    }
+  };
+
+  const handleExitInteraction = (type: 'report' | 'list') => {
+    if (type === 'report') {
+      setGameMode(GameState.SUMMARY);
+    } else {
+      if (activeGameId) {
+        floorGameStorageService.updateGame(activeGameId, { status: 'aborted' });
+      }
+      setGameMode(GameState.LIST);
+    }
+    setShowExitConfirm(false);
   };
 
   return (
     <div className="max-w-md mx-auto h-screen bg-gray-50 flex flex-col shadow-2xl overflow-hidden relative">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} setPage={handleNavigate} onLogout={handleLogout} childProfile={childProfile} />
-      
+
       {/* 退出登录确认对话框 */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -3400,13 +3406,13 @@ export default function App() {
             <h3 className="text-xl font-bold text-gray-800 text-center mb-2">确定要退出登录吗？</h3>
             <p className="text-gray-600 text-center mb-6">这将清空所有孩子的数据，包括兴趣档案、能力评估和互动记录。</p>
             <div className="flex gap-3">
-              <button 
+              <button
                 onClick={cancelLogout}
                 className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition"
               >
                 取消
               </button>
-              <button 
+              <button
                 onClick={confirmLogout}
                 className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold hover:bg-red-600 transition"
               >
@@ -3416,8 +3422,43 @@ export default function App() {
           </div>
         </div>
       )}
-      
-      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 z-10 sticky top-0"><div className="flex items-center">{currentPage !== Page.CHAT && currentPage !== Page.WELCOME && (<button onClick={() => setCurrentPage(Page.CHAT)} className="mr-3 text-gray-500 hover:text-primary transition"><ChevronLeft className="w-6 h-6" /></button>)}{currentPage === Page.CHAT && (<button onClick={() => setSidebarOpen(true)} className="mr-3 text-gray-700 hover:text-primary transition"><Menu className="w-6 h-6" /></button>)}<h1 className="text-lg font-bold text-gray-800">{getHeaderTitle()}</h1></div>{currentPage === Page.GAMES && gameMode === GameState.PLAYING ? (<button onClick={() => setGameMode(GameState.SUMMARY)} className="text-red-500 font-bold text-sm h-8 flex items-center px-2 rounded hover:bg-red-50 transition">结束</button>) : currentPage !== Page.WELCOME && (<div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden border border-gray-200"><img src={childProfile?.avatar || defaultAvatar} alt="User" /></div>)}</header>
+
+      {/* 退出互动确认对话框 */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowExitConfirm(false)}></div>
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 mx-auto mb-4">
+              <LogOut className="w-6 h-6 text-blue-600" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 text-center mb-2">退出本次互动？</h3>
+            <p className="text-gray-600 text-center mb-6 text-sm">您可以选择生成评估报告以保存记录，或者直接退出本次游戏。</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => handleExitInteraction('report')}
+                className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-green-600 transition flex items-center justify-center"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                生成评估报告并保存
+              </button>
+              <button
+                onClick={() => handleExitInteraction('list')}
+                className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition text-sm"
+              >
+                直接返回列表 (不保存)
+              </button>
+              <button
+                onClick={() => setShowExitConfirm(false)}
+                className="w-full text-gray-400 py-2 font-medium hover:text-gray-600 transition text-xs"
+              >
+                继续游戏
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 z-10 sticky top-0"><div className="flex items-center">{currentPage !== Page.CHAT && currentPage !== Page.WELCOME && (<button onClick={() => setCurrentPage(Page.CHAT)} className="mr-3 text-gray-500 hover:text-primary transition"><ChevronLeft className="w-6 h-6" /></button>)}{currentPage === Page.CHAT && (<button onClick={() => setSidebarOpen(true)} className="mr-3 text-gray-700 hover:text-primary transition"><Menu className="w-6 h-6" /></button>)}<h1 className="text-lg font-bold text-gray-800">{getHeaderTitle()}</h1></div>{currentPage === Page.GAMES && gameMode === GameState.PLAYING ? (<button onClick={() => setShowExitConfirm(true)} className="text-red-500 font-bold text-sm h-8 flex items-center px-2 rounded hover:bg-red-50 transition">退出互动</button>) : currentPage !== Page.WELCOME && (<div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden border border-gray-200"><img src={childProfile?.avatar || defaultAvatar} alt="User" /></div>)}</header>
       <main className="flex-1 overflow-hidden relative">
         {currentPage === Page.WELCOME && <PageWelcome onComplete={handleWelcomeComplete} />}
         {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} childProfile={childProfile} />}
