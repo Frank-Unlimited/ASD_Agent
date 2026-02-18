@@ -2,9 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './utils/clearCache'; // 导入清空缓存工具，使其在 window 对象上可用
-import './services/assessmentTest'; // 导入评估测试
-import './services/ragServiceTest'; // 导入 RAG 测试
-import './utils/seedTestData'; // 导入测试数据工具
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
