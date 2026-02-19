@@ -2123,10 +2123,22 @@ const PageAIChat = ({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="absolute bottom-24 left-0 right-0 px-4 flex justify-center space-x-3 pointer-events-none">
-        <div className="pointer-events-auto flex space-x-3">
-          <button onClick={() => navigateTo(Page.PROFILE)} className="bg-white/95 backdrop-blur shadow-lg px-5 py-2.5 rounded-full text-sm font-semibold text-primary border border-green-100 flex items-center transform active:scale-95 transition"><FileText className="w-4 h-4 mr-2" /> 孩童评估</button>
-          <button onClick={() => navigateTo(Page.GAMES)} className="bg-white/95 backdrop-blur shadow-lg px-5 py-2.5 rounded-full text-sm font-semibold text-secondary border border-blue-100 flex items-center transform active:scale-95 transition"><Gamepad2 className="w-4 h-4 mr-2" /> 地板游戏</button>
+      <div className="absolute bottom-20 left-0 right-0 px-4 flex justify-center space-x-2 pointer-events-none">
+        <div className="pointer-events-auto flex space-x-2 overflow-x-auto no-scrollbar py-2">
+          <button
+            onClick={() => handleSend("根据孩子最近的情况，推荐一个适合今天的地板游戏")}
+            className="bg-white/90 backdrop-blur shadow-sm px-4 py-2 rounded-full text-xs font-bold text-secondary border border-blue-100 flex items-center hover:bg-white hover:shadow-md transition active:scale-95 whitespace-nowrap"
+          >
+            <Sparkles className="w-3 h-3 mr-1.5" />
+            推荐今日互动
+          </button>
+          <button
+            onClick={() => handleSend("请根据今天的互动情况，生成一份综合评估报告")}
+            className="bg-white/90 backdrop-blur shadow-sm px-4 py-2 rounded-full text-xs font-bold text-primary border border-green-100 flex items-center hover:bg-white hover:shadow-md transition active:scale-95 whitespace-nowrap"
+          >
+            <Activity className="w-3 h-3 mr-1.5" />
+            生成评估报告
+          </button>
         </div>
       </div>
 
