@@ -3459,6 +3459,11 @@ export default function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false); // 退出互动确认
 
+  // Abort State in App
+  const [abortTags, setAbortTags] = useState<string[]>([]);
+  const [abortReason, setAbortReason] = useState('');
+  const ABORT_TAGS = ['😐 失去兴趣', '😫 情绪崩溃', '🤯 难度太高', '🦋 注意力分散', '🛑 外部干扰'];
+
   // 加载真实的儿童档案
   const [childProfile, setChildProfile] = useState<ChildProfile | null>(() => {
     try {
@@ -3680,6 +3685,48 @@ export default function App() {
     setShowExitConfirm(false);
   };
 
+  const handleToggleAbortTag = (tag: string) => {
+    setAbortTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  };
+
+  const handleConfirmAbort = () => {
+    if (!activeGameId) return;
+    const floorGame = floorGameStorageService.getGameById(activeGameId);
+    if (!floorGame) return;
+
+    // 构建行为记录
+    const tagsStr = abortTags.length > 0 ? `[${abortTags.join(',')}]` : '';
+    const reasonStr = abortReason ? `- ${abortReason}` : '';
+    const behaviorDesc = `[游戏中止] ${tagsStr} ${reasonStr}`.trim();
+
+
+    // 保存行为
+    const behavior: BehaviorAnalysis = {
+      behavior: behaviorDesc,
+      source: 'GAME',
+      timestamp: new Date().toISOString(),
+      matches: [{
+        dimension: floorGame.goal as any,
+        weight: 1,
+        intensity: -0.5,
+        reasoning: `Game aborted. Tags: ${abortTags.join(',')}. Note: ${abortReason}`
+      }]
+    };
+    behaviorStorageService.saveBehavior(behavior);
+
+    // 退出 (Update game status if possible, or just exit)
+    if (activeGameId) {
+      floorGameStorageService.updateGame(activeGameId, { status: 'aborted' });
+    }
+    setGameMode(GameState.LIST);
+    setShowExitConfirm(false);
+
+    // Reset state
+    setAbortTags([]);
+    setAbortReason('');
+  };
+
+
   return (
     <div className="max-w-md mx-auto h-screen bg-gray-50 flex flex-col shadow-2xl overflow-hidden relative">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} setPage={handleNavigate} onLogout={handleLogout} childProfile={childProfile} />
@@ -3712,36 +3759,61 @@ export default function App() {
         </div>
       )}
 
-      {/* 退出互动确认对话框 */}
+      {/* 退出互动确认对话框 (改造成中止记录弹窗) */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowExitConfirm(false)}></div>
           <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 mx-auto mb-4">
-              <LogOut className="w-6 h-6 text-blue-600" />
+            <div className="text-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">记录中止原因</h3>
+              <p className="text-xs text-gray-500 mt-1">请告诉我们为什么提前结束，帮助 AI 优化推荐</p>
             </div>
-            <h3 className="text-xl font-bold text-gray-800 text-center mb-2">退出本次互动？</h3>
-            <p className="text-gray-600 text-center mb-6 text-sm">您可以选择生成评估报告以保存记录，或者直接退出本次游戏。</p>
-            <div className="flex flex-col gap-3">
+
+            {/* 标签选择 */}
+            <div className="flex flex-wrap gap-2 mb-4 justify-center">
+              {ABORT_TAGS.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => handleToggleAbortTag(tag)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition border ${abortTags.includes(tag) ? 'bg-red-50 text-red-600 border-red-200 shadow-sm' : 'bg-gray-50 text-gray-500 border-gray-100 hover:bg-gray-100'}`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+
+            {/* 备注输入 */}
+            <textarea
+              value={abortReason}
+              onChange={(e) => setAbortReason(e.target.value)}
+              placeholder="其他原因或详细说明（可选）..."
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition mb-4 resize-none h-20"
+            />
+
+            <div className="flex flex-col gap-2">
               <button
-                onClick={() => handleExitInteraction('report')}
-                className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-green-600 transition flex items-center justify-center"
+                onClick={handleConfirmAbort}
+                disabled={abortTags.length === 0 && !abortReason.trim()}
+                className={`w-full py-3 rounded-xl font-bold transition flex items-center justify-center ${abortTags.length === 0 && !abortReason.trim() ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30'}`}
               >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                生成评估报告并保存
+                <LogOut className="w-4 h-4 mr-2" />
+                确认中止并记录
               </button>
-              <button
-                onClick={() => handleExitInteraction('list')}
-                className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition text-sm"
-              >
-                直接返回列表 (不保存)
-              </button>
-              <button
-                onClick={() => setShowExitConfirm(false)}
-                className="w-full text-gray-400 py-2 font-medium hover:text-gray-600 transition text-xs"
-              >
-                继续游戏
-              </button>
+
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => handleExitInteraction('list')}
+                  className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl font-bold hover:bg-gray-200 transition text-xs"
+                >
+                  直接退出 (不保存)
+                </button>
+                <button
+                  onClick={() => setShowExitConfirm(false)}
+                  className="flex-1 text-gray-400 py-2.5 font-medium hover:text-gray-600 transition text-xs"
+                >
+                  取消
+                </button>
+              </div>
             </div>
           </div>
         </div>

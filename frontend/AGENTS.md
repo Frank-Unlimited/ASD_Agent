@@ -60,6 +60,8 @@
 | **行为分析** | `behaviorAnalysisAgent.ts` | 行为描述 | `BehaviorAnalysis` |
 | **综合评估** | `assessmentAgent.ts` | `HistoricalDataSummary` | `ComprehensiveAssessment` |
 | **游戏推荐** | `gameRecommendAgent.ts` | 评估 + 偏好 | `GameRecommendation` |
+| **游戏审查** | `gameReviewAgent.ts` | 游戏方案 + 背景 | 审查意见/反馈 |
+| **联网搜索** | `googleSearchService.ts` / `onlineSearchService.ts` | 关键词 | 网页搜索结果/游戏案例 |
 
 所有 Agent 底层调用 `qwenStreamClient.chat()` (非流式 JSON) 或 `.streamChat()` (流式)。
 
@@ -124,13 +126,13 @@ Step 1: analyze_interest
   规则: 强度≥60 → leverage | 40-59且探索<50 → explore | <40 → avoid
   输出: 8维度分析 + 分类 + 3-5条干预建议
           │
-          ▼ 家长确认维度 + 策略
+          ▼ AI 自动根据分析生成游戏方案
 Step 2: plan_floor_game
-  输入: targetDimensions + strategy + searchResults(联网) + parentPreferences
+  输入: targetDimensions + strategy + searchResults(Google Search) + parentPreferences
   输出: gameTitle + goal + summary + steps[](5-8步)
           │
           ▼
-  存入 floorGameStorage → 可在 Games 页面开始游戏
+  存入 floorGameStorage → 点击“开始游戏”直接进入 (跳过 Step 确认)
 ```
 
 ---
@@ -214,10 +216,12 @@ frontend/src/
 │   ├── chatStorage.ts            聊天记录持久化
 │   ├── assessmentStorage.ts      评估/推荐持久化
 │   ├── reportStorage.ts          医疗报告持久化
+│   ├── imageStorage.ts           多媒体资源存储管理
 │   ├── assessment.ts             统一 re-export 入口
 │   │
 │   ├── fileUpload.ts             文件上传校验
-│   └── multimodalService.ts      图片/视频分析
+│   ├── multimodalService.ts      图片/视频分析
+│   └── stepImageService.ts       游戏步骤配图/视觉增强服务
 │
 ├── prompts/                      Prompt 模板
 │   ├── chatSystemPrompt.ts
@@ -245,6 +249,23 @@ frontend/src/
 ---
 
 ## Recent Updates
+
+### 2026-02-19: 联网搜索集成与核心交互简化
+
+#### 1. 集成 Google Custom Search API
+- **真正的联网**：通过 `googleSearchService.ts` 实现真实网页搜索。
+- **降级保护**：当 API 未配置或超出限额时，自动 fallback 到 LLM 自主搜索。
+
+#### 2. 入场流程极简优化 (App.tsx)
+- **取消确认**：去掉了游戏开始前的“情绪/能量”问答环节。
+- **一键直达**：点击“开始游戏”卡片后 0.8s 直接跳转，提升家长使用效率。
+
+#### 3. 游戏数据哲学调整
+- **移除 `expectedOutcome`**：贯彻 DIR 系统中“过程重于结果”、“随儿而动”的无偏见干预理念。
+
+#### 4. 多模态增强与工具修复
+- **预览发送**：支持“先选图 -> 再打字 -> 合并发送”交互。
+- **正则优化**：解决了连续工具调用时的状态覆盖 Bug (UI 稳定性)。
 
 ### 2026-02-15: 日历页面重构与游戏时间字段改造
 
