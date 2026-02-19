@@ -522,10 +522,6 @@ export const GameRecommendationDetailedSchema = {
         type: 'string',
         description: '详细推荐理由，150-200字，说明为什么这个游戏最适合'
       },
-      expectedOutcome: {
-        type: 'string',
-        description: '预期效果，100字左右，具体可观察的改善'
-      },
       parentGuidance: {
         type: 'string',
         description: '家长指导要点，150字左右，如何引导、注意事项'
@@ -544,7 +540,6 @@ export const GameRecommendationDetailedSchema = {
     required: [
       'game',
       'reason',
-      'expectedOutcome',
       'parentGuidance',
       'adaptationSuggestions'
     ],

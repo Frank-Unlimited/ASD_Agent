@@ -170,7 +170,6 @@ export interface GameRecommendation {
   assessmentId: string; // 关联的评估ID
   game: Game;
   reason: string; // 推荐理由（详细）
-  expectedOutcome: string; // 预期效果
   parentGuidance: string; // 家长指导要点
   adaptationSuggestions: string[]; // 适应性调整建议
 }
@@ -221,7 +220,6 @@ export interface GameImplementationPlan {
   steps: Array<{                     // 游戏步骤
     stepTitle: string;               // 步骤标题，如 "第一步：准备材料"
     instruction: string;             // 详细指令（家长应该做什么）
-    expectedOutcome: string;         // 预期效果（这一步期望达到什么效果）
   }>;
   materials?: string[];               // 所需材料清单
   _analysis?: string;                // LLM 分析总结（可选，用于显示）
@@ -237,7 +235,6 @@ export interface FloorGame {
   steps: Array<{
     stepTitle: string;
     instruction: string;
-    expectedOutcome: string;
   }>;
   materials?: string[];           // 所需材料清单
   _analysis?: string;

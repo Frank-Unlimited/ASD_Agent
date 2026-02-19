@@ -1137,7 +1137,6 @@ const PageAIChat = ({
                     plan.steps.forEach((step) => {
                       fullResponse += `\n**${step.stepTitle}**\n`;
                       fullResponse += `${step.instruction}\n`;
-                      fullResponse += `✨ 预期效果：${step.expectedOutcome}\n`;
                     });
 
                     fullResponse += `\n如果您觉得这个方案合适，我们就可以开始游戏了！\n\n`;
@@ -1150,8 +1149,7 @@ const PageAIChat = ({
                       goal: plan.goal,
                       steps: plan.steps.map(s => ({
                         stepTitle: s.stepTitle,
-                        instruction: s.instruction,
-                        expectedOutcome: s.expectedOutcome
+                        instruction: s.instruction
                       })),
                       materials: plan.materials || [],
                       _analysis: plan._analysis,
@@ -1172,7 +1170,7 @@ const PageAIChat = ({
                       isVR: false,
                       steps: plan.steps.map(s => ({
                         instruction: s.instruction,
-                        guidance: s.expectedOutcome
+                        guidance: s.instruction  // 地板游戏中，指令本身就是指导
                       })),
                       summary: plan.summary,
                       materials: []
@@ -2083,9 +2081,6 @@ const PageAIChat = ({
                             <span className="font-bold text-sm text-gray-800">{step.stepTitle || step.title}</span>
                           </div>
                           <p className="text-xs text-gray-600 mb-1">{step.instruction}</p>
-                          {step.expectedOutcome && (
-                            <p className="text-xs text-green-600 italic">✓ {step.expectedOutcome}</p>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -2889,7 +2884,7 @@ const PageGames = ({
     isVR: fg.isVR,
     steps: fg.steps.map(s => ({
       instruction: s.instruction,
-      guidance: s.expectedOutcome
+      guidance: s.instruction  // 地板游戏中，指令本身就是指导
     })),
     summary: fg.summary,
     materials: [],
@@ -2934,7 +2929,7 @@ const PageGames = ({
           isVR: floorGame.isVR,
           steps: floorGame.steps.map(s => ({
             instruction: s.instruction,
-            guidance: s.expectedOutcome
+            guidance: s.instruction  // 地板游戏中，指令本身就是指导
           })),
           summary: floorGame.summary,
           materials: []
