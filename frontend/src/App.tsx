@@ -752,19 +752,20 @@ const PageAIChat = ({
   };
 
   const startCheckInFlow = (game: Game) => {
-    console.log('[Check-In Flow] 开始游戏流程:', game);
-    console.log('[Check-In Flow] 游戏步骤数:', game.steps?.length);
+    console.log('[Check-In Flow] 直接跳转到游戏页面:', game.title);
 
-    setTargetGameId(game.id);
-
-    setCheckInStep(1);
+    // 直接记录一条 AI 消息并跳转
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role: 'model',
-      text: `太棒了！我们准备开始玩 **${game.title}**。在此之前，为了确保互动效果，请先确认一下：\n\n**1. 孩子现在的情绪怎么样？**`,
-      timestamp: new Date(),
-      options: ["开心/兴奋", "平静/专注", "烦躁/低落"]
+      text: `收到！准备和孩子一起玩 **${game.title}** 吧，正在为您加载...`,
+      timestamp: new Date()
     }]);
+
+    // 延迟一秒跳转，让用户看一眼消息，体验更平滑
+    setTimeout(() => {
+      onStartGame(game.id);
+    }, 800);
   };
 
   const clearPendingFile = () => {
@@ -832,37 +833,7 @@ const PageAIChat = ({
     setMessages(prev => [...prev, userMsg]);
     setInput('');
 
-    if (checkInStep > 0) {
-      if (checkInStep === 1) {
-        setTimeout(() => {
-          setCheckInStep(2);
-          setMessages(prev => [...prev, {
-            id: Date.now().toString(),
-            role: 'model',
-            text: "**2. 那他的能量水平（觉醒度）如何？**",
-            timestamp: new Date(),
-            options: ["低能量", "适中", "高亢/过载"]
-          }]);
-        }, 600);
-        return;
-      }
-      if (checkInStep === 2) {
-        setTimeout(() => {
-          setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "收到，状态确认完毕！正在为您进入游戏页面...", timestamp: new Date() }]);
-          setTimeout(() => {
-            console.log('[Check-In Flow] 准备跳转到游戏页面，gameId:', targetGameId);
-            if (targetGameId) {
-              onStartGame(targetGameId);
-            } else {
-              console.error('[Check-In Flow] targetGameId 为空！');
-            }
-            setCheckInStep(0);
-            setTargetGameId(null);
-          }, 1500);
-        }, 600);
-        return;
-      }
-    }
+    // (原 Check-In Step 拦截逻辑已移除，改为直接直达模式)
 
     setLoading(true);
 
@@ -1627,7 +1598,7 @@ const PageAIChat = ({
         },
         onComplete: (fullText, toolCalls) => {
           console.log('Stream completed:', { fullText, toolCalls });
-          
+
           // 检查是否有文本格式的工具调用（LLM 没有使用标准 Function Calling）
           const toolCallMatch = fullText.match(/:::TOOL_CALL_START:::([\s\S]*?):::TOOL_CALL_END:::/);
           if (toolCallMatch && toolCalls.length === 0) {
@@ -1641,7 +1612,7 @@ const PageAIChat = ({
               console.error('解析文本格式工具调用失败:', e);
             }
           }
-          
+
           setLoading(false);
         },
         onError: (error) => {
@@ -3290,13 +3261,12 @@ const PageGames = ({
                     <h3 className="font-bold text-gray-700 flex items-center">
                       <Activity className="w-5 h-5 mr-2 text-primary" /> AI 专业复盘
                     </h3>
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
-                      gameReview.recommendation === 'continue' ? 'bg-green-100 text-green-700' :
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${gameReview.recommendation === 'continue' ? 'bg-green-100 text-green-700' :
                       gameReview.recommendation === 'adjust' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
+                        'bg-red-100 text-red-700'
+                      }`}>
                       {gameReview.recommendation === 'continue' ? '继续此游戏' :
-                       gameReview.recommendation === 'adjust' ? '建议调整' : '建议避免'}
+                        gameReview.recommendation === 'adjust' ? '建议调整' : '建议避免'}
                     </span>
                   </div>
                   <p className="text-gray-600 text-sm leading-relaxed mb-5">{gameReview.reviewSummary}</p>
