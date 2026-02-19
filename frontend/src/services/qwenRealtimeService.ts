@@ -16,6 +16,25 @@ export interface RealtimeCallbacks {
   onSpeechStopped?: () => void;
 }
 
+export interface ChildInfo {
+  name: string;
+  age?: string;
+  interests?: string[];
+  abilities?: Record<string, string>;
+}
+
+export interface GameInfo {
+  name: string;
+  description?: string;
+  goals?: string[];
+  steps?: string[];
+}
+
+export interface RealtimeInitOptions {
+  childInfo: ChildInfo;
+  gameInfo: GameInfo;
+}
+
 class QwenRealtimeService {
   private ws: WebSocket | null = null;
   private callbacks: RealtimeCallbacks = {};
@@ -30,7 +49,7 @@ class QwenRealtimeService {
   /**
    * 建立连接
    */
-  async connect(callbacks: RealtimeCallbacks): Promise<void> {
+  async connect(callbacks: RealtimeCallbacks, initOptions: RealtimeInitOptions): Promise<void> {
     if (this.isConnected) {
       console.warn('[Qwen Realtime] 已经连接');
       return;
@@ -46,6 +65,14 @@ class QwenRealtimeService {
         this.ws.onopen = () => {
           console.log('[Qwen Realtime] WebSocket 连接已建立');
           this.isConnected = true;
+          
+          // 发送初始化信息
+          console.log('[Qwen Realtime] 发送初始化信息:', initOptions);
+          this.ws!.send(JSON.stringify({
+            type: 'init',
+            childInfo: initOptions.childInfo,
+            gameInfo: initOptions.gameInfo
+          }));
           
           if (this.callbacks.onConnected) {
             this.callbacks.onConnected();
@@ -100,12 +127,16 @@ class QwenRealtimeService {
         case 'connection.opened':
           // Python 后端连接已建立
           break;
-          
-        case 'session.created':
-          console.log('[Qwen Realtime] 会话已创建:', message.session?.id);
+        
+        case 'session.initialized':
+          console.log('[Qwen Realtime] 会话已初始化（包含游戏和孩子信息）');
           if (this.callbacks.onSessionCreated) {
             this.callbacks.onSessionCreated();
           }
+          break;
+          
+        case 'session.created':
+          console.log('[Qwen Realtime] 会话已创建:', message.session?.id);
           break;
           
         case 'session.updated':
