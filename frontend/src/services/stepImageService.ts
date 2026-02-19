@@ -9,8 +9,12 @@ import { imageStorageService } from './imageStorage';
 const API_KEY = import.meta.env.VITE_DASHSCOPE_API_KEY;
 const MODEL = import.meta.env.VITE_IMAGE_GEN_MODEL || 'wanx2.1-t2i-turbo';
 
-const SUBMIT_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis';
-const TASK_URL = 'https://dashscope.aliyuncs.com/api/v1/tasks';
+// 开发环境通过 Vite 代理（/dashscope-api）绕过 CORS，生产环境直接调用
+const DASHSCOPE_BASE = import.meta.env.DEV
+  ? '/dashscope-api'
+  : 'https://dashscope.aliyuncs.com';
+const SUBMIT_URL = `${DASHSCOPE_BASE}/api/v1/services/aigc/text2image/image-synthesis`;
+const TASK_URL = `${DASHSCOPE_BASE}/api/v1/tasks`;
 
 const POLL_INTERVAL = 3000; // 3 秒轮询间隔
 const MAX_POLL_TIME = 120000; // 最多等待 2 分钟
@@ -81,7 +85,11 @@ async function pollTask(taskId: string): Promise<string> {
 }
 
 async function downloadAsDataUrl(imageUrl: string): Promise<string> {
-  const response = await fetch(imageUrl);
+  // 开发环境下所有外部图片通过 /image-proxy/ 中间件下载，避免 CORS
+  const fetchUrl = import.meta.env.DEV
+    ? `/image-proxy/${encodeURIComponent(imageUrl)}`
+    : imageUrl;
+  const response = await fetch(fetchUrl);
   if (!response.ok) throw new Error(`下载图片失败: ${response.status}`);
   const blob = await response.blob();
   return new Promise((resolve, reject) => {
