@@ -12,6 +12,7 @@ export enum Page {
 export enum GameState {
   LIST = 'LIST',
   PLAYING = 'PLAYING',
+  FEEDBACK = 'FEEDBACK',
   SUMMARY = 'SUMMARY'
 }
 
@@ -98,8 +99,8 @@ export interface InterestCategory {
 
 // --- New Types for Interest Analysis Agent ---
 
-export type InterestDimensionType = 
-  | 'Visual' | 'Auditory' | 'Tactile' | 'Motor' 
+export type InterestDimensionType =
+  | 'Visual' | 'Auditory' | 'Tactile' | 'Motor'
   | 'Construction' | 'Order' | 'Cognitive' | 'Social';
 
 // Store accumulated raw scores for Interests
@@ -122,7 +123,7 @@ export interface BehaviorAnalysis {
 
 // --- New Types for Ability/Radar Analysis ---
 
-export type AbilityDimensionType = 
+export type AbilityDimensionType =
   | '自我调节' | '亲密感' | '双向沟通' | '复杂沟通' | '情绪思考' | '逻辑思维';
 
 // Store accumulated scores for Radar Chart (0-100 scale)
@@ -134,7 +135,7 @@ export interface EvaluationResult {
   explorationScore: number; // Exploration/Breadth score
   summary: string;
   suggestion: string;
-  interestAnalysis?: BehaviorAnalysis[]; 
+  interestAnalysis?: BehaviorAnalysis[];
 }
 
 // --- Module Separation Types ---
@@ -175,7 +176,7 @@ export interface GameRecommendation {
 }
 
 // 游戏推荐对话状态
-export type GameRecommendationState = 
+export type GameRecommendationState =
   | 'idle'              // 空闲状态
   | 'discussing'        // 需求探讨阶段
   | 'designing'         // 方案细化阶段

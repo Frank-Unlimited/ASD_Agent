@@ -54,7 +54,10 @@ import {
   Tag,
   Keyboard,
   Package,
-  LogOut
+  LogOut,
+  ClipboardList,
+  MessageSquare,
+  Video
 } from 'lucide-react';
 import {
   Radar,
@@ -2955,6 +2958,29 @@ const PageGames = ({
   const [stepImages, setStepImages] = useState<Map<number, string>>(new Map()); // stepIndex → dataUrl（当前游戏步骤图片）
   const FILTERS = ['全部', '共同注意', '自我调节', '亲密感', '双向沟通', '情绪思考', '创造力'];
 
+  // Feedback State (Moved to top level)
+  const [feedback, setFeedback] = useState('');
+  const [gameVideo, setGameVideo] = useState<File | null>(null);
+  const [isProcessingVideo, setIsProcessingVideo] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmitFeedback = async () => {
+    let videoSummary = '';
+    if (gameVideo) {
+      setIsProcessingVideo(true);
+      try {
+        const result = await multimodalService.parseVideo(gameVideo, "请对这段地板游戏互动视频进行简要复盘，重点关注眼神对视、共享注意和互动质量。");
+        if (result.success) videoSummary = result.content;
+      } catch (e) {
+        console.warn('[Feedback] 视频分析失败，将降级处理:', e);
+      } finally {
+        setIsProcessingVideo(false);
+      }
+    }
+    setGameState(GameState.SUMMARY);
+    performAnalysis(feedback, videoSummary);
+  };
+
   useEffect(() => {
     if (initialGameId && !internalActiveGame) {
       console.log('[Game Page] 初始化游戏，ID:', initialGameId);
@@ -3058,12 +3084,12 @@ const PageGames = ({
     return () => { cancelled = true; };
   }, [internalActiveGame?.id]);
 
-  const performAnalysis = async () => {
+  const performAnalysis = async (userFeedback?: string, videoSummary?: string) => {
     setIsAnalyzing(true);
     try {
       const logsToAnalyze = logs.length > 0 ? logs : [{ type: 'emoji', content: '完成了游戏', timestamp: new Date() } as LogEntry];
 
-      // 格式化聊天记录用于复盘
+      // 格式化聊天记录用于复盘基础
       const chatHistoryText = logsToAnalyze.map(log => {
         const time = log.timestamp instanceof Date ? log.timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
         return `[${time}] ${log.type === 'emoji' ? '快速记录' : '语音记录'}: ${log.content}`;
@@ -3072,12 +3098,13 @@ const PageGames = ({
       // 从 storage 获取完整的 FloorGame 数据
       const floorGame = internalActiveGame?.id ? floorGameStorageService.getGameById(internalActiveGame.id) : null;
 
-      // 并行调用：评估 + 复盘
+      // 并行调用：评估 + 复盘 (现在包含真实家长反馈和视频摘要)
       const evaluationPromise = api.analyzeSession(logsToAnalyze);
       const reviewPromise = floorGame ? reviewFloorGame({
         game: { ...floorGame, status: 'completed', dtend: new Date().toISOString() },
         chatHistory: chatHistoryText,
-        parentFeedback: chatHistoryText
+        videoSummary: videoSummary || '',
+        parentFeedback: userFeedback || chatHistoryText
       }).catch(e => { console.error('[GameReview] 复盘失败:', e); return null; }) : Promise.resolve(null);
 
       const [result, reviewResult] = await Promise.all([evaluationPromise, reviewPromise]);
@@ -3195,12 +3222,89 @@ const PageGames = ({
           )}
 
           <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar">{stepImages.get(currentStepIndex) && (<div className="w-full mb-4 rounded-2xl overflow-hidden shrink-0"><img src={stepImages.get(currentStepIndex)} alt={`步骤 ${currentStepIndex + 1} 插图`} className="w-full h-48 object-cover rounded-2xl" /></div>)}<h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current" /> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
-        <div className="flex items-center justify-between px-6 py-4 mb-2"><button onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))} disabled={currentStepIndex === 0} className={`flex items-center text-gray-400 font-bold transition px-4 py-3 ${currentStepIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-600'}`}><ChevronLeft className="w-5 h-5 mr-1" /> 上一步</button><div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-xs font-bold text-gray-500 tracking-wide">步骤 {currentStepIndex + 1} / {internalActiveGame.steps.length}</div>{isLastStep ? (<button onClick={() => setGameState(GameState.SUMMARY)} className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 flex items-center hover:bg-green-600 transition transform active:scale-95">完成 <CheckCircle2 className="w-5 h-5 ml-2" /></button>) : (<button onClick={() => setCurrentStepIndex(currentStepIndex + 1)} className="bg-secondary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-secondary/30 flex items-center hover:bg-blue-600 transition transform active:scale-95">下一步 <ChevronRight className="w-5 h-5 ml-1" /></button>)}</div>
+        <div className="flex items-center justify-between px-6 py-4 mb-2"><button onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))} disabled={currentStepIndex === 0} className={`flex items-center text-gray-400 font-bold transition px-4 py-3 ${currentStepIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-600'}`}><ChevronLeft className="w-5 h-5 mr-1" /> 上一步</button><div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-xs font-bold text-gray-500 tracking-wide">步骤 {currentStepIndex + 1} / {internalActiveGame.steps.length}</div>{isLastStep ? (<button onClick={() => setGameState(GameState.FEEDBACK)} className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 flex items-center hover:bg-green-600 transition transform active:scale-95">完成 <CheckCircle2 className="w-5 h-5 ml-2" /></button>) : (<button onClick={() => setCurrentStepIndex(currentStepIndex + 1)} className="bg-secondary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-secondary/30 flex items-center hover:bg-blue-600 transition transform active:scale-95">下一步 <ChevronRight className="w-5 h-5 ml-1" /></button>)}</div>
         <div className="p-4 bg-white border-t border-gray-100 pb-8 rounded-t-3xl shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 relative"><p className="text-center text-[10px] text-gray-400 mb-3 uppercase tracking-widest font-bold">快速记录当前反应</p><div className="flex justify-between max-w-sm mx-auto mb-3 space-x-2">{[{ icon: Smile, label: '微笑', color: 'text-yellow-600 bg-yellow-100 ring-yellow-300' }, { icon: Eye, label: '眼神', color: 'text-blue-600 bg-blue-100 ring-blue-300' }, { icon: Handshake, label: '互动', color: 'text-green-600 bg-green-100 ring-green-300' }, { icon: Frown, label: '抗拒', color: 'text-red-500 bg-red-100 ring-red-300' }].map((btn, i) => (<button key={i} onClick={() => handleLog('emoji', btn.label)} className={`flex-1 py-3 rounded-xl shadow-sm active:scale-95 transition flex flex-col items-center justify-center ${btn.color} ${clickedLog === btn.label ? 'ring-4 ring-offset-2 scale-110 bg-opacity-100' : ''}`}><btn.icon className="w-5 h-5 mb-1" /><span className="text-[10px] font-bold">{btn.label}</span></button>))}</div><button onMouseDown={() => { setClickedLog('voice'); handleLog('voice', '录音开始...'); }} onMouseUp={() => handleLog('voice', '录音结束')} className={`w-full bg-gray-50 border border-gray-200 py-3 rounded-xl text-gray-600 font-bold flex items-center justify-center shadow-sm active:bg-gray-200 active:scale-98 transition text-sm ${clickedLog === 'voice' ? 'ring-2 ring-gray-300 bg-gray-100' : ''}`}><Mic className="w-4 h-4 mr-2" /> 按住说话 记录观察笔记</button></div>
       </div>
     );
   }
 
+  if (gameState === GameState.FEEDBACK) {
+    return (
+      <div className="h-full bg-background p-6 flex flex-col pt-12 overflow-y-auto no-scrollbar">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <ClipboardList className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800">互动随手记</h2>
+          <p className="text-gray-500 text-sm mt-2">您的观察对生成专业的 DIR 复盘报告至关重要</p>
+        </div>
+
+        <div className="space-y-6 flex-1">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h3 className="font-bold text-gray-700 mb-3 flex items-center">
+              <MessageSquare className="w-4 h-4 mr-2 text-primary" /> 本次观察建议
+            </h3>
+            <textarea
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              className="w-full bg-gray-50 rounded-xl p-4 text-sm min-h-[120px] focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none transition"
+              placeholder="例如：孩子今天主动发起了 3 次沟通；我们通过玩车建立了良好的循环..."
+            />
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h3 className="font-bold text-gray-700 mb-3 flex items-center">
+              <Camera className="w-4 h-4 mr-2 text-primary" /> 上传互动视频 (可选)
+            </h3>
+            <p className="text-xs text-gray-400 mb-4">分析视频画面中的眼神接触与非言语互动</p>
+
+            <input
+              type="file"
+              ref={videoInputRef}
+              hidden
+              accept="video/*"
+              onChange={(e) => setGameVideo(e.target.files?.[0] || null)}
+            />
+
+            {gameVideo ? (
+              <div className="flex items-center justify-between bg-blue-50 p-4 rounded-xl">
+                <div className="flex items-center">
+                  <Video className="w-5 h-5 text-primary mr-3" />
+                  <div className="max-w-[150px]">
+                    <p className="text-sm font-bold text-gray-800 truncate">{gameVideo.name}</p>
+                    <p className="text-[10px] text-gray-500">{(gameVideo.size / 1024 / 1024).toFixed(1)} MB</p>
+                  </div>
+                </div>
+                <button onClick={() => setGameVideo(null)} className="p-2 text-gray-400 hover:text-red-500"><X className="w-5 h-5" /></button>
+              </div>
+            ) : (
+              <button
+                onClick={() => videoInputRef.current?.click()}
+                className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-8 flex flex-col items-center justify-center hover:bg-gray-50 transition group"
+              >
+                <Upload className="w-8 h-8 text-gray-300 group-hover:text-primary transition mb-2" />
+                <span className="text-sm font-bold text-gray-400 group-hover:text-gray-600">选择视频文件</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-8 pb-10">
+          <button
+            onClick={handleSubmitFeedback}
+            disabled={isProcessingVideo}
+            className={`w-full bg-primary text-white py-4 rounded-xl font-bold shadow-lg shadow-primary/30 flex items-center justify-center transition active:scale-95 ${isProcessingVideo ? 'opacity-70 animate-pulse cursor-wait' : 'hover:bg-green-600'}`}
+          >
+            {isProcessingVideo ? (
+              <>AI 正在分析视频画面...</>
+            ) : (
+              <>提交并生成 AI 复盘报表 <Sparkles className="w-5 h-5 ml-2" /></>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (gameState === GameState.SUMMARY) {
     // SUMMARY 状态：显示游戏开始时间（年月日 时:分）
     const gameStartTime = internalActiveGame?.date
