@@ -1,6 +1,6 @@
 /**
  * Online Search Service - 联网游戏搜索服务
- * 使用 Google Custom Search API 真正从互联网搜索游戏信息
+ * 使用 Google Custom Search API 从互联网搜索游戏信息
  * 然后使用 LLM 解析和结构化搜索结果
  */
 
@@ -56,21 +56,20 @@ export const searchGamesOnline = async (
   try {
     console.log('🌐 开始联网搜索游戏...');
 
-    // 步骤1：使用 Google Search API 真正联网搜索
+    // 使用 Google Search API 联网搜索
     const searchQuery = buildSearchQuery(query);
     console.log('🔍 搜索关键词:', searchQuery);
 
     const searchResults = await googleSearchService.searchAndFormat(searchQuery, 10);
 
     if (!searchResults) {
-      console.warn('⚠️  Google Search 未配置或无结果，尝试使用 LLM 联网搜索');
-      // 降级方案：使用 LLM 的 enable_search
-      return await searchGamesWithLLM(query, childContext, topK);
+      console.warn('⚠️  Google Search 无结果');
+      return [];
     }
 
     console.log('✅ Google Search 返回结果');
 
-    // 步骤2：使用 LLM 解析搜索结果并结构化
+    // 使用 LLM 解析搜索结果并结构化
     const parsePrompt = buildParsePrompt(searchResults, query, childContext);
 
     const response = await qwenStreamClient.chat(
@@ -102,71 +101,6 @@ export const searchGamesOnline = async (
     return [];
   }
 };
-
-/**
- * 降级方案：使用 LLM 的 enable_search 功能
- */
-async function searchGamesWithLLM(
-  query: string,
-  childContext: string,
-  topK: number
-): Promise<Game[]> {
-  try {
-    const prompt = `
-请从互联网搜索适合自闭症儿童的 DIR/Floortime 地板游戏，要求：
-
-【搜索条件】
-${query}
-
-${childContext ? `【儿童情况】\n${childContext}\n` : ''}
-
-【要求】
-1. 搜索适合自闭症儿童的地板游戏、感统游戏、互动游戏
-2. 游戏应该基于 DIR/Floortime 理念
-3. 游戏应该有明确的训练目标
-4. 只需要提供游戏的大致玩法概要，不需要详细步骤
-
-【返回格式】
-请以 JSON 数组格式返回，每个游戏包含：
-- title: 游戏名称
-- target: 训练目标
-- duration: 游戏时长
-- reason: 适合理由
-- summary: 游戏玩法概要（2-3句话）
-- materials: 所需材料列表
-- keyPoints: 3-5个关键要点
-
-请返回 3-5 个游戏。
-`;
-
-    const response = await qwenStreamClient.chat(
-      [
-        {
-          role: 'system',
-          content: `你是一位专业的 DIR/Floortime 游戏设计师。请推荐适合自闭症儿童的地板游戏，并按照指定的 JSON 格式返回。`
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      {
-        temperature: 0.7,
-        max_tokens: 2000,
-        extra_body: {
-          enable_search: true,
-          forced_search: true
-        }
-      }
-    );
-
-    const games = parseGamesFromSearchResult(response);
-    return games.slice(0, topK);
-  } catch (error) {
-    console.error('❌ LLM 联网搜索失败:', error);
-    return [];
-  }
-}
 
 /**
  * 解析搜索结果中的游戏信息
