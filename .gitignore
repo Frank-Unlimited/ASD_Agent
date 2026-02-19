@@ -25,3 +25,6 @@ nul
 **/.env
 **/backend/.env
 **/frontend/.env
+
+# Third-party demos
+alibabacloud-bailian-speech-demo/

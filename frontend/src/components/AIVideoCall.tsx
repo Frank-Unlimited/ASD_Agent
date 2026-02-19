@@ -6,11 +6,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Mic, MicOff, Video, VideoOff, X, Activity, Lightbulb, AlertCircle } from 'lucide-react';
 import { qwenRealtimeService } from '../services/qwenRealtimeService';
-import { ChildProfile } from '../types';
+import { ChildProfile, FloorGame } from '../types';
+import { floorGameStorageService } from '../services/floorGameStorage';
+import { collectVideoCallContext } from '../services/videoCallContextHelper';
 
 interface AIVideoCallProps {
   childProfile: ChildProfile | null;
-  gameContext?: string;
+  gameData?: FloorGame | null; // 改为可选
+  gameId?: string; // 当前游戏的 ID，用于保存聊天记录
   onClose: () => void;
 }
 
@@ -28,16 +31,23 @@ const calculateAge = (birthDate: string): number => {
   return age;
 };
 
-const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, onClose }) => {
+const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameData, gameId, onClose }) => {
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [userTranscript, setUserTranscript] = useState('');
-  const [assistantTranscript, setAssistantTranscript] = useState('');
+  const [userTranscript, setUserTranscript] = useState(''); // 当前用户说的话
+  const [assistantTranscript, setAssistantTranscript] = useState(''); // 当前 AI 说的话
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  
+  // 聊天历史记录（预留，用于后续存储）
+  const conversationHistoryRef = useRef<Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+  }>>([]);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -48,6 +58,8 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
   const audioPlayerRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
   const isPlayingRef = useRef(false);
+  const isMutedRef = useRef(false); // 使用 ref 避免闭包问题
+  const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null); // 当前播放的音频源
   
   /**
    * 启动视频通话
@@ -74,22 +86,10 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
         videoRef.current.srcObject = stream;
       }
       
-      // 3. 准备初始化信息
-      const childInfo = {
-        name: childProfile?.name || '孩子',
-        age: childProfile?.birthDate ? calculateAge(childProfile.birthDate) + '岁' : undefined,
-        diagnosis: childProfile?.diagnosis
-      };
-      
-      const gameInfo = {
-        name: gameContext || '自由游戏',
-        description: '通过视频观察孩子的行为和互动',
-        goals: [
-          '观察孩子的兴趣点',
-          '识别孩子的情绪状态',
-          '提供实时干预建议'
-        ]
-      };
+      // 3. 收集完整的上下文信息
+      console.log('[AI Video Call] 收集上下文信息...');
+      const contextData = await collectVideoCallContext(childProfile, gameData || null);
+      console.log('[AI Video Call] 上下文信息:', contextData);
       
       // 4. 连接到 Qwen-Omni-Realtime（使用官方 Python SDK）
       await qwenRealtimeService.connect({
@@ -120,9 +120,20 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
           stopCall();
         },
         onUserTranscript: (transcript) => {
+          console.log('[AI Video Call] 📝 收到用户转录:', transcript);
+          // 显示用户当前说的话
           setUserTranscript(transcript);
+          
+          // 保存到历史记录
+          conversationHistoryRef.current.push({
+            role: 'user',
+            content: transcript,
+            timestamp: Date.now()
+          });
+          console.log('[AI Video Call] ✅ 用户消息已保存到历史记录，当前总数:', conversationHistoryRef.current.length);
         },
         onAssistantTranscript: (delta) => {
+          // 累积当前这一轮 AI 的回复
           setAssistantTranscript(prev => prev + delta);
           
           // 检查是否包含建议
@@ -141,14 +152,62 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
         },
         onSpeechStarted: () => {
           setIsSpeaking(true);
+          
+          // 用户开始说话，清空当前显示的用户文本（准备显示新的）
+          setUserTranscript('');
+          
+          // 打断 AI：停止当前播放的音频
+          if (currentAudioSourceRef.current) {
+            try {
+              currentAudioSourceRef.current.stop();
+              currentAudioSourceRef.current = null;
+              console.log('[AI Video Call] 用户打断，停止 AI 音频播放');
+            } catch (e) {
+              // 音频可能已经停止，忽略错误
+            }
+          }
+          
+          // 清空音频队列
+          audioQueueRef.current = [];
+          isPlayingRef.current = false;
         },
         onSpeechStopped: () => {
           setIsSpeaking(false);
+        },
+        onResponseStarted: () => {
+          // AI 开始新的回复，清空上一轮的文本和音频
+          console.log('[AI Video Call] AI 开始新的回复，清空上一轮文本和音频');
+          setAssistantTranscript('');
+          
+          // 停止当前播放的音频（如果有）
+          if (currentAudioSourceRef.current) {
+            try {
+              currentAudioSourceRef.current.stop();
+              currentAudioSourceRef.current = null;
+              console.log('[AI Video Call] 停止上一轮 AI 音频播放');
+            } catch (e) {
+              // 音频可能已经停止，忽略错误
+            }
+          }
+          
+          // 清空音频队列，准备播放新的回复
+          audioQueueRef.current = [];
+          isPlayingRef.current = false;
+        },
+        onResponseCompleted: (fullTranscript) => {
+          // AI 回复完成，保存到历史记录
+          if (fullTranscript) {
+            conversationHistoryRef.current.push({
+              role: 'assistant',
+              content: fullTranscript,
+              timestamp: Date.now()
+            });
+            console.log('[AI Video Call] ✅ AI 消息已保存到历史记录，当前总数:', conversationHistoryRef.current.length);
+          } else {
+            console.warn('[AI Video Call] ⚠️  AI 回复完成但文本为空');
+          }
         }
-      }, {
-        childInfo,
-        gameInfo
-      });
+      }, contextData);
       
     } catch (error) {
       console.error('[AI Video Call] 启动失败:', error);
@@ -173,9 +232,15 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
       console.log('[AI Video Call] 音频采集已启动 - 采样率:', audioContextRef.current.sampleRate, 'Hz, 缓冲区:', 4096, '样本 (256ms)');
       
       let packetCount = 0;
+      let isSpeaking = false;
+      let silenceFrames = 0;
+      let speechFrames = 0; // 连续语音帧计数
+      const SPEECH_THRESHOLD = 0.05; // 语音检测阈值
+      const SPEECH_FRAMES_THRESHOLD = 3; // 需要连续 3 帧超过阈值才认为是语音（约 0.75 秒）
+      const SILENCE_FRAMES_THRESHOLD = 4; // 静音帧数阈值（约 1 秒）
       
       processor.onaudioprocess = (e) => {
-        if (!isMuted && qwenRealtimeService.isConnectionActive()) {
+        if (!isMutedRef.current && qwenRealtimeService.isConnectionActive()) {
           const inputData = e.inputBuffer.getChannelData(0);
           
           // 检查是否有真实音频数据（不是全 0）
@@ -186,6 +251,34 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
             if (abs > maxAmplitude) maxAmplitude = abs;
             if (abs > 0.001) {
               hasAudio = true;
+            }
+          }
+          
+          // 改进的 VAD 检测：需要连续多帧超过阈值才认为是语音
+          const isSpeechDetected = maxAmplitude > SPEECH_THRESHOLD;
+          
+          if (isSpeechDetected) {
+            speechFrames++;
+            silenceFrames = 0;
+            
+            // 需要连续多帧超过阈值才触发语音开始
+            if (!isSpeaking && speechFrames >= SPEECH_FRAMES_THRESHOLD) {
+              console.log('[AI Video Call] 🎤 检测到语音开始 (振幅:', maxAmplitude.toFixed(3), ')');
+              qwenRealtimeService.sendMessage({ type: 'speech_start' });
+              isSpeaking = true;
+            }
+          } else {
+            speechFrames = 0; // 重置语音帧计数
+            
+            if (isSpeaking) {
+              silenceFrames++;
+              if (silenceFrames >= SILENCE_FRAMES_THRESHOLD) {
+                console.log('[AI Video Call] 🔇 检测到语音结束，自动提交');
+                qwenRealtimeService.sendMessage({ type: 'speech_end' });
+                qwenRealtimeService.sendMessage({ type: 'commit' });
+                isSpeaking = false;
+                silenceFrames = 0;
+              }
             }
           }
           
@@ -290,20 +383,22 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
       // 绘制当前帧
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      // 转换为 JPEG base64
+      // 转换为 JPEG base64（但不立即发送，等待音频发送时一起发送）
       canvas.toBlob((blob) => {
         if (blob) {
           const reader = new FileReader();
           reader.onloadend = () => {
             const base64 = reader.result as string;
-            // 发送视频帧到服务器
-            qwenRealtimeService.sendImage(base64);
+            // 只有在连接活跃时才发送
+            if (qwenRealtimeService.isConnectionActive()) {
+              qwenRealtimeService.sendImage(base64);
+            }
           };
           reader.readAsDataURL(blob);
         }
-      }, 'image/jpeg', 0.8);
+      }, 'image/jpeg', 0.6); // 降低质量到 0.6，减少数据量
       
-    }, 1000); // 每秒一帧
+    }, 3000); // 改为每3秒一帧，进一步降低频率
   };
   
   /**
@@ -326,8 +421,10 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
     if (!audioPlayerRef.current || audioPlayerRef.current.state === 'closed') {
       try {
         audioPlayerRef.current = new AudioContext({ sampleRate: 24000 });
+        console.log('[AI Video Call] 创建新的 AudioContext');
       } catch (error) {
         console.error('[AI Video Call] 无法创建 AudioContext:', error);
+        isPlayingRef.current = false;
         return;
       }
     }
@@ -337,6 +434,12 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
       if (!audioData) continue;
       
       try {
+        // 再次检查 AudioContext（可能在循环中被关闭）
+        if (!audioPlayerRef.current || audioPlayerRef.current.state === 'closed') {
+          console.warn('[AI Video Call] AudioContext 已关闭，停止播放');
+          break;
+        }
+        
         // 阿里云返回的是 PCM16 格式（16-bit, 24kHz, 单声道）
         const audioBuffer = audioPlayerRef.current.createBuffer(
           1, // 单声道
@@ -359,15 +462,23 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
         const source = audioPlayerRef.current.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioPlayerRef.current.destination);
+        
+        // 保存当前音频源，以便用户打断时停止
+        currentAudioSourceRef.current = source;
+        
         source.start();
         
         // 等待播放完成
         await new Promise(resolve => {
-          source.onended = resolve;
+          source.onended = () => {
+            currentAudioSourceRef.current = null; // 播放完成，清空引用
+            resolve(null);
+          };
         });
         
       } catch (error) {
         console.error('[AI Video Call] 音频播放失败:', error);
+        // 继续处理下一个音频
       }
     }
     
@@ -391,6 +502,33 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
    * 停止通话
    */
   const stopCall = () => {
+    // 保存聊天记录到游戏数据
+    console.log('[AI Video Call] 准备保存聊天记录...');
+    console.log('[AI Video Call] gameId:', gameId);
+    console.log('[AI Video Call] 历史记录数量:', conversationHistoryRef.current.length);
+    console.log('[AI Video Call] 历史记录内容:', conversationHistoryRef.current);
+    
+    if (gameId && conversationHistoryRef.current.length > 0) {
+      try {
+        const chatHistory = JSON.stringify(conversationHistoryRef.current);
+        console.log('[AI Video Call] 序列化后的聊天记录:', chatHistory);
+        
+        floorGameStorageService.updateGame(gameId, {
+          chat_history_in_game: chatHistory
+        });
+        console.log('[AI Video Call] ✅ 聊天记录已保存到游戏数据:', gameId);
+      } catch (error) {
+        console.error('[AI Video Call] ❌ 保存聊天记录失败:', error);
+      }
+    } else {
+      if (!gameId) {
+        console.warn('[AI Video Call] ⚠️  未提供 gameId，无法保存聊天记录');
+      }
+      if (conversationHistoryRef.current.length === 0) {
+        console.warn('[AI Video Call] ⚠️  聊天记录为空，跳过保存');
+      }
+    }
+    
     // 停止帧采集
     if (frameIntervalRef.current) {
       clearInterval(frameIntervalRef.current);
@@ -424,23 +562,42 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({ childProfile, gameContext, on
   };
   
   /**
+   * 获取聊天历史记录（预留接口）
+   * 可用于后续保存到数据库或导出
+   */
+  const getConversationHistory = () => {
+    return conversationHistoryRef.current;
+  };
+  
+  /**
    * 切换静音
    */
   const toggleMute = () => {
-    setIsMuted(!isMuted);
+    setIsMuted(prev => {
+      const newMuted = !prev;
+      isMutedRef.current = newMuted; // 同步更新 ref
+      console.log('[AI Video Call] 麦克风状态切换:', prev ? '静音' : '开启', '->', newMuted ? '静音' : '开启');
+      return newMuted;
+    });
   };
   
   /**
    * 切换视频
    */
   const toggleVideo = () => {
-    setIsVideoEnabled(!isVideoEnabled);
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getVideoTracks().forEach(track => {
-        track.enabled = !isVideoEnabled;
-      });
-    }
+    setIsVideoEnabled(prev => {
+      const newEnabled = !prev;
+      console.log('[AI Video Call] 视频状态切换:', prev ? '开启' : '关闭', '->', newEnabled ? '开启' : '关闭');
+      
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getVideoTracks().forEach(track => {
+          track.enabled = newEnabled;
+        });
+      }
+      
+      return newEnabled;
+    });
   };
   
   /**
