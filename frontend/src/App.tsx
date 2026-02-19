@@ -1567,6 +1567,39 @@ const PageAIChat = ({
         },
         onComplete: (fullText, toolCalls) => {
           console.log('Stream completed:', { fullText, toolCalls });
+          
+          // 检查是否有文本格式的工具调用（LLM 没有使用标准 Function Calling）
+          const toolCallMatch = fullText.match(/:::TOOL_CALL_START:::([\s\S]*?):::TOOL_CALL_END:::/);
+          if (toolCallMatch && toolCalls.length === 0) {
+            console.warn('⚠️  检测到文本格式的工具调用，但 toolCalls 为空。LLM 可能没有正确使用 Function Calling。');
+            try {
+              const toolData = JSON.parse(toolCallMatch[1]);
+              console.log('解析到的工具调用:', toolData);
+              
+              // 手动触发工具调用处理
+              if (toolData.tool && toolData.params) {
+                const mockToolCall = {
+                  id: `manual_${Date.now()}`,
+                  type: 'function' as const,
+                  function: {
+                    name: toolData.tool,
+                    arguments: JSON.stringify(toolData.params)
+                  }
+                };
+                console.log('手动触发工具调用:', mockToolCall);
+                
+                // 重新触发 onToolCall 处理
+                // 注意：这里需要异步处理，因为 onComplete 已经在流结束后调用
+                setTimeout(() => {
+                  // 这里可以添加手动处理逻辑，但更好的方案是修复 LLM 配置
+                  console.error('❌ LLM 返回了文本格式的工具调用，而不是标准的 Function Calling。请检查 tools 配置。');
+                }, 0);
+              }
+            } catch (e) {
+              console.error('解析文本格式工具调用失败:', e);
+            }
+          }
+          
           setLoading(false);
         },
         onError: (error) => {

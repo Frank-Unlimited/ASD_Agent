@@ -111,6 +111,13 @@ class QwenStreamClient {
         Object.assign(fullRequest, extra_body);
       }
 
+      console.log('[Qwen Stream] Request:', {
+        model: fullRequest.model,
+        hasTools: !!fullRequest.tools,
+        toolCount: fullRequest.tools?.length || 0,
+        toolChoice: fullRequest.tool_choice
+      });
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
