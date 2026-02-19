@@ -237,15 +237,10 @@ export interface GameReviewScores {
 }
 
 export interface GameReviewResult {
-  overallSummary: string;       // 总体复盘 200-300字
-  highlights: string[];         // 亮点 2-4条
-  challenges: string[];         // 挑战 1-3条
-  scores: GameReviewScores;     // 6维打分
-  overallScore: number;         // 综合得分 0-100
+  reviewSummary: string;        // 游戏过程总结与复盘
+  scores: GameReviewScores;     // 多维度打分
   recommendation: 'continue' | 'adjust' | 'avoid';
-  recommendationReason: string; // 建议理由 100-150字
-  improvements: string[];       // 改进建议 2-4条
-  nextGameSuggestion: string;   // 下次游戏建议 50-100字
+  nextStepSuggestion: string;   // 下一步建议（含改进方向和理由）
 }
 
 export interface FloorGame {

@@ -555,106 +555,35 @@ export const GameReviewSchema = {
   schema: {
     type: 'object',
     properties: {
-      overallSummary: {
+      reviewSummary: {
         type: 'string',
-        description: '总体复盘，200-300字，从 DIR/Floortime 视角分析本次游戏互动'
-      },
-      highlights: {
-        type: 'array',
-        description: '亮点，2-4条',
-        items: { type: 'string' },
-        minItems: 2,
-        maxItems: 4
-      },
-      challenges: {
-        type: 'array',
-        description: '挑战，1-3条',
-        items: { type: 'string' },
-        minItems: 1,
-        maxItems: 3
+        description: '游戏过程总结与复盘，200-400字，从 DIR/Floortime 视角回顾本次游戏互动过程、孩子表现、亲子互动质量'
       },
       scores: {
         type: 'object',
-        description: '6维打分',
+        description: '多维度打分，每个维度 0-100',
         properties: {
-          childEngagement: {
-            type: 'number',
-            description: '孩子参与度/配合度 0-100',
-            minimum: 0,
-            maximum: 100
-          },
-          gameCompletion: {
-            type: 'number',
-            description: '游戏完成度 0-100',
-            minimum: 0,
-            maximum: 100
-          },
-          emotionalConnection: {
-            type: 'number',
-            description: '情感连接质量 0-100',
-            minimum: 0,
-            maximum: 100
-          },
-          communicationLevel: {
-            type: 'number',
-            description: '沟通互动水平 0-100',
-            minimum: 0,
-            maximum: 100
-          },
-          skillProgress: {
-            type: 'number',
-            description: '目标能力进步 0-100',
-            minimum: 0,
-            maximum: 100
-          },
-          parentExecution: {
-            type: 'number',
-            description: '家长执行质量 0-100',
-            minimum: 0,
-            maximum: 100
-          }
+          childEngagement: { type: 'number', description: '孩子参与度/配合度', minimum: 0, maximum: 100 },
+          gameCompletion: { type: 'number', description: '游戏完成度', minimum: 0, maximum: 100 },
+          emotionalConnection: { type: 'number', description: '情感连接质量', minimum: 0, maximum: 100 },
+          communicationLevel: { type: 'number', description: '沟通互动水平', minimum: 0, maximum: 100 },
+          skillProgress: { type: 'number', description: '目标能力进步', minimum: 0, maximum: 100 },
+          parentExecution: { type: 'number', description: '家长执行质量', minimum: 0, maximum: 100 }
         },
         required: ['childEngagement', 'gameCompletion', 'emotionalConnection', 'communicationLevel', 'skillProgress', 'parentExecution'],
         additionalProperties: false
       },
-      overallScore: {
-        type: 'number',
-        description: '综合得分 0-100',
-        minimum: 0,
-        maximum: 100
-      },
       recommendation: {
         type: 'string',
         enum: ['continue', 'adjust', 'avoid'],
-        description: '建议：continue(继续此游戏)、adjust(调整后再玩)、avoid(避免此游戏)'
+        description: '建议：continue(继续此类游戏)、adjust(调整后再玩)、avoid(避免此类游戏)'
       },
-      recommendationReason: {
+      nextStepSuggestion: {
         type: 'string',
-        description: '建议理由，100-150字'
-      },
-      improvements: {
-        type: 'array',
-        description: '改进建议，2-4条',
-        items: { type: 'string' },
-        minItems: 2,
-        maxItems: 4
-      },
-      nextGameSuggestion: {
-        type: 'string',
-        description: '下次游戏建议，50-100字'
+        description: '下一步建议，200-300字，包含：是否继续此类游戏的理由、需要改进的方面、未来干预方向'
       }
     },
-    required: [
-      'overallSummary',
-      'highlights',
-      'challenges',
-      'scores',
-      'overallScore',
-      'recommendation',
-      'recommendationReason',
-      'improvements',
-      'nextGameSuggestion'
-    ],
+    required: ['reviewSummary', 'scores', 'recommendation', 'nextStepSuggestion'],
     additionalProperties: false
   }
 };

@@ -54,8 +54,7 @@ import {
   Tag,
   Keyboard,
   Package,
-  LogOut,
-  AlertCircle
+  LogOut
 } from 'lucide-react';
 import {
   Radar,
@@ -3239,13 +3238,13 @@ const PageGames = ({
             {/* AI 专业复盘 */}
             {gameReview && (
               <div className="space-y-4 mb-6">
-                {/* 综合得分 + recommendation 标签 */}
+                {/* 复盘总结 + 推荐标签 */}
                 <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-gray-700 flex items-center">
                       <Activity className="w-5 h-5 mr-2 text-primary" /> AI 专业复盘
                     </h3>
-                    <span className={`text-xs px-3 py-1 rounded-full font-bold ${
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
                       gameReview.recommendation === 'continue' ? 'bg-green-100 text-green-700' :
                       gameReview.recommendation === 'adjust' ? 'bg-yellow-100 text-yellow-700' :
                       'bg-red-100 text-red-700'
@@ -3254,25 +3253,17 @@ const PageGames = ({
                        gameReview.recommendation === 'adjust' ? '建议调整' : '建议避免'}
                     </span>
                   </div>
-                  <div className="text-center mb-4">
-                    <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">复盘综合得分</div>
-                    <div className="text-5xl font-black text-gray-800">{gameReview.overallScore}</div>
-                  </div>
-                  <p className="text-gray-600 text-sm leading-relaxed">{gameReview.overallSummary}</p>
-                </div>
-
-                {/* 6维度打分进度条 */}
-                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
-                  <h3 className="font-bold text-gray-700 mb-4">多维度评分</h3>
-                  <div className="space-y-3">
-                    {[
-                      { key: 'childEngagement', label: '孩子参与度', color: 'bg-green-500' },
+                  <p className="text-gray-600 text-sm leading-relaxed mb-5">{gameReview.reviewSummary}</p>
+                  {/* 多维度打分 */}
+                  <div className="space-y-2.5">
+                    {([
+                      { key: 'childEngagement', label: '孩子配合度', color: 'bg-green-500' },
                       { key: 'gameCompletion', label: '游戏完成度', color: 'bg-blue-500' },
                       { key: 'emotionalConnection', label: '情感连接', color: 'bg-pink-500' },
                       { key: 'communicationLevel', label: '沟通互动', color: 'bg-purple-500' },
                       { key: 'skillProgress', label: '能力进步', color: 'bg-yellow-500' },
                       { key: 'parentExecution', label: '家长执行', color: 'bg-indigo-500' }
-                    ].map(dim => {
+                    ] as const).map(dim => {
                       const score = gameReview.scores[dim.key as keyof typeof gameReview.scores];
                       return (
                         <div key={dim.key}>
@@ -3289,62 +3280,13 @@ const PageGames = ({
                   </div>
                 </div>
 
-                {/* 亮点 */}
-                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
-                  <h3 className="font-bold text-gray-700 mb-3 flex items-center">
-                    <Sparkles className="w-4 h-4 mr-2 text-yellow-500" /> 亮点
-                  </h3>
-                  <ul className="space-y-2">
-                    {gameReview.highlights.map((h, i) => (
-                      <li key={i} className="flex items-start text-sm text-gray-600">
-                        <span className="text-green-500 mr-2 mt-0.5 shrink-0">✓</span>
-                        <span>{h}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* 挑战 */}
-                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
-                  <h3 className="font-bold text-gray-700 mb-3 flex items-center">
-                    <AlertCircle className="w-4 h-4 mr-2 text-orange-500" /> 挑战
-                  </h3>
-                  <ul className="space-y-2">
-                    {gameReview.challenges.map((c, i) => (
-                      <li key={i} className="flex items-start text-sm text-gray-600">
-                        <span className="text-orange-500 mr-2 mt-0.5 shrink-0">!</span>
-                        <span>{c}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* 改进建议 */}
-                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
-                  <h3 className="font-bold text-gray-700 mb-3 flex items-center">
-                    <TrendingUp className="w-4 h-4 mr-2 text-blue-500" /> 改进建议
-                  </h3>
-                  <ul className="space-y-2">
-                    {gameReview.improvements.map((imp, i) => (
-                      <li key={i} className="flex items-start text-sm text-gray-600">
-                        <span className="text-blue-500 mr-2 mt-0.5 shrink-0">{i + 1}.</span>
-                        <span>{imp}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* 建议理由 + 下次游戏建议 */}
+                {/* 下一步建议 */}
                 <div className="bg-gradient-to-br from-teal-500 to-emerald-600 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden">
                   <div className="relative z-10">
-                    <h3 className="font-bold flex items-center mb-2">
-                      <Lightbulb className="w-4 h-4 mr-2 text-yellow-300" /> 建议理由
+                    <h3 className="font-bold flex items-center mb-3">
+                      <Lightbulb className="w-4 h-4 mr-2 text-yellow-300" /> 下一步建议
                     </h3>
-                    <p className="text-teal-100 text-sm leading-relaxed mb-4">{gameReview.recommendationReason}</p>
-                    <div className="border-t border-white/20 pt-3">
-                      <h4 className="font-bold text-sm mb-1">下次游戏方向</h4>
-                      <p className="text-teal-100 text-sm leading-relaxed">{gameReview.nextGameSuggestion}</p>
-                    </div>
+                    <p className="text-teal-100 text-sm leading-relaxed">{gameReview.nextStepSuggestion}</p>
                   </div>
                 </div>
               </div>

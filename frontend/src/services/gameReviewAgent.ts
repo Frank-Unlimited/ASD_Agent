@@ -55,7 +55,7 @@ export async function reviewFloorGame(params: {
     ],
     {
       temperature: 0.7,
-      max_tokens: 4000,
+      max_tokens: 3000,
       response_format: {
         type: 'json_schema',
         json_schema: GameReviewSchema
@@ -74,44 +74,36 @@ export async function reviewFloorGame(params: {
     throw new Error('无法解析复盘结果，请重试');
   }
 
-  // 处理数组响应
   if (Array.isArray(data)) {
     data = data[0];
   }
 
-  // 检查是否返回了 Schema 定义
   if (data.type === 'object' && data.properties && data.required) {
     console.error('[GameReview] LLM 返回了 Schema 定义而不是数据！');
     throw new Error('LLM 返回了 Schema 定义而不是实际数据，请再试一次');
   }
 
   // 验证必需字段
-  const requiredFields = ['overallSummary', 'highlights', 'challenges', 'scores', 'overallScore', 'recommendation', 'recommendationReason', 'improvements', 'nextGameSuggestion'];
+  const requiredFields = ['reviewSummary', 'scores', 'recommendation', 'nextStepSuggestion'];
   const missingFields = requiredFields.filter(field => !(field in data));
-
   if (missingFields.length > 0) {
     console.error('[GameReview] 缺少必需字段:', missingFields);
     throw new Error(`复盘数据不完整，缺少字段: ${missingFields.join(', ')}`);
   }
 
-  // 构建结果
+  const clamp = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
   const review: GameReviewResult = {
-    overallSummary: data.overallSummary,
-    highlights: data.highlights,
-    challenges: data.challenges,
+    reviewSummary: data.reviewSummary,
     scores: {
-      childEngagement: clampScore(data.scores.childEngagement),
-      gameCompletion: clampScore(data.scores.gameCompletion),
-      emotionalConnection: clampScore(data.scores.emotionalConnection),
-      communicationLevel: clampScore(data.scores.communicationLevel),
-      skillProgress: clampScore(data.scores.skillProgress),
-      parentExecution: clampScore(data.scores.parentExecution)
+      childEngagement: clamp(data.scores.childEngagement),
+      gameCompletion: clamp(data.scores.gameCompletion),
+      emotionalConnection: clamp(data.scores.emotionalConnection),
+      communicationLevel: clamp(data.scores.communicationLevel),
+      skillProgress: clamp(data.scores.skillProgress),
+      parentExecution: clamp(data.scores.parentExecution)
     },
-    overallScore: clampScore(data.overallScore),
     recommendation: data.recommendation,
-    recommendationReason: data.recommendationReason,
-    improvements: data.improvements,
-    nextGameSuggestion: data.nextGameSuggestion
+    nextStepSuggestion: data.nextStepSuggestion
   };
 
   console.log('[GameReview] 复盘结果:', review);
@@ -125,8 +117,4 @@ export async function reviewFloorGame(params: {
   }
 
   return review;
-}
-
-function clampScore(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
 }
