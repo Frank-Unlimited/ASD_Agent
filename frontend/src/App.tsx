@@ -1572,6 +1572,7 @@ const PageAIChat = ({
           const toolCallMatch = fullText.match(/:::TOOL_CALL_START:::([\s\S]*?):::TOOL_CALL_END:::/);
           if (toolCallMatch && toolCalls.length === 0) {
             console.warn('⚠️  检测到文本格式的工具调用，但 toolCalls 为空。LLM 可能没有正确使用 Function Calling。');
+            console.warn('⚠️  尝试手动触发工具调用...');
             try {
               const toolData = JSON.parse(toolCallMatch[1]);
               console.log('解析到的工具调用:', toolData);
@@ -1588,12 +1589,21 @@ const PageAIChat = ({
                 };
                 console.log('手动触发工具调用:', mockToolCall);
                 
-                // 重新触发 onToolCall 处理
-                // 注意：这里需要异步处理，因为 onComplete 已经在流结束后调用
+                // 手动触发 onToolCall 回调
+                // 注意：需要在下一个事件循环中执行，避免状态冲突
                 setTimeout(() => {
-                  // 这里可以添加手动处理逻辑，但更好的方案是修复 LLM 配置
-                  console.error('❌ LLM 返回了文本格式的工具调用，而不是标准的 Function Calling。请检查 tools 配置。');
-                }, 0);
+                  // 获取 onToolCall 回调的引用
+                  const onToolCallHandler = (callbacks as any).onToolCall;
+                  if (onToolCallHandler) {
+                    console.log('✓ 手动执行 onToolCall 回调');
+                    onToolCallHandler(mockToolCall);
+                  } else {
+                    console.error('❌ 无法找到 onToolCall 回调');
+                  }
+                }, 100);
+                
+                // 不要立即设置 loading = false，等工具调用完成
+                return;
               }
             } catch (e) {
               console.error('解析文本格式工具调用失败:', e);
