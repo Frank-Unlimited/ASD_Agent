@@ -370,14 +370,17 @@ export const sendQwenMessage = async (
       }
     ];
 
-    // 流式调用，支持 Function Calling
+    // 流式调用，支持 Function Calling 和联网搜索
     await qwenStreamClient.streamChat(
       {
         messages,
         temperature: 0.8,
         max_tokens: 2000,
         tools: ChatTools,
-        tool_choice: 'auto'
+        tool_choice: 'auto',
+        extra_body: {
+          enable_search: true
+        }
       },
       callbacks
     );

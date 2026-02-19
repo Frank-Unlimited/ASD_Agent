@@ -37,6 +37,8 @@ interface QwenStreamRequest {
       strict?: boolean;
     };
   };
+  enable_search?: boolean;
+  forced_search?: boolean;
 }
 
 interface StreamChunk {
@@ -86,16 +88,28 @@ class QwenStreamClient {
    * 流式调用 Qwen API
    */
   async streamChat(
-    request: Omit<QwenStreamRequest, 'stream' | 'model'>,
+    request: Omit<QwenStreamRequest, 'stream' | 'model'> & {
+      extra_body?: {
+        enable_search?: boolean;
+        forced_search?: boolean;
+      };
+    },
     callbacks: StreamCallbacks
   ): Promise<void> {
     try {
+      const { extra_body, ...restRequest } = request;
+      
       const fullRequest: QwenStreamRequest = {
         model: this.model,
         stream: true,
         modalities: ['text'], // 仅输出文本模态
-        ...request
+        ...restRequest
       };
+
+      // 添加 extra_body 参数（联网搜索等）
+      if (extra_body) {
+        Object.assign(fullRequest, extra_body);
+      }
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
