@@ -54,7 +54,8 @@ import {
   Tag,
   Keyboard,
   Package,
-  LogOut
+  LogOut,
+  AlertCircle
 } from 'lucide-react';
 import {
   Radar,
@@ -70,7 +71,7 @@ import {
   CartesianGrid,
   Tooltip
 } from 'recharts';
-import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame } from './types';
+import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult } from './types';
 import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
@@ -78,6 +79,7 @@ import { speechService } from './services/speechService';
 import { reportStorageService } from './services/reportStorage';
 import { behaviorStorageService } from './services/behaviorStorage';
 import { floorGameStorageService } from './services/floorGameStorage';
+import { reviewFloorGame } from './services/gameReviewAgent';
 import { chatStorageService } from './services/chatStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
@@ -2928,6 +2930,7 @@ const PageGames = ({
   const [clickedLog, setClickedLog] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
+  const [gameReview, setGameReview] = useState<GameReviewResult | null>(null);
   const [hasUpdatedTrend, setHasUpdatedTrend] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('全部');
@@ -3044,9 +3047,30 @@ const PageGames = ({
     try {
       const logsToAnalyze = logs.length > 0 ? logs : [{ type: 'emoji', content: '完成了游戏', timestamp: new Date() } as LogEntry];
 
-      // *** Evaluation Agent Call (Session) ***
-      const result = await api.analyzeSession(logsToAnalyze);
+      // 格式化聊天记录用于复盘
+      const chatHistoryText = logsToAnalyze.map(log => {
+        const time = log.timestamp instanceof Date ? log.timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
+        return `[${time}] ${log.type === 'emoji' ? '快速记录' : '语音记录'}: ${log.content}`;
+      }).join('\n');
+
+      // 从 storage 获取完整的 FloorGame 数据
+      const floorGame = internalActiveGame?.id ? floorGameStorageService.getGameById(internalActiveGame.id) : null;
+
+      // 并行调用：评估 + 复盘
+      const evaluationPromise = api.analyzeSession(logsToAnalyze);
+      const reviewPromise = floorGame ? reviewFloorGame({
+        game: { ...floorGame, status: 'completed', dtend: new Date().toISOString() },
+        chatHistory: chatHistoryText,
+        parentFeedback: chatHistoryText
+      }).catch(e => { console.error('[GameReview] 复盘失败:', e); return null; }) : Promise.resolve(null);
+
+      const [result, reviewResult] = await Promise.all([evaluationPromise, reviewPromise]);
+
       setEvaluation(result);
+      if (reviewResult) {
+        setGameReview(reviewResult);
+        console.log('[GameReview] 复盘完成，综合得分:', reviewResult.overallScore);
+      }
 
       // 将评估结果写入 FloorGame 记录
       if (internalActiveGame?.id) {
@@ -3093,6 +3117,7 @@ const PageGames = ({
     setTimer(0);
     setLogs([]);
     setEvaluation(null);
+    setGameReview(null);
     setHasUpdatedTrend(false);
   };
   const handleLog = (type: 'emoji' | 'voice', content: string) => { setLogs(prev => [...prev, { type, content, timestamp: new Date() }]); setClickedLog(content); setTimeout(() => setClickedLog(null), 300); };
@@ -3210,6 +3235,121 @@ const PageGames = ({
             </div>
             {evaluation.interestAnalysis && evaluation.interestAnalysis.length > 0 && (<div className="bg-white p-5 rounded-2xl shadow-sm mb-6 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center"><Dna className="w-5 h-5 mr-2 text-indigo-500" /> 兴趣探索度分析</h3><div className="space-y-4">{evaluation.interestAnalysis.map((item, idx) => (<div key={idx} className="bg-gray-50 rounded-xl p-3 border border-gray-100"><p className="text-sm font-semibold text-gray-800 mb-2">"{item.behavior}"</p><div className="flex flex-wrap gap-2">{item.matches.map((match, mIdx) => { const config = getDimensionConfig(match.dimension); return (<div key={mIdx} className="flex flex-col"><div className={`flex items-center px-2 py-1 rounded-md text-xs font-bold ${config.color}`}><config.icon className="w-3 h-3 mr-1" />{config.label} {(match.weight * 100).toFixed(0)}%</div></div>) })}</div>{item.matches[0] && (<p className="text-[10px] text-gray-500 mt-2 italic border-t border-gray-200 pt-1">💡 {item.matches[0].reasoning}</p>)}</div>))}</div></div>)}
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg mb-6 relative overflow-hidden"><div className="relative z-10"><h3 className="font-bold flex items-center mb-3"><Lightbulb className="w-4 h-4 mr-2 text-yellow-300" /> 下一步建议</h3><p className="text-indigo-100 text-sm leading-relaxed font-medium">{evaluation.suggestion}</p></div><Sparkles className="absolute -right-2 -bottom-2 text-white/10 w-24 h-24 rotate-12" /></div>
+
+            {/* AI 专业复盘 */}
+            {gameReview && (
+              <div className="space-y-4 mb-6">
+                {/* 综合得分 + recommendation 标签 */}
+                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-700 flex items-center">
+                      <Activity className="w-5 h-5 mr-2 text-primary" /> AI 专业复盘
+                    </h3>
+                    <span className={`text-xs px-3 py-1 rounded-full font-bold ${
+                      gameReview.recommendation === 'continue' ? 'bg-green-100 text-green-700' :
+                      gameReview.recommendation === 'adjust' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {gameReview.recommendation === 'continue' ? '继续此游戏' :
+                       gameReview.recommendation === 'adjust' ? '建议调整' : '建议避免'}
+                    </span>
+                  </div>
+                  <div className="text-center mb-4">
+                    <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">复盘综合得分</div>
+                    <div className="text-5xl font-black text-gray-800">{gameReview.overallScore}</div>
+                  </div>
+                  <p className="text-gray-600 text-sm leading-relaxed">{gameReview.overallSummary}</p>
+                </div>
+
+                {/* 6维度打分进度条 */}
+                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+                  <h3 className="font-bold text-gray-700 mb-4">多维度评分</h3>
+                  <div className="space-y-3">
+                    {[
+                      { key: 'childEngagement', label: '孩子参与度', color: 'bg-green-500' },
+                      { key: 'gameCompletion', label: '游戏完成度', color: 'bg-blue-500' },
+                      { key: 'emotionalConnection', label: '情感连接', color: 'bg-pink-500' },
+                      { key: 'communicationLevel', label: '沟通互动', color: 'bg-purple-500' },
+                      { key: 'skillProgress', label: '能力进步', color: 'bg-yellow-500' },
+                      { key: 'parentExecution', label: '家长执行', color: 'bg-indigo-500' }
+                    ].map(dim => {
+                      const score = gameReview.scores[dim.key as keyof typeof gameReview.scores];
+                      return (
+                        <div key={dim.key}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-bold text-gray-600">{dim.label}</span>
+                            <span className="text-xs font-bold text-gray-800">{score}</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2">
+                            <div className={`${dim.color} h-2 rounded-full transition-all duration-700`} style={{ width: `${score}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 亮点 */}
+                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+                  <h3 className="font-bold text-gray-700 mb-3 flex items-center">
+                    <Sparkles className="w-4 h-4 mr-2 text-yellow-500" /> 亮点
+                  </h3>
+                  <ul className="space-y-2">
+                    {gameReview.highlights.map((h, i) => (
+                      <li key={i} className="flex items-start text-sm text-gray-600">
+                        <span className="text-green-500 mr-2 mt-0.5 shrink-0">✓</span>
+                        <span>{h}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* 挑战 */}
+                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+                  <h3 className="font-bold text-gray-700 mb-3 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-2 text-orange-500" /> 挑战
+                  </h3>
+                  <ul className="space-y-2">
+                    {gameReview.challenges.map((c, i) => (
+                      <li key={i} className="flex items-start text-sm text-gray-600">
+                        <span className="text-orange-500 mr-2 mt-0.5 shrink-0">!</span>
+                        <span>{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* 改进建议 */}
+                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+                  <h3 className="font-bold text-gray-700 mb-3 flex items-center">
+                    <TrendingUp className="w-4 h-4 mr-2 text-blue-500" /> 改进建议
+                  </h3>
+                  <ul className="space-y-2">
+                    {gameReview.improvements.map((imp, i) => (
+                      <li key={i} className="flex items-start text-sm text-gray-600">
+                        <span className="text-blue-500 mr-2 mt-0.5 shrink-0">{i + 1}.</span>
+                        <span>{imp}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* 建议理由 + 下次游戏建议 */}
+                <div className="bg-gradient-to-br from-teal-500 to-emerald-600 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden">
+                  <div className="relative z-10">
+                    <h3 className="font-bold flex items-center mb-2">
+                      <Lightbulb className="w-4 h-4 mr-2 text-yellow-300" /> 建议理由
+                    </h3>
+                    <p className="text-teal-100 text-sm leading-relaxed mb-4">{gameReview.recommendationReason}</p>
+                    <div className="border-t border-white/20 pt-3">
+                      <h4 className="font-bold text-sm mb-1">下次游戏方向</h4>
+                      <p className="text-teal-100 text-sm leading-relaxed">{gameReview.nextGameSuggestion}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="bg-white p-4 rounded-2xl shadow-sm mb-20 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center justify-between"><span className="flex items-center"><TrendingUp className="w-4 h-4 mr-2 text-green-500" /> 成长曲线已更新</span><span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">+1 记录</span></h3><div className="h-40 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" /><XAxis dataKey="name" tick={{ fontSize: 9, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 100]} /><Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} /><Line type="monotone" dataKey="engagement" stroke="#10B981" strokeWidth={3} dot={(props: any) => { const isLast = props.index === trendData.length - 1; return (<circle cx={props.cx} cy={props.cy} r={isLast ? 6 : 4} fill={isLast ? "#10B981" : "#fff"} stroke="#10B981" strokeWidth={2} />); }} isAnimationActive={true} /></LineChart></ResponsiveContainer></div></div>
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100"><button onClick={() => { setGameState(GameState.LIST); onBack(); }} className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-gray-800 transition active:scale-95 flex items-center justify-center"><RefreshCw className="w-4 h-4 mr-2" /> 返回游戏库</button></div>
           </div>

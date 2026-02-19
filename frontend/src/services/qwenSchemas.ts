@@ -546,3 +546,115 @@ export const GameRecommendationDetailedSchema = {
     additionalProperties: false
   }
 };
+
+// --- Game Review Schema ---
+
+export const GameReviewSchema = {
+  name: 'game_review',
+  description: '游戏复盘结果',
+  schema: {
+    type: 'object',
+    properties: {
+      overallSummary: {
+        type: 'string',
+        description: '总体复盘，200-300字，从 DIR/Floortime 视角分析本次游戏互动'
+      },
+      highlights: {
+        type: 'array',
+        description: '亮点，2-4条',
+        items: { type: 'string' },
+        minItems: 2,
+        maxItems: 4
+      },
+      challenges: {
+        type: 'array',
+        description: '挑战，1-3条',
+        items: { type: 'string' },
+        minItems: 1,
+        maxItems: 3
+      },
+      scores: {
+        type: 'object',
+        description: '6维打分',
+        properties: {
+          childEngagement: {
+            type: 'number',
+            description: '孩子参与度/配合度 0-100',
+            minimum: 0,
+            maximum: 100
+          },
+          gameCompletion: {
+            type: 'number',
+            description: '游戏完成度 0-100',
+            minimum: 0,
+            maximum: 100
+          },
+          emotionalConnection: {
+            type: 'number',
+            description: '情感连接质量 0-100',
+            minimum: 0,
+            maximum: 100
+          },
+          communicationLevel: {
+            type: 'number',
+            description: '沟通互动水平 0-100',
+            minimum: 0,
+            maximum: 100
+          },
+          skillProgress: {
+            type: 'number',
+            description: '目标能力进步 0-100',
+            minimum: 0,
+            maximum: 100
+          },
+          parentExecution: {
+            type: 'number',
+            description: '家长执行质量 0-100',
+            minimum: 0,
+            maximum: 100
+          }
+        },
+        required: ['childEngagement', 'gameCompletion', 'emotionalConnection', 'communicationLevel', 'skillProgress', 'parentExecution'],
+        additionalProperties: false
+      },
+      overallScore: {
+        type: 'number',
+        description: '综合得分 0-100',
+        minimum: 0,
+        maximum: 100
+      },
+      recommendation: {
+        type: 'string',
+        enum: ['continue', 'adjust', 'avoid'],
+        description: '建议：continue(继续此游戏)、adjust(调整后再玩)、avoid(避免此游戏)'
+      },
+      recommendationReason: {
+        type: 'string',
+        description: '建议理由，100-150字'
+      },
+      improvements: {
+        type: 'array',
+        description: '改进建议，2-4条',
+        items: { type: 'string' },
+        minItems: 2,
+        maxItems: 4
+      },
+      nextGameSuggestion: {
+        type: 'string',
+        description: '下次游戏建议，50-100字'
+      }
+    },
+    required: [
+      'overallSummary',
+      'highlights',
+      'challenges',
+      'scores',
+      'overallScore',
+      'recommendation',
+      'recommendationReason',
+      'improvements',
+      'nextGameSuggestion'
+    ],
+    additionalProperties: false
+  }
+};

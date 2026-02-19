@@ -227,6 +227,27 @@ export interface GameImplementationPlan {
 
 export type FloorGameStatus = 'pending' | 'completed' | 'aborted';
 
+export interface GameReviewScores {
+  childEngagement: number;      // 孩子参与度/配合度 0-100
+  gameCompletion: number;       // 游戏完成度 0-100
+  emotionalConnection: number;  // 情感连接质量 0-100
+  communicationLevel: number;   // 沟通互动水平 0-100
+  skillProgress: number;        // 目标能力进步 0-100
+  parentExecution: number;      // 家长执行质量 0-100
+}
+
+export interface GameReviewResult {
+  overallSummary: string;       // 总体复盘 200-300字
+  highlights: string[];         // 亮点 2-4条
+  challenges: string[];         // 挑战 1-3条
+  scores: GameReviewScores;     // 6维打分
+  overallScore: number;         // 综合得分 0-100
+  recommendation: 'continue' | 'adjust' | 'avoid';
+  recommendationReason: string; // 建议理由 100-150字
+  improvements: string[];       // 改进建议 2-4条
+  nextGameSuggestion: string;   // 下次游戏建议 50-100字
+}
+
 export interface FloorGame {
   id: string;                  // 如 floor_game_1739612345678
   gameTitle: string;
@@ -245,6 +266,7 @@ export interface FloorGame {
   isVR: boolean;               // 是否VR游戏
   result?: string;             // 实施结果（预留）
   evaluation?: EvaluationResult; // 游戏结束后的评估结果
+  review?: GameReviewResult;     // 游戏复盘结果
 }
 
 // 家长偏好
