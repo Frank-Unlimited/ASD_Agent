@@ -1,8 +1,8 @@
-// TODO: 接入云端游戏库检索
-
 /**
  * Online Search Service - 联网游戏搜索服务
  * 通过 qwenStreamClient 调用大模型联网搜索适合的地板游戏
+ * 
+ * 使用阿里云 Qwen API 的真实联网搜索功能（enable_search: true）
  */
 
 import { Game } from '../types';
@@ -65,7 +65,11 @@ export const searchGamesOnline = async (
       ],
       {
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 2000,
+        extra_body: {
+          enable_search: true,
+          forced_search: true
+        }
       }
     );
 

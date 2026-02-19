@@ -227,21 +227,34 @@ class QwenStreamClient {
           schema: any;
         };
       };
+      extra_body?: {
+        enable_search?: boolean;
+        forced_search?: boolean;
+      };
     }
   ): Promise<string> {
     try {
+      const requestBody: any = {
+        model: this.model,
+        messages,
+        stream: false,
+        temperature: options?.temperature,
+        max_tokens: options?.max_tokens,
+        response_format: options?.response_format
+      };
+
+      // 添加 extra_body 参数（用于联网搜索）
+      if (options?.extra_body) {
+        Object.assign(requestBody, options.extra_body);
+      }
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          model: this.model,
-          messages,
-          stream: false,
-          ...options
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {

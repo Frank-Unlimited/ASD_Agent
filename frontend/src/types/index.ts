@@ -46,6 +46,7 @@ export type MedicalReport = Report;
 export interface GameStep {
   instruction: string; // The main action
   guidance: string;    // The coaching tip/interaction guide
+  imageUrl?: string;   // 步骤示意图（base64 dataUrl，异步生成）
 }
 
 export interface Game {
@@ -220,6 +221,7 @@ export interface GameImplementationPlan {
   steps: Array<{                     // 游戏步骤
     stepTitle: string;               // 步骤标题，如 "第一步：准备材料"
     instruction: string;             // 详细指令（家长应该做什么）
+    imageUrl?: string;               // 步骤示意图（base64 dataUrl，异步生成）
   }>;
   materials?: string[];               // 所需材料清单
   _analysis?: string;                // LLM 分析总结（可选，用于显示）
@@ -235,6 +237,7 @@ export interface FloorGame {
   steps: Array<{
     stepTitle: string;
     instruction: string;
+    imageUrl?: string;            // 步骤示意图（base64 dataUrl，异步生成）
   }>;
   materials?: string[];           // 所需材料清单
   _analysis?: string;
