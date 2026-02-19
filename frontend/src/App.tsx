@@ -70,7 +70,7 @@ import {
   CartesianGrid,
   Tooltip
 } from 'recharts';
-import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame } from './types';
+import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult } from './types';
 import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
@@ -78,6 +78,7 @@ import { speechService } from './services/speechService';
 import { reportStorageService } from './services/reportStorage';
 import { behaviorStorageService } from './services/behaviorStorage';
 import { floorGameStorageService } from './services/floorGameStorage';
+import { reviewFloorGame } from './services/gameReviewAgent';
 import { chatStorageService } from './services/chatStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
@@ -1196,7 +1197,6 @@ const PageAIChat = ({
                     plan.steps.forEach((step) => {
                       fullResponse += `\n**${step.stepTitle}**\n`;
                       fullResponse += `${step.instruction}\n`;
-                      fullResponse += `✨ 预期效果：${step.expectedOutcome}\n`;
                     });
 
                     fullResponse += `\n如果您觉得这个方案合适，我们就可以开始游戏了！\n\n`;
@@ -1209,8 +1209,7 @@ const PageAIChat = ({
                       goal: plan.goal,
                       steps: plan.steps.map(s => ({
                         stepTitle: s.stepTitle,
-                        instruction: s.instruction,
-                        expectedOutcome: s.expectedOutcome
+                        instruction: s.instruction
                       })),
                       materials: plan.materials || [],
                       _analysis: plan._analysis,
@@ -1220,6 +1219,16 @@ const PageAIChat = ({
                       isVR: false
                     };
                     floorGameStorageService.saveGame(floorGame);
+
+                    // 异步生成步骤示意图（fire-and-forget，不阻塞游戏创建）
+                    void (async () => {
+                      try {
+                        const { generateAndSaveStepImages } = await import('./services/stepImageService');
+                        await generateAndSaveStepImages(floorGame.id, floorGame.gameTitle, floorGame.steps);
+                      } catch (err) {
+                        console.warn('[App] Background image generation error:', err);
+                      }
+                    })();
 
                     // 构建一个 Game 对象用于游戏卡片（UI 兼容）
                     const gameForCard = {
@@ -1231,7 +1240,7 @@ const PageAIChat = ({
                       isVR: false,
                       steps: plan.steps.map(s => ({
                         instruction: s.instruction,
-                        guidance: s.expectedOutcome
+                        guidance: s.instruction  // 地板游戏中，指令本身就是指导
                       })),
                       summary: plan.summary,
                       materials: []
@@ -1618,6 +1627,21 @@ const PageAIChat = ({
         },
         onComplete: (fullText, toolCalls) => {
           console.log('Stream completed:', { fullText, toolCalls });
+          
+          // 检查是否有文本格式的工具调用（LLM 没有使用标准 Function Calling）
+          const toolCallMatch = fullText.match(/:::TOOL_CALL_START:::([\s\S]*?):::TOOL_CALL_END:::/);
+          if (toolCallMatch && toolCalls.length === 0) {
+            console.warn('⚠️  检测到文本格式的工具调用，但 toolCalls 为空。');
+            console.warn('⚠️  LLM 返回了文本格式的工具调用，而不是标准的 Function Calling。');
+            console.warn('⚠️  请检查系统提示词和 tools 配置。');
+            try {
+              const toolData = JSON.parse(toolCallMatch[1]);
+              console.log('解析到的工具调用:', toolData);
+            } catch (e) {
+              console.error('解析文本格式工具调用失败:', e);
+            }
+          }
+          
           setLoading(false);
         },
         onError: (error) => {
@@ -2103,9 +2127,6 @@ const PageAIChat = ({
                             <span className="font-bold text-sm text-gray-800">{step.stepTitle || step.title}</span>
                           </div>
                           <p className="text-xs text-gray-600 mb-1">{step.instruction}</p>
-                          {step.expectedOutcome && (
-                            <p className="text-xs text-green-600 italic">✓ {step.expectedOutcome}</p>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -2935,7 +2956,7 @@ const PageGames = ({
     isVR: fg.isVR,
     steps: fg.steps.map(s => ({
       instruction: s.instruction,
-      guidance: s.expectedOutcome
+      guidance: s.instruction  // 地板游戏中，指令本身就是指导
     })),
     summary: fg.summary,
     materials: [],
@@ -2954,10 +2975,13 @@ const PageGames = ({
   const [clickedLog, setClickedLog] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
+  const [gameReview, setGameReview] = useState<GameReviewResult | null>(null);
   const [hasUpdatedTrend, setHasUpdatedTrend] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('全部');
   const [showVideoCall, setShowVideoCall] = useState(false); // AI 视频通话状态
+  const [coverImages, setCoverImages] = useState<Map<string, string>>(new Map()); // gameId → 第一步图片（列表封面）
+  const [stepImages, setStepImages] = useState<Map<number, string>>(new Map()); // stepIndex → dataUrl（当前游戏步骤图片）
   const FILTERS = ['全部', '共同注意', '自我调节', '亲密感', '双向沟通', '情绪思考', '创造力'];
 
   useEffect(() => {
@@ -2980,7 +3004,7 @@ const PageGames = ({
           isVR: floorGame.isVR,
           steps: floorGame.steps.map(s => ({
             instruction: s.instruction,
-            guidance: s.expectedOutcome
+            guidance: s.instruction  // 地板游戏中，指令本身就是指导
           })),
           summary: floorGame.summary,
           materials: []
@@ -3010,14 +3034,88 @@ const PageGames = ({
 
   useEffect(() => { if (gameState === GameState.SUMMARY && !evaluation && !isAnalyzing) performAnalysis(); }, [gameState]);
 
+  // 加载游戏封面图（每个游戏的第一步图片）和监听实时更新
+  useEffect(() => {
+    let cancelled = false;
+    const loadCovers = async () => {
+      try {
+        const { imageStorageService } = await import('./services/imageStorage');
+        const newCovers = new Map<string, string>();
+        for (const fg of floorGames) {
+          const img = await imageStorageService.getStepImage(fg.id, 0);
+          if (img && !cancelled) newCovers.set(fg.id, img);
+        }
+        if (!cancelled) setCoverImages(newCovers);
+      } catch (e) { console.warn('[PageGames] 加载封面图失败:', e); }
+    };
+    loadCovers();
+
+    const handleImageUpdate = async (e: Event) => {
+      const { gameId, stepIndex } = (e as CustomEvent).detail;
+      if (stepIndex === 0) {
+        try {
+          const { imageStorageService } = await import('./services/imageStorage');
+          const img = await imageStorageService.getStepImage(gameId, 0);
+          if (img && !cancelled) setCoverImages(prev => new Map(prev).set(gameId, img));
+        } catch (_) { /* ignore */ }
+      }
+      // 如果正在查看的游戏有新图片，更新步骤图片
+      if (internalActiveGame?.id === gameId) {
+        try {
+          const { imageStorageService } = await import('./services/imageStorage');
+          const img = await imageStorageService.getStepImage(gameId, stepIndex);
+          if (img && !cancelled) setStepImages(prev => new Map(prev).set(stepIndex, img));
+        } catch (_) { /* ignore */ }
+      }
+    };
+    window.addEventListener('floorGameStepImagesUpdated', handleImageUpdate);
+    return () => { cancelled = true; window.removeEventListener('floorGameStepImagesUpdated', handleImageUpdate); };
+  }, [floorGames.length]);
+
+  // 当选中游戏变化时，加载该游戏的全部步骤图片
+  useEffect(() => {
+    if (!internalActiveGame?.id) { setStepImages(new Map()); return; }
+    let cancelled = false;
+    const loadStepImages = async () => {
+      try {
+        const { imageStorageService } = await import('./services/imageStorage');
+        const imgs = await imageStorageService.getGameImages(internalActiveGame.id);
+        if (!cancelled) setStepImages(imgs);
+      } catch (e) { console.warn('[PageGames] 加载步骤图片失败:', e); }
+    };
+    loadStepImages();
+    return () => { cancelled = true; };
+  }, [internalActiveGame?.id]);
+
   const performAnalysis = async () => {
     setIsAnalyzing(true);
     try {
       const logsToAnalyze = logs.length > 0 ? logs : [{ type: 'emoji', content: '完成了游戏', timestamp: new Date() } as LogEntry];
 
-      // *** Evaluation Agent Call (Session) ***
-      const result = await api.analyzeSession(logsToAnalyze);
+      // 格式化聊天记录用于复盘
+      const chatHistoryText = logsToAnalyze.map(log => {
+        const time = log.timestamp instanceof Date ? log.timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
+        return `[${time}] ${log.type === 'emoji' ? '快速记录' : '语音记录'}: ${log.content}`;
+      }).join('\n');
+
+      // 从 storage 获取完整的 FloorGame 数据
+      const floorGame = internalActiveGame?.id ? floorGameStorageService.getGameById(internalActiveGame.id) : null;
+
+      // 并行调用：评估 + 复盘
+      const evaluationPromise = api.analyzeSession(logsToAnalyze);
+      const reviewPromise = floorGame ? reviewFloorGame({
+        game: { ...floorGame, status: 'completed', dtend: new Date().toISOString() },
+        chatHistory: chatHistoryText,
+        parentFeedback: chatHistoryText
+      }).catch(e => { console.error('[GameReview] 复盘失败:', e); return null; }) : Promise.resolve(null);
+
+      const [result, reviewResult] = await Promise.all([evaluationPromise, reviewPromise]);
+
       setEvaluation(result);
+      if (reviewResult) {
+        setGameReview(reviewResult);
+        console.log('[GameReview] 复盘完成，综合得分:', reviewResult.overallScore);
+      }
 
       // 将评估结果写入 FloorGame 记录
       if (internalActiveGame?.id) {
@@ -3064,6 +3162,7 @@ const PageGames = ({
     setTimer(0);
     setLogs([]);
     setEvaluation(null);
+    setGameReview(null);
     setHasUpdatedTrend(false);
   };
   const handleLog = (type: 'emoji' | 'voice', content: string) => { setLogs(prev => [...prev, { type, content, timestamp: new Date() }]); setClickedLog(content); setTimeout(() => setClickedLog(null), 300); };
@@ -3088,7 +3187,7 @@ const PageGames = ({
             const statusConfig = game.status === 'completed' ? { label: '已完成', cls: 'bg-green-50 text-green-700' } : game.status === 'aborted' ? { label: '已中止', cls: 'bg-red-50 text-red-700' } : { label: '未开始', cls: 'bg-gray-100 text-gray-500' };
             // LIST 状态：只显示年月日
             const dateStr = game.date ? new Date(game.date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '';
-            return (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><div className="flex items-center space-x-2 shrink-0 ml-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>{dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}</div></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div>);
+            return (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30 overflow-hidden">{coverImages.get(game.id) && (<div className="w-full h-32 overflow-hidden"><img src={coverImages.get(game.id)} alt="" className="w-full h-full object-cover" /></div>)}<div className="p-5"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><div className="flex items-center space-x-2 shrink-0 ml-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>{dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}</div></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div></div>);
           })) : (<div className="text-center py-10 text-gray-400 flex flex-col items-center"><div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><Search className="w-8 h-8 text-gray-300" /></div><p>没有找到匹配的游戏</p><button onClick={() => { setSearchText(''); setActiveFilter('全部') }} className="mt-2 text-primary font-bold text-sm">清除筛选</button></div>)}
         </div>
       </div>
@@ -3124,7 +3223,7 @@ const PageGames = ({
             </div>
           )}
 
-          <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar"><h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current" /> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
+          <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar">{stepImages.get(currentStepIndex) && (<div className="w-full mb-4 rounded-2xl overflow-hidden shrink-0"><img src={stepImages.get(currentStepIndex)} alt={`步骤 ${currentStepIndex + 1} 插图`} className="w-full h-48 object-cover rounded-2xl" /></div>)}<h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current" /> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
         <div className="flex items-center justify-between px-6 py-4 mb-2"><button onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))} disabled={currentStepIndex === 0} className={`flex items-center text-gray-400 font-bold transition px-4 py-3 ${currentStepIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-600'}`}><ChevronLeft className="w-5 h-5 mr-1" /> 上一步</button><div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-xs font-bold text-gray-500 tracking-wide">步骤 {currentStepIndex + 1} / {internalActiveGame.steps.length}</div>{isLastStep ? (<button onClick={() => setGameState(GameState.SUMMARY)} className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 flex items-center hover:bg-green-600 transition transform active:scale-95">完成 <CheckCircle2 className="w-5 h-5 ml-2" /></button>) : (<button onClick={() => setCurrentStepIndex(currentStepIndex + 1)} className="bg-secondary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-secondary/30 flex items-center hover:bg-blue-600 transition transform active:scale-95">下一步 <ChevronRight className="w-5 h-5 ml-1" /></button>)}</div>
         <div className="p-4 bg-white border-t border-gray-100 pb-8 rounded-t-3xl shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 relative"><p className="text-center text-[10px] text-gray-400 mb-3 uppercase tracking-widest font-bold">快速记录当前反应</p><div className="flex justify-between max-w-sm mx-auto mb-3 space-x-2">{[{ icon: Smile, label: '微笑', color: 'text-yellow-600 bg-yellow-100 ring-yellow-300' }, { icon: Eye, label: '眼神', color: 'text-blue-600 bg-blue-100 ring-blue-300' }, { icon: Handshake, label: '互动', color: 'text-green-600 bg-green-100 ring-green-300' }, { icon: Frown, label: '抗拒', color: 'text-red-500 bg-red-100 ring-red-300' }].map((btn, i) => (<button key={i} onClick={() => handleLog('emoji', btn.label)} className={`flex-1 py-3 rounded-xl shadow-sm active:scale-95 transition flex flex-col items-center justify-center ${btn.color} ${clickedLog === btn.label ? 'ring-4 ring-offset-2 scale-110 bg-opacity-100' : ''}`}><btn.icon className="w-5 h-5 mb-1" /><span className="text-[10px] font-bold">{btn.label}</span></button>))}</div><button onMouseDown={() => { setClickedLog('voice'); handleLog('voice', '录音开始...'); }} onMouseUp={() => handleLog('voice', '录音结束')} className={`w-full bg-gray-50 border border-gray-200 py-3 rounded-xl text-gray-600 font-bold flex items-center justify-center shadow-sm active:bg-gray-200 active:scale-98 transition text-sm ${clickedLog === 'voice' ? 'ring-2 ring-gray-300 bg-gray-100' : ''}`}><Mic className="w-4 h-4 mr-2" /> 按住说话 记录观察笔记</button></div>
       </div>
@@ -3181,6 +3280,64 @@ const PageGames = ({
             </div>
             {evaluation.interestAnalysis && evaluation.interestAnalysis.length > 0 && (<div className="bg-white p-5 rounded-2xl shadow-sm mb-6 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center"><Dna className="w-5 h-5 mr-2 text-indigo-500" /> 兴趣探索度分析</h3><div className="space-y-4">{evaluation.interestAnalysis.map((item, idx) => (<div key={idx} className="bg-gray-50 rounded-xl p-3 border border-gray-100"><p className="text-sm font-semibold text-gray-800 mb-2">"{item.behavior}"</p><div className="flex flex-wrap gap-2">{item.matches.map((match, mIdx) => { const config = getDimensionConfig(match.dimension); return (<div key={mIdx} className="flex flex-col"><div className={`flex items-center px-2 py-1 rounded-md text-xs font-bold ${config.color}`}><config.icon className="w-3 h-3 mr-1" />{config.label} {(match.weight * 100).toFixed(0)}%</div></div>) })}</div>{item.matches[0] && (<p className="text-[10px] text-gray-500 mt-2 italic border-t border-gray-200 pt-1">💡 {item.matches[0].reasoning}</p>)}</div>))}</div></div>)}
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg mb-6 relative overflow-hidden"><div className="relative z-10"><h3 className="font-bold flex items-center mb-3"><Lightbulb className="w-4 h-4 mr-2 text-yellow-300" /> 下一步建议</h3><p className="text-indigo-100 text-sm leading-relaxed font-medium">{evaluation.suggestion}</p></div><Sparkles className="absolute -right-2 -bottom-2 text-white/10 w-24 h-24 rotate-12" /></div>
+
+            {/* AI 专业复盘 */}
+            {gameReview && (
+              <div className="space-y-4 mb-6">
+                {/* 复盘总结 + 推荐标签 */}
+                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-700 flex items-center">
+                      <Activity className="w-5 h-5 mr-2 text-primary" /> AI 专业复盘
+                    </h3>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                      gameReview.recommendation === 'continue' ? 'bg-green-100 text-green-700' :
+                      gameReview.recommendation === 'adjust' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {gameReview.recommendation === 'continue' ? '继续此游戏' :
+                       gameReview.recommendation === 'adjust' ? '建议调整' : '建议避免'}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 text-sm leading-relaxed mb-5">{gameReview.reviewSummary}</p>
+                  {/* 多维度打分 */}
+                  <div className="space-y-2.5">
+                    {([
+                      { key: 'childEngagement', label: '孩子配合度', color: 'bg-green-500' },
+                      { key: 'gameCompletion', label: '游戏完成度', color: 'bg-blue-500' },
+                      { key: 'emotionalConnection', label: '情感连接', color: 'bg-pink-500' },
+                      { key: 'communicationLevel', label: '沟通互动', color: 'bg-purple-500' },
+                      { key: 'skillProgress', label: '能力进步', color: 'bg-yellow-500' },
+                      { key: 'parentExecution', label: '家长执行', color: 'bg-indigo-500' }
+                    ] as const).map(dim => {
+                      const score = gameReview.scores[dim.key as keyof typeof gameReview.scores];
+                      return (
+                        <div key={dim.key}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-bold text-gray-600">{dim.label}</span>
+                            <span className="text-xs font-bold text-gray-800">{score}</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2">
+                            <div className={`${dim.color} h-2 rounded-full transition-all duration-700`} style={{ width: `${score}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 下一步建议 */}
+                <div className="bg-gradient-to-br from-teal-500 to-emerald-600 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden">
+                  <div className="relative z-10">
+                    <h3 className="font-bold flex items-center mb-3">
+                      <Lightbulb className="w-4 h-4 mr-2 text-yellow-300" /> 下一步建议
+                    </h3>
+                    <p className="text-teal-100 text-sm leading-relaxed">{gameReview.nextStepSuggestion}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="bg-white p-4 rounded-2xl shadow-sm mb-20 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center justify-between"><span className="flex items-center"><TrendingUp className="w-4 h-4 mr-2 text-green-500" /> 成长曲线已更新</span><span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">+1 记录</span></h3><div className="h-40 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" /><XAxis dataKey="name" tick={{ fontSize: 9, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 100]} /><Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} /><Line type="monotone" dataKey="engagement" stroke="#10B981" strokeWidth={3} dot={(props: any) => { const isLast = props.index === trendData.length - 1; return (<circle cx={props.cx} cy={props.cy} r={isLast ? 6 : 4} fill={isLast ? "#10B981" : "#fff"} stroke="#10B981" strokeWidth={2} />); }} isAnimationActive={true} /></LineChart></ResponsiveContainer></div></div>
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100"><button onClick={() => { setGameState(GameState.LIST); onBack(); }} className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-gray-800 transition active:scale-95 flex items-center justify-center"><RefreshCw className="w-4 h-4 mr-2" /> 返回游戏库</button></div>
           </div>

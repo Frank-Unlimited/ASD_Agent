@@ -170,7 +170,6 @@ export interface GameRecommendation {
   assessmentId: string; // 关联的评估ID
   game: Game;
   reason: string; // 推荐理由（详细）
-  expectedOutcome: string; // 预期效果
   parentGuidance: string; // 家长指导要点
   adaptationSuggestions: string[]; // 适应性调整建议
 }
@@ -221,13 +220,28 @@ export interface GameImplementationPlan {
   steps: Array<{                     // 游戏步骤
     stepTitle: string;               // 步骤标题，如 "第一步：准备材料"
     instruction: string;             // 详细指令（家长应该做什么）
-    expectedOutcome: string;         // 预期效果（这一步期望达到什么效果）
   }>;
   materials?: string[];               // 所需材料清单
   _analysis?: string;                // LLM 分析总结（可选，用于显示）
 }
 
 export type FloorGameStatus = 'pending' | 'completed' | 'aborted';
+
+export interface GameReviewScores {
+  childEngagement: number;      // 孩子参与度/配合度 0-100
+  gameCompletion: number;       // 游戏完成度 0-100
+  emotionalConnection: number;  // 情感连接质量 0-100
+  communicationLevel: number;   // 沟通互动水平 0-100
+  skillProgress: number;        // 目标能力进步 0-100
+  parentExecution: number;      // 家长执行质量 0-100
+}
+
+export interface GameReviewResult {
+  reviewSummary: string;        // 游戏过程总结与复盘
+  scores: GameReviewScores;     // 多维度打分
+  recommendation: 'continue' | 'adjust' | 'avoid';
+  nextStepSuggestion: string;   // 下一步建议（含改进方向和理由）
+}
 
 export interface FloorGame {
   id: string;                  // 如 floor_game_1739612345678
@@ -237,7 +251,6 @@ export interface FloorGame {
   steps: Array<{
     stepTitle: string;
     instruction: string;
-    expectedOutcome: string;
   }>;
   materials?: string[];           // 所需材料清单
   _analysis?: string;
@@ -248,6 +261,7 @@ export interface FloorGame {
   isVR: boolean;               // 是否VR游戏
   result?: string;             // 实施结果（预留）
   evaluation?: EvaluationResult; // 游戏结束后的评估结果
+  review?: GameReviewResult;     // 游戏复盘结果
 }
 
 // 家长偏好

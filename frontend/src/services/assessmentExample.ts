@@ -121,7 +121,6 @@ export const exampleRecommendGame = async () => {
       timestamp: recommendation.timestamp,
       game: recommendation.game,
       reason: recommendation.reason,
-      expectedOutcome: recommendation.expectedOutcome,
       parentGuidance: recommendation.parentGuidance,
       adaptationSuggestions: recommendation.adaptationSuggestions
     });
@@ -181,7 +180,6 @@ export const exampleFullWorkflow = async () => {
     
     console.log('\n推荐游戏:', recommendation.game.title);
     console.log('推荐理由:', recommendation.reason);
-    console.log('预期效果:', recommendation.expectedOutcome);
     
     console.log('\n家长指导:');
     console.log(recommendation.parentGuidance);
