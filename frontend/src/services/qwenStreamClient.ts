@@ -183,23 +183,34 @@ class QwenStreamClient {
 
                 // 处理 tool calls
                 if (delta.tool_calls) {
+                  console.log('[Tool Call Delta]', JSON.stringify(delta.tool_calls));
                   for (const toolCallDelta of delta.tool_calls) {
                     if (toolCallDelta.index !== undefined) {
-                      // 新的 tool call
-                      if (toolCallDelta.id) {
+                      // 检查是否是新的 tool call（id 改变或首次出现）
+                      const isNewToolCall = toolCallDelta.id && (!currentToolCall || currentToolCall.id !== toolCallDelta.id);
+                      
+                      if (isNewToolCall) {
+                        // 保存之前的 tool call
                         if (currentToolCall && currentToolCall.id) {
+                          console.log('[Tool Call] Pushing completed tool call:', currentToolCall);
                           toolCalls.push(currentToolCall as ToolCall);
                         }
+                        // 创建新的 tool call
                         currentToolCall = {
-                          id: toolCallDelta.id,
+                          id: toolCallDelta.id!,
                           type: 'function',
                           function: {
                             name: toolCallDelta.function?.name || '',
                             arguments: toolCallDelta.function?.arguments || ''
                           }
                         };
+                        console.log('[Tool Call] New tool call started:', currentToolCall);
                       } else if (currentToolCall) {
-                        // 追加 arguments
+                        // 追加到当前 tool call
+                        if (toolCallDelta.function?.name) {
+                          console.log('[Tool Call] Appending name:', toolCallDelta.function.name);
+                          currentToolCall.function!.name += toolCallDelta.function.name;
+                        }
                         if (toolCallDelta.function?.arguments) {
                           currentToolCall.function!.arguments += toolCallDelta.function.arguments;
                         }
@@ -284,7 +295,24 @@ class QwenStreamClient {
       }
 
       const data = await response.json();
-      return data.choices[0].message.content;
+      
+      console.log('[Qwen Chat] Response data:', {
+        hasChoices: !!data.choices,
+        choicesLength: data.choices?.length,
+        firstChoice: data.choices?.[0],
+        messageContent: data.choices?.[0]?.message?.content
+      });
+      
+      if (!data.choices || data.choices.length === 0) {
+        throw new Error('No choices in response');
+      }
+      
+      const content = data.choices[0].message.content;
+      if (!content || typeof content !== 'string') {
+        throw new Error(`Invalid content type: ${typeof content}`);
+      }
+      
+      return content;
     } catch (error) {
       console.error('Qwen chat error:', error);
       throw error;

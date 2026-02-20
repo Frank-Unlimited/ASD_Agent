@@ -29,3 +29,6 @@ nul
 # Old frontend folders
 frondend0207/
 frontend_backup_old/
+
+# Third-party demos
+alibabacloud-bailian-speech-demo/
