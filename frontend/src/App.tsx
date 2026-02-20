@@ -868,12 +868,12 @@ const PageAIChat = ({
 
       await sendQwenMessage(textToSend, messages, profileContext, {
         onContent: (chunk) => {
-          // 实时更新消息内容
+          // 同时更新闭包变量和状态
           fullResponse += chunk;
           setMessages(prev =>
             prev.map(msg =>
               msg.id === tempMsgId
-                ? { ...msg, text: fullResponse }
+                ? { ...msg, text: msg.text + chunk }
                 : msg
             )
           );
@@ -957,36 +957,46 @@ const PageAIChat = ({
                 (async () => {
                   try {
                     console.log('[Tool Call] 兴趣分析...', args);
+                    console.log('[Tool Call] 当前 tempMsgId:', tempMsgId);
 
-                    fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
-                      tool: 'analyze_interest',
-                      status: 'running',
-                      params: args
-                    })}:::TOOL_CALL_END:::\n`;
-
-                    fullResponse += `🔍 正在分析${currentChildProfile?.name || '孩子'}的兴趣维度...`;
-                    setMessages(prev =>
-                      prev.map(msg =>
-                        msg.id === tempMsgId
-                          ? { ...msg, text: fullResponse }
-                          : msg
-                      )
-                    );
+                    // 使用函数式更新，避免闭包问题
+                    setMessages(prev => {
+                      console.log('[Tool Call] 开始更新消息，当前消息数:', prev.length);
+                      const targetMsg = prev.find(m => m.id === tempMsgId);
+                      console.log('[Tool Call] 找到目标消息:', !!targetMsg, '当前文本长度:', targetMsg?.text.length);
+                      
+                      return prev.map(msg => {
+                        if (msg.id === tempMsgId) {
+                          let updatedText = msg.text;
+                          updatedText += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                            tool: 'analyze_interest',
+                            status: 'running',
+                            params: args
+                          })}:::TOOL_CALL_END:::\n`;
+                          updatedText += `🔍 正在分析${currentChildProfile?.name || '孩子'}的兴趣维度...`;
+                          console.log('[Tool Call] 更新后文本长度:', updatedText.length);
+                          return { ...msg, text: updatedText };
+                        }
+                        return msg;
+                      });
+                    });
 
                     const { analyzeInterestDimensions } = await import('./services/gameRecommendConversationalAgent');
                     const { calculateDimensionMetrics } = await import('./services/historicalDataHelper');
                     const { getLatestAssessment } = await import('./services/assessmentStorage');
 
                     if (!currentChildProfile) {
-                      fullResponse = fullResponse.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
-                      fullResponse += `\n\n需要先完善孩子的档案信息才能推荐游戏哦。`;
                       setMessages(prev =>
-                        prev.map(msg =>
-                          msg.id === tempMsgId
-                            ? { ...msg, text: fullResponse }
-                            : msg
-                        )
+                        prev.map(msg => {
+                          if (msg.id === tempMsgId) {
+                            let updatedText = msg.text.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
+                            updatedText += `\n\n需要先完善孩子的档案信息才能推荐游戏哦。`;
+                            return { ...msg, text: updatedText };
+                          }
+                          return msg;
+                        })
                       );
+                      setLoading(false);
                       return;
                     }
 
@@ -994,7 +1004,6 @@ const PageAIChat = ({
                     const recentBehaviors = behaviorStorageService.getRecentBehaviors(20);
                     const dimensionMetrics = calculateDimensionMetrics(recentBehaviors);
 
-                    // TODO: 加入最近游戏实施情况（recentGamePlans），传给 agent 并存入 sessionStorage
                     // 保存上下文到 sessionStorage
                     const interestAnalysisContext = {
                       childProfile: currentChildProfile,
@@ -1016,65 +1025,71 @@ const PageAIChat = ({
                     // 保存结果到 sessionStorage
                     sessionStorage.setItem('interest_analysis_result', JSON.stringify(result));
 
-                    // 更新工具调用状态
-                    fullResponse = fullResponse.replace(
-                      /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
-                      (match) => {
-                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
-                        toolData.status = 'success';
-                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
-                      }
-                    );
-                    fullResponse = fullResponse.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
-
-                    // 展示分析结果
-                    fullResponse += `\n\n📊 **${currentChildProfile.name}的兴趣维度分析**\n\n`;
-                    fullResponse += `${result.summary}\n\n`;
+                    // 构建分析结果文本
+                    let analysisText = `\n\n📊 **${currentChildProfile.name}的兴趣维度分析**\n\n`;
+                    analysisText += `${result.summary}\n\n`;
 
                     // 展示维度分类
                     const dimLabel = (d: string) => getDimensionConfig(d).label;
                     if (result.leverageDimensions.length > 0) {
-                      fullResponse += `✅ **可利用的维度**（孩子已有兴趣）：${result.leverageDimensions.map(dimLabel).join('、')}\n`;
+                      analysisText += `✅ **可利用的维度**（孩子已有兴趣）：${result.leverageDimensions.map(dimLabel).join('、')}\n`;
                     }
                     if (result.exploreDimensions.length > 0) {
-                      fullResponse += `🔍 **可探索的维度**（有潜力发展）：${result.exploreDimensions.map(dimLabel).join('、')}\n`;
+                      analysisText += `🔍 **可探索的维度**（有潜力发展）：${result.exploreDimensions.map(dimLabel).join('、')}\n`;
                     }
                     if (result.avoidDimensions.length > 0) {
-                      fullResponse += `⚠️ **暂时避免的维度**：${result.avoidDimensions.map(dimLabel).join('、')}\n`;
+                      analysisText += `⚠️ **暂时避免的维度**：${result.avoidDimensions.map(dimLabel).join('、')}\n`;
                     }
 
                     // 展示干预建议
-                    fullResponse += `\n💡 **干预建议**：\n`;
+                    analysisText += `\n💡 **干预建议**：\n`;
                     result.interventionSuggestions.forEach((s, idx) => {
                       const strategyLabel = s.strategy === 'leverage' ? '利用兴趣' : '探索拓展';
-                      fullResponse += `\n${idx + 1}. **${getDimensionConfig(s.targetDimension).label}**（${strategyLabel}）\n`;
-                      fullResponse += `   ${s.suggestion}\n`;
-                      fullResponse += `   📌 ${s.rationale}\n`;
+                      analysisText += `\n${idx + 1}. **${getDimensionConfig(s.targetDimension).label}**（${strategyLabel}）\n`;
+                      analysisText += `   ${s.suggestion}\n`;
+                      analysisText += `   📌 ${s.rationale}\n`;
                     });
 
-                    fullResponse += `\n您想从哪些维度入手？可以告诉我想用的策略（利用已有兴趣/探索新维度/混合）。`;
+                    analysisText += `\n您想从哪些维度入手？可以告诉我想用的策略（利用已有兴趣/探索新维度/混合）。`;
+                    analysisText += `\n\n:::INTEREST_ANALYSIS:${JSON.stringify(result)}:::`;
 
-                    // 嵌入兴趣分析卡片标记
-                    fullResponse += `\n\n:::INTEREST_ANALYSIS:${JSON.stringify(result)}:::`;
-
+                    // 更新消息：移除 loading 文本，添加分析结果
                     setMessages(prev =>
-                      prev.map(msg =>
-                        msg.id === tempMsgId
-                          ? { ...msg, text: fullResponse }
-                          : msg
-                      )
+                      prev.map(msg => {
+                        if (msg.id === tempMsgId) {
+                          let updatedText = msg.text;
+                          // 更新工具调用状态
+                          updatedText = updatedText.replace(
+                            /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                            (match) => {
+                              const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                              toolData.status = 'success';
+                              return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                            }
+                          );
+                          updatedText = updatedText.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
+                          updatedText += analysisText;
+                          return { ...msg, text: updatedText };
+                        }
+                        return msg;
+                      })
                     );
+                    
+                    // 工具调用完成，关闭 loading
+                    setLoading(false);
                   } catch (error) {
                     console.error('[Tool Call] 兴趣分析失败:', error);
-                    fullResponse = fullResponse.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
-                    fullResponse += `\n\n兴趣分析时出现错误，请稍后重试。`;
                     setMessages(prev =>
-                      prev.map(msg =>
-                        msg.id === tempMsgId
-                          ? { ...msg, text: fullResponse }
-                          : msg
-                      )
+                      prev.map(msg => {
+                        if (msg.id === tempMsgId) {
+                          let updatedText = msg.text.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
+                          updatedText += `\n\n兴趣分析时出现错误，请稍后重试。`;
+                          return { ...msg, text: updatedText };
+                        }
+                        return msg;
+                      })
                     );
+                    setLoading(false);
                   }
                 })();
                 break;
@@ -1085,33 +1100,37 @@ const PageAIChat = ({
                   try {
                     console.log('[Tool Call] 生成地板游戏计划...', args);
 
-                    fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
-                      tool: 'plan_floor_game',
-                      status: 'running',
-                      params: args
-                    })}:::TOOL_CALL_END:::\n`;
-
-                    fullResponse += `\n✨ 正在设计游戏方案...`;
+                    // 使用函数式更新，避免闭包问题
                     setMessages(prev =>
-                      prev.map(msg =>
-                        msg.id === tempMsgId
-                          ? { ...msg, text: fullResponse }
-                          : msg
-                      )
+                      prev.map(msg => {
+                        if (msg.id === tempMsgId) {
+                          let updatedText = msg.text;
+                          updatedText += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                            tool: 'plan_floor_game',
+                            status: 'running',
+                            params: args
+                          })}:::TOOL_CALL_END:::\n`;
+                          updatedText += `\n✨ 正在设计游戏方案...`;
+                          return { ...msg, text: updatedText };
+                        }
+                        return msg;
+                      })
                     );
 
                     // 从 sessionStorage 读取上下文
                     const contextStr = sessionStorage.getItem('interest_analysis_context');
                     if (!contextStr || !currentChildProfile) {
-                      fullResponse = fullResponse.replace('✨ 正在设计游戏方案...', '');
-                      fullResponse += `\n\n请先进行兴趣分析后再生成游戏方案。`;
                       setMessages(prev =>
-                        prev.map(msg =>
-                          msg.id === tempMsgId
-                            ? { ...msg, text: fullResponse }
-                            : msg
-                        )
+                        prev.map(msg => {
+                          if (msg.id === tempMsgId) {
+                            let updatedText = msg.text.replace('✨ 正在设计游戏方案...', '');
+                            updatedText += `\n\n请先进行兴趣分析后再生成游戏方案。`;
+                            return { ...msg, text: updatedText };
+                          }
+                          return msg;
+                        })
                       );
+                      setLoading(false);
                       return;
                     }
 
@@ -1149,31 +1168,22 @@ const PageAIChat = ({
                       specificObjects
                     );
 
-                    // 更新工具调用状态
-                    fullResponse = fullResponse.replace(
-                      /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
-                      (match) => {
-                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
-                        toolData.status = 'success';
-                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
-                      }
-                    );
-                    fullResponse = fullResponse.replace('✨ 正在设计游戏方案...', '');
-
+                    // 构建游戏方案文本
+                    let planText = '';
                     if (plan._analysis) {
-                      fullResponse += `\n\n💡 ${plan._analysis}\n`;
+                      planText += `\n\n💡 ${plan._analysis}\n`;
                     }
 
-                    fullResponse += `\n太棒了！我为${currentChildProfile.name}设计了"${plan.gameTitle}"：\n\n`;
-                    fullResponse += `📝 **游戏概要**\n${plan.summary}\n\n`;
-                    fullResponse += `🎯 **游戏目标**\n${plan.goal}\n\n`;
-                    fullResponse += `📋 **游戏步骤**\n`;
+                    planText += `\n太棒了！我为${currentChildProfile.name}设计了"${plan.gameTitle}"：\n\n`;
+                    planText += `📝 **游戏概要**\n${plan.summary}\n\n`;
+                    planText += `🎯 **游戏目标**\n${plan.goal}\n\n`;
+                    planText += `📋 **游戏步骤**\n`;
                     plan.steps.forEach((step) => {
-                      fullResponse += `\n**${step.stepTitle}**\n`;
-                      fullResponse += `${step.instruction}\n`;
+                      planText += `\n**${step.stepTitle}**\n`;
+                      planText += `${step.instruction}\n`;
                     });
 
-                    fullResponse += `\n如果您觉得这个方案合适，我们就可以开始游戏了！\n\n`;
+                    planText += `\n如果您觉得这个方案合适，我们就可以开始游戏了！\n\n`;
 
                     // 构建 FloorGame 对象并持久化
                     const floorGame: FloorGame = {
@@ -1220,26 +1230,45 @@ const PageAIChat = ({
                       materials: []
                     };
 
-                    fullResponse += `:::GAME_IMPLEMENTATION_PLAN:${JSON.stringify({ game: gameForCard, plan })}:::`;
+                    planText += `:::GAME_IMPLEMENTATION_PLAN:${JSON.stringify({ game: gameForCard, plan })}:::`;
 
+                    // 更新消息：移除 loading 文本，添加游戏方案
                     setMessages(prev =>
-                      prev.map(msg =>
-                        msg.id === tempMsgId
-                          ? { ...msg, text: fullResponse }
-                          : msg
-                      )
+                      prev.map(msg => {
+                        if (msg.id === tempMsgId) {
+                          let updatedText = msg.text;
+                          // 更新工具调用状态
+                          updatedText = updatedText.replace(
+                            /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                            (match) => {
+                              const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                              toolData.status = 'success';
+                              return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                            }
+                          );
+                          updatedText = updatedText.replace('✨ 正在设计游戏方案...', '');
+                          updatedText += planText;
+                          return { ...msg, text: updatedText };
+                        }
+                        return msg;
+                      })
                     );
+                    
+                    // 工具调用完成，关闭 loading
+                    setLoading(false);
                   } catch (error) {
                     console.error('[Tool Call] 生成游戏计划失败:', error);
-                    fullResponse = fullResponse.replace('✨ 正在设计游戏方案...', '');
-                    fullResponse += `\n\n生成游戏方案时出现错误，请稍后重试。`;
                     setMessages(prev =>
-                      prev.map(msg =>
-                        msg.id === tempMsgId
-                          ? { ...msg, text: fullResponse }
-                          : msg
-                      )
+                      prev.map(msg => {
+                        if (msg.id === tempMsgId) {
+                          let updatedText = msg.text.replace('✨ 正在设计游戏方案...', '');
+                          updatedText += `\n\n生成游戏方案时出现错误，请稍后重试。`;
+                          return { ...msg, text: updatedText };
+                        }
+                        return msg;
+                      })
                     );
+                    setLoading(false);
                   }
                 })();
                 break;
@@ -1341,6 +1370,9 @@ const PageAIChat = ({
                           : msg
                       )
                     );
+
+                    // 清除 loading 状态
+                    setLoading(false);
                   } catch (error) {
                     console.error('[行为记录] 分析失败:', error);
 
@@ -1365,6 +1397,9 @@ const PageAIChat = ({
                           : msg
                       )
                     );
+
+                    // 清除 loading 状态
+                    setLoading(false);
                   }
                 })();
                 break;
@@ -1616,7 +1651,12 @@ const PageAIChat = ({
             }
           }
 
-          setLoading(false);
+          // 如果有工具调用，不要立即关闭 loading，等工具执行完成
+          if (toolCalls.length === 0) {
+            setLoading(false);
+          } else {
+            console.log('⏳ 工具调用中，保持 loading 状态...');
+          }
         },
         onError: (error) => {
           console.error('Stream error:', error);

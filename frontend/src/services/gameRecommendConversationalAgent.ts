@@ -79,10 +79,16 @@ export const analyzeInterestDimensions = async (
     );
 
     console.log('[analyzeInterestDimensions] Raw LLM response:', response);
+    
+    if (!response || typeof response !== 'string') {
+      throw new Error(`Invalid LLM response: ${typeof response}`);
+    }
+    
     const cleanedResponse = cleanLLMResponse(response);
-    console.log('[analyzeInterestDimensions] Cleaned response:', cleanedResponse.substring(0, 200));
+    console.log('[analyzeInterestDimensions] Cleaned response (first 500 chars):', cleanedResponse.substring(0, 500));
+    
     const raw = JSON.parse(cleanedResponse);
-    console.log('[analyzeInterestDimensions] Parsed JSON:', JSON.stringify(raw, null, 2));
+    console.log('[analyzeInterestDimensions] Parsed JSON:', raw);
     // 确保所有字段都有默认值，防止 LLM 返回不完整
     const result: InterestAnalysisResult = {
       summary: raw.summary || '',
@@ -190,7 +196,7 @@ ${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
       }
     );
 
-    console.log('[generateFloorGamePlan] Raw LLM response:', response);
+    // console.log('[generateFloorGamePlan] Raw LLM response:', response);
     const cleanedPlanResponse = cleanLLMResponse(response);
     const data = JSON.parse(cleanedPlanResponse);
 

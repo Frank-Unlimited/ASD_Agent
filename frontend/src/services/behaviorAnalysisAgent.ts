@@ -106,7 +106,8 @@ export const analyzeBehavior = async (
                         description: '推理说明（30-50字）：解释关联度和强度的依据'
                       }
                     },
-                    required: ['dimension', 'weight', 'intensity', 'reasoning']
+                    required: ['dimension', 'weight', 'intensity', 'reasoning'],
+                    additionalProperties: false
                   }
                 },
                 analysis: {
@@ -114,7 +115,8 @@ export const analyzeBehavior = async (
                   description: '一句话分析其发展意义（20-30字），例如："显示出对建构活动的兴趣，有助于精细动作发展"'
                 }
               },
-              required: ['behavior', 'dimensions', 'analysis']
+              required: ['behavior', 'dimensions', 'analysis'],
+              additionalProperties: false
             }
           }
         }
@@ -135,8 +137,9 @@ export const analyzeBehavior = async (
     }
     
     // 验证必需字段
-    if (!data || !data.behavior || !data.dimensions || !data.analysis) {
+    if (!data || !data.behavior || !data.dimensions || !Array.isArray(data.dimensions) || !data.analysis) {
       console.error('[Behavior Analysis Agent] 缺少必需字段:', data);
+      console.error('[Behavior Analysis Agent] 期望字段: behavior, dimensions, analysis');
       throw new Error('行为分析数据不完整');
     }
     
