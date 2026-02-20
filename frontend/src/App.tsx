@@ -1183,7 +1183,8 @@ const PageAIChat = ({
                       goal: plan.goal,
                       steps: plan.steps.map(s => ({
                         stepTitle: s.stepTitle,
-                        instruction: s.instruction
+                        instruction: s.instruction,
+                        expectedOutcome: '' // 主分支保留了此字段，但游戏推荐不再生成
                       })),
                       materials: plan.materials || [],
                       _analysis: plan._analysis,
