@@ -1193,7 +1193,8 @@ const PageAIChat = ({
                       goal: plan.goal,
                       steps: plan.steps.map(s => ({
                         stepTitle: s.stepTitle,
-                        instruction: s.instruction
+                        instruction: s.instruction,
+                        expectedOutcome: s.expectedOutcome
                       })),
                       materials: plan.materials || [],
                       _analysis: plan._analysis,
