@@ -12,7 +12,6 @@ export enum Page {
 export enum GameState {
   LIST = 'LIST',
   PLAYING = 'PLAYING',
-  FEEDBACK = 'FEEDBACK',
   SUMMARY = 'SUMMARY'
 }
 
@@ -99,8 +98,8 @@ export interface InterestCategory {
 
 // --- New Types for Interest Analysis Agent ---
 
-export type InterestDimensionType =
-  | 'Visual' | 'Auditory' | 'Tactile' | 'Motor'
+export type InterestDimensionType = 
+  | 'Visual' | 'Auditory' | 'Tactile' | 'Motor' 
   | 'Construction' | 'Order' | 'Cognitive' | 'Social';
 
 // Store accumulated raw scores for Interests
@@ -123,7 +122,7 @@ export interface BehaviorAnalysis {
 
 // --- New Types for Ability/Radar Analysis ---
 
-export type AbilityDimensionType =
+export type AbilityDimensionType = 
   | '自我调节' | '亲密感' | '双向沟通' | '复杂沟通' | '情绪思考' | '逻辑思维';
 
 // Store accumulated scores for Radar Chart (0-100 scale)
@@ -135,7 +134,7 @@ export interface EvaluationResult {
   explorationScore: number; // Exploration/Breadth score
   summary: string;
   suggestion: string;
-  interestAnalysis?: BehaviorAnalysis[];
+  interestAnalysis?: BehaviorAnalysis[]; 
 }
 
 // --- Module Separation Types ---
@@ -171,12 +170,13 @@ export interface GameRecommendation {
   assessmentId: string; // 关联的评估ID
   game: Game;
   reason: string; // 推荐理由（详细）
+  expectedOutcome: string; // 预期效果
   parentGuidance: string; // 家长指导要点
   adaptationSuggestions: string[]; // 适应性调整建议
 }
 
 // 游戏推荐对话状态
-export type GameRecommendationState =
+export type GameRecommendationState = 
   | 'idle'              // 空闲状态
   | 'discussing'        // 需求探讨阶段
   | 'designing'         // 方案细化阶段
@@ -221,6 +221,7 @@ export interface GameImplementationPlan {
   steps: Array<{                     // 游戏步骤
     stepTitle: string;               // 步骤标题，如 "第一步：准备材料"
     instruction: string;             // 详细指令（家长应该做什么）
+    expectedOutcome: string;         // 预期效果（这一步期望达到什么效果）
   }>;
   materials?: string[];               // 所需材料清单
   _analysis?: string;                // LLM 分析总结（可选，用于显示）
@@ -252,6 +253,7 @@ export interface FloorGame {
   steps: Array<{
     stepTitle: string;
     instruction: string;
+    expectedOutcome: string;
   }>;
   materials?: string[];           // 所需材料清单
   _analysis?: string;
@@ -262,6 +264,7 @@ export interface FloorGame {
   isVR: boolean;               // 是否VR游戏
   result?: string;             // 实施结果（预留）
   evaluation?: EvaluationResult; // 游戏结束后的评估结果
+  chat_history_in_game?: string; // AI 视频通话的聊天记录（JSON 字符串）
   review?: GameReviewResult;     // 游戏复盘结果
 }
 

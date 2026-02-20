@@ -14,6 +14,8 @@ export interface RealtimeCallbacks {
   onAssistantAudio?: (audioData: ArrayBuffer) => void;
   onSpeechStarted?: () => void;
   onSpeechStopped?: () => void;
+  onResponseStarted?: () => void; // AI 开始新的回复
+  onResponseCompleted?: (fullTranscript: string) => void; // AI 回复完成
 }
 
 export interface ChildInfo {
@@ -31,8 +33,38 @@ export interface GameInfo {
 }
 
 export interface RealtimeInitOptions {
-  childInfo: ChildInfo;
-  gameInfo: GameInfo;
+  childInfo: {
+    name: string;
+    age: number;
+    diagnosis: string;
+    currentAbilities: Record<string, number>;
+    interestProfile: Record<string, { weight: number; intensity: number }>;
+    recentBehaviors: string[];
+  };
+  gameInfo: {
+    title: string;
+    goal: string;
+    summary: string;
+    steps: Array<{
+      stepTitle: string;
+      instruction: string;
+      expectedOutcome: string;
+    }>;
+    materials: string[];
+    currentStep: number;
+  };
+  historyInfo: {
+    recentGames: Array<{
+      title: string;
+      result: string;
+      evaluation: {
+        score: number;
+        summary: string;
+      };
+    }>;
+    successfulStrategies: string[];
+    challengingAreas: string[];
+  };
 }
 
 class QwenRealtimeService {
@@ -40,6 +72,7 @@ class QwenRealtimeService {
   private callbacks: RealtimeCallbacks = {};
   private isConnected: boolean = false;
   private serverUrl: string;
+  private currentAssistantTranscript: string = ''; // 跟踪当前 AI 回复的完整文本
   
   constructor() {
     // 连接到 Python WebSocket 服务器
@@ -71,7 +104,8 @@ class QwenRealtimeService {
           this.ws!.send(JSON.stringify({
             type: 'init',
             childInfo: initOptions.childInfo,
-            gameInfo: initOptions.gameInfo
+            gameInfo: initOptions.gameInfo,
+            historyInfo: initOptions.historyInfo
           }));
           
           if (this.callbacks.onConnected) {
@@ -167,9 +201,19 @@ class QwenRealtimeService {
             this.callbacks.onUserTranscript(userTranscript);
           }
           break;
+        
+        case 'response.created':
+          // AI 开始新的回复
+          console.log('[Qwen Realtime] AI 开始新的回复');
+          this.currentAssistantTranscript = ''; // 重置累积的文本
+          if (this.callbacks.onResponseStarted) {
+            this.callbacks.onResponseStarted();
+          }
+          break;
           
         case 'response.audio_transcript.delta':
           const assistantDelta = message.delta;
+          this.currentAssistantTranscript += assistantDelta; // 累积文本
           if (this.callbacks.onAssistantTranscript) {
             this.callbacks.onAssistantTranscript(assistantDelta);
           }
@@ -190,6 +234,10 @@ class QwenRealtimeService {
           
         case 'response.done':
           console.log('[Qwen Realtime] 响应完成');
+          // AI 回复完成，传递完整文本
+          if (this.callbacks.onResponseCompleted) {
+            this.callbacks.onResponseCompleted(this.currentAssistantTranscript);
+          }
           break;
           
         case 'error':
@@ -228,6 +276,18 @@ class QwenRealtimeService {
       type: 'audio',
       audio: base64Audio
     }));
+  }
+  
+  /**
+   * 发送通用消息
+   */
+  sendMessage(message: Record<string, any>): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error('[Qwen Realtime] WebSocket 未连接');
+      return;
+    }
+    
+    this.ws.send(JSON.stringify(message));
   }
   
   /**

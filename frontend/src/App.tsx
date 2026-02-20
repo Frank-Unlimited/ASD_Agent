@@ -3223,11 +3223,27 @@ const PageGames = ({
         </div>
         <div className="flex-1 px-4 pb-2 flex flex-col min-h-0">
           {/* 视频通话组件 */}
-          {showVideoCall && (
+          {showVideoCall && internalActiveGame && (
             <div className="mb-4 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
               <AIVideoCall
                 childProfile={childProfile}
-                gameContext={`当前游戏: ${internalActiveGame.title}\n当前步骤: ${currentStep.instruction}\n互动提示: ${currentStep.guidance}`}
+                gameData={{
+                  id: internalActiveGame.id,
+                  gameTitle: internalActiveGame.title,
+                  goal: internalActiveGame.target,
+                  summary: internalActiveGame.reason,
+                  steps: internalActiveGame.steps.map((step, index) => ({
+                    stepTitle: `第${index + 1}步`,
+                    instruction: step.instruction,
+                    expectedOutcome: step.guidance
+                  })),
+                  materials: [],
+                  status: 'pending' as const,
+                  dtstart: new Date().toISOString(),
+                  dtend: '',
+                  isVR: internalActiveGame.isVR || false
+                }}
+                gameId={internalActiveGame.id}
                 onClose={() => setShowVideoCall(false)}
               />
             </div>
