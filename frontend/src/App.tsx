@@ -54,7 +54,10 @@ import {
   Tag,
   Keyboard,
   Package,
-  LogOut
+  LogOut,
+  ClipboardList,
+  MessageSquare,
+  Video
 } from 'lucide-react';
 import {
   Radar,
@@ -70,7 +73,7 @@ import {
   CartesianGrid,
   Tooltip
 } from 'recharts';
-import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame } from './types';
+import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult } from './types';
 import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
@@ -78,6 +81,7 @@ import { speechService } from './services/speechService';
 import { reportStorageService } from './services/reportStorage';
 import { behaviorStorageService } from './services/behaviorStorage';
 import { floorGameStorageService } from './services/floorGameStorage';
+import { reviewFloorGame } from './services/gameReviewAgent';
 import { chatStorageService } from './services/chatStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
@@ -681,6 +685,8 @@ const PageAIChat = ({
   const [voiceMode, setVoiceMode] = useState(false); // 语音模式开关
   const [recognizing, setRecognizing] = useState(false); // 识别中状态
   const [showNoSpeechToast, setShowNoSpeechToast] = useState(false); // 显示"未识别到文字"提示
+  const [pendingFile, setPendingFile] = useState<File | null>(null); // 待发送文件
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null); // 预览URL
 
   const [checkInStep, setCheckInStep] = useState(0);
   const [targetGameId, setTargetGameId] = useState<string | null>(null);
@@ -749,60 +755,88 @@ const PageAIChat = ({
   };
 
   const startCheckInFlow = (game: Game) => {
-    console.log('[Check-In Flow] 开始游戏流程:', game);
-    console.log('[Check-In Flow] 游戏步骤数:', game.steps?.length);
+    console.log('[Check-In Flow] 直接跳转到游戏页面:', game.title);
 
-    setTargetGameId(game.id);
-
-    setCheckInStep(1);
+    // 直接记录一条 AI 消息并跳转
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role: 'model',
-      text: `太棒了！我们准备开始玩 **${game.title}**。在此之前，为了确保互动效果，请先确认一下：\n\n**1. 孩子现在的情绪怎么样？**`,
-      timestamp: new Date(),
-      options: ["开心/兴奋", "平静/专注", "烦躁/低落"]
+      text: `收到！准备和孩子一起玩 **${game.title}** 吧，正在为您加载...`,
+      timestamp: new Date()
     }]);
+
+    // 延迟一秒跳转，让用户看一眼消息，体验更平滑
+    setTimeout(() => {
+      onStartGame(game.id);
+    }, 800);
+  };
+
+  const clearPendingFile = () => {
+    if (previewUrl && previewUrl !== 'VIDEO_ICON') URL.revokeObjectURL(previewUrl);
+    setPendingFile(null);
+    setPreviewUrl(null);
   };
 
   const handleSend = async (textOverride?: string) => {
     const textToSend = textOverride || input;
-    if (!textToSend.trim()) return;
+    if (!textToSend.trim() && !pendingFile) return;
+
+    // 如果有待发送文件，走多模态路径
+    if (pendingFile) {
+      const file = pendingFile;
+      const prompt = textToSend || "请分析这张图片/视频。";
+
+      // 显示用户发送的消息
+      const userMsg: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'user',
+        text: textToSend ? `[文件] ${textToSend}` : "[文件]",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, userMsg]);
+
+      clearPendingFile();
+      setInput('');
+      setLoading(true);
+
+      try {
+        const category = fileUploadService.categorizeFile(file);
+        let result;
+        if (category === 'image') {
+          result = await multimodalService.parseImage(file, prompt);
+        } else {
+          result = await multimodalService.parseVideo(file, prompt);
+        }
+
+        if (result.success) {
+          const replyText = `**${category === 'image' ? '📸' : '🎬'} 分析完成**\n\n${result.content}`;
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(),
+            role: 'model',
+            text: replyText,
+            timestamp: new Date()
+          }]);
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (err) {
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          role: 'model',
+          text: `❌ 分析失败: ${err instanceof Error ? err.message : '未知错误'}`,
+          timestamp: new Date()
+        }]);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: textToSend, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
 
-    if (checkInStep > 0) {
-      if (checkInStep === 1) {
-        setTimeout(() => {
-          setCheckInStep(2);
-          setMessages(prev => [...prev, {
-            id: Date.now().toString(),
-            role: 'model',
-            text: "**2. 那他的能量水平（觉醒度）如何？**",
-            timestamp: new Date(),
-            options: ["低能量", "适中", "高亢/过载"]
-          }]);
-        }, 600);
-        return;
-      }
-      if (checkInStep === 2) {
-        setTimeout(() => {
-          setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "收到，状态确认完毕！正在为您进入游戏页面...", timestamp: new Date() }]);
-          setTimeout(() => {
-            console.log('[Check-In Flow] 准备跳转到游戏页面，gameId:', targetGameId);
-            if (targetGameId) {
-              onStartGame(targetGameId);
-            } else {
-              console.error('[Check-In Flow] targetGameId 为空！');
-            }
-            setCheckInStep(0);
-            setTargetGameId(null);
-          }, 1500);
-        }, 600);
-        return;
-      }
-    }
+    // (原 Check-In Step 拦截逻辑已移除，改为直接直达模式)
 
     setLoading(true);
 
@@ -1137,7 +1171,6 @@ const PageAIChat = ({
                     plan.steps.forEach((step) => {
                       fullResponse += `\n**${step.stepTitle}**\n`;
                       fullResponse += `${step.instruction}\n`;
-                      fullResponse += `✨ 预期效果：${step.expectedOutcome}\n`;
                     });
 
                     fullResponse += `\n如果您觉得这个方案合适，我们就可以开始游戏了！\n\n`;
@@ -1150,8 +1183,7 @@ const PageAIChat = ({
                       goal: plan.goal,
                       steps: plan.steps.map(s => ({
                         stepTitle: s.stepTitle,
-                        instruction: s.instruction,
-                        expectedOutcome: s.expectedOutcome
+                        instruction: s.instruction
                       })),
                       materials: plan.materials || [],
                       _analysis: plan._analysis,
@@ -1161,6 +1193,16 @@ const PageAIChat = ({
                       isVR: false
                     };
                     floorGameStorageService.saveGame(floorGame);
+
+                    // 异步生成步骤示意图（fire-and-forget，不阻塞游戏创建）
+                    void (async () => {
+                      try {
+                        const { generateAndSaveStepImages } = await import('./services/stepImageService');
+                        await generateAndSaveStepImages(floorGame.id, floorGame.gameTitle, floorGame.steps);
+                      } catch (err) {
+                        console.warn('[App] Background image generation error:', err);
+                      }
+                    })();
 
                     // 构建一个 Game 对象用于游戏卡片（UI 兼容）
                     const gameForCard = {
@@ -1172,7 +1214,7 @@ const PageAIChat = ({
                       isVR: false,
                       steps: plan.steps.map(s => ({
                         instruction: s.instruction,
-                        guidance: s.expectedOutcome
+                        guidance: s.instruction  // 地板游戏中，指令本身就是指导
                       })),
                       summary: plan.summary,
                       materials: []
@@ -1559,6 +1601,21 @@ const PageAIChat = ({
         },
         onComplete: (fullText, toolCalls) => {
           console.log('Stream completed:', { fullText, toolCalls });
+
+          // 检查是否有文本格式的工具调用（LLM 没有使用标准 Function Calling）
+          const toolCallMatch = fullText.match(/:::TOOL_CALL_START:::([\s\S]*?):::TOOL_CALL_END:::/);
+          if (toolCallMatch && toolCalls.length === 0) {
+            console.warn('⚠️  检测到文本格式的工具调用，但 toolCalls 为空。');
+            console.warn('⚠️  LLM 返回了文本格式的工具调用，而不是标准的 Function Calling。');
+            console.warn('⚠️  请检查系统提示词和 tools 配置。');
+            try {
+              const toolData = JSON.parse(toolCallMatch[1]);
+              console.log('解析到的工具调用:', toolData);
+            } catch (e) {
+              console.error('解析文本格式工具调用失败:', e);
+            }
+          }
+
           setLoading(false);
         },
         onError: (error) => {
@@ -1591,76 +1648,37 @@ const PageAIChat = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 检测文件类型
+    // 清除之前的预览
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+
     const category = fileUploadService.categorizeFile(file);
 
-    // 开始加载（不显示上传消息）
-    setLoading(true);
-
-    try {
-      // 处理图片文件
-      if (category === 'image') {
-        const result = await multimodalService.parseImage(file);
-
-        if (result.success) {
-          // 显示图片预览和分析结果
-          const replyText = `**📸 图片分析完成**\n\n${result.content}`;
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: 'model',
-            text: replyText,
-            timestamp: new Date()
-          }]);
-        } else {
-          throw new Error(result.error || '图片分析失败');
-        }
-      }
-      // 处理视频文件
-      else if (category === 'video') {
-        const result = await multimodalService.parseVideo(file);
-
-        if (result.success) {
-          const replyText = `**🎬 视频分析完成**\n\n${result.content}`;
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: 'model',
-            text: replyText,
-            timestamp: new Date()
-          }]);
-        } else {
-          throw new Error(result.error || '视频分析失败');
-        }
-      }
-      // 处理文档文件（原有逻辑）
-      else if (category === 'document') {
+    // 如果是文档，保持原有立即分析逻辑（因其不需要配合Prompt）
+    if (category === 'document') {
+      setLoading(true);
+      try {
         let textContent = file.type === "text/plain" ? await file.text() : `文件名: ${file.name}。假设这是一份医疗评估报告。`;
-
-        // *** Evaluation Agent Call (Report) ***
         const analysis = await api.analyzeReport(textContent);
         onProfileUpdate(analysis);
-
         const abilityChanges = analysis.abilityUpdates.map(u => `${u.dimension} ${u.scoreChange > 0 ? '+' : ''}${u.scoreChange}`).join('、');
         const replyText = `收到您的报告。我已经分析完毕并更新了孩子档案。\n\n**分析结果：**\n- 发现 ${analysis.interestUpdates.length} 个兴趣点\n- 能力维度调整：${abilityChanges || "无明显变化"}`;
-
         setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'model', text: replyText, timestamp: new Date() }]);
+      } catch (e) {
+        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `❌ 处理失败: ${e instanceof Error ? e.message : '未知错误'}`, timestamp: new Date() }]);
+      } finally {
+        setLoading(false);
       }
-      // 不支持的文件类型
-      else {
-        throw new Error('不支持的文件类型');
+    } else {
+      // 图片和视频进入 Pending 状态供后续组合 Prompt 发送
+      setPendingFile(file);
+      if (category === 'image') {
+        setPreviewUrl(URL.createObjectURL(file));
+      } else {
+        setPreviewUrl('VIDEO_ICON'); // 视频暂显图标
       }
-
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : "文件处理失败，请稍后再试。";
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        role: 'model',
-        text: `❌ ${errorMsg}`,
-        timestamp: new Date()
-      }]);
-    } finally {
-      setLoading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const parseMessageContent = (text: string) => {
@@ -2083,9 +2101,6 @@ const PageAIChat = ({
                             <span className="font-bold text-sm text-gray-800">{step.stepTitle || step.title}</span>
                           </div>
                           <p className="text-xs text-gray-600 mb-1">{step.instruction}</p>
-                          {step.expectedOutcome && (
-                            <p className="text-xs text-green-600 italic">✓ {step.expectedOutcome}</p>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -2108,14 +2123,52 @@ const PageAIChat = ({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="absolute bottom-24 left-0 right-0 px-4 flex justify-center space-x-3 pointer-events-none">
-        <div className="pointer-events-auto flex space-x-3">
-          <button onClick={() => navigateTo(Page.PROFILE)} className="bg-white/95 backdrop-blur shadow-lg px-5 py-2.5 rounded-full text-sm font-semibold text-primary border border-green-100 flex items-center transform active:scale-95 transition"><FileText className="w-4 h-4 mr-2" /> 孩童评估</button>
-          <button onClick={() => navigateTo(Page.GAMES)} className="bg-white/95 backdrop-blur shadow-lg px-5 py-2.5 rounded-full text-sm font-semibold text-secondary border border-blue-100 flex items-center transform active:scale-95 transition"><Gamepad2 className="w-4 h-4 mr-2" /> 地板游戏</button>
+      <div className="absolute bottom-20 left-0 right-0 px-4 flex justify-center space-x-2 pointer-events-none">
+        <div className="pointer-events-auto flex space-x-2 overflow-x-auto no-scrollbar py-2">
+          <button
+            onClick={() => handleSend("根据孩子最近的情况，推荐一个适合今天的地板游戏")}
+            className="bg-white/90 backdrop-blur shadow-sm px-4 py-2 rounded-full text-xs font-bold text-secondary border border-blue-100 flex items-center hover:bg-white hover:shadow-md transition active:scale-95 whitespace-nowrap"
+          >
+            <Sparkles className="w-3 h-3 mr-1.5" />
+            推荐今日互动
+          </button>
+          <button
+            onClick={() => handleSend("请根据今天的互动情况，生成一份综合评估报告")}
+            className="bg-white/90 backdrop-blur shadow-sm px-4 py-2 rounded-full text-xs font-bold text-primary border border-green-100 flex items-center hover:bg-white hover:shadow-md transition active:scale-95 whitespace-nowrap"
+          >
+            <Activity className="w-3 h-3 mr-1.5" />
+            生成评估报告
+          </button>
         </div>
       </div>
 
-      <div className="bg-white p-4 border-t border-gray-100">
+      <div className="bg-white p-4 border-t border-gray-100 relative">
+        {/* 文件预览区 */}
+        {previewUrl && (
+          <div className="absolute top-0 left-0 right-0 -translate-y-full px-4 py-2 bg-white/80 backdrop-blur-sm border-t border-gray-100 flex items-center animate-in slide-in-from-bottom">
+            <div className="relative group">
+              {previewUrl === 'VIDEO_ICON' ? (
+                <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center border-2 border-primary/20">
+                  <Camera className="w-8 h-8 text-primary" />
+                  <span className="absolute bottom-1 right-1 text-[8px] bg-primary text-white px-1 rounded">VIDEO</span>
+                </div>
+              ) : (
+                <img src={previewUrl} alt="Preview" className="w-16 h-16 object-cover rounded-lg border-2 border-primary/20 shadow-sm" />
+              )}
+              <button
+                onClick={clearPendingFile}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition active:scale-90"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-xs font-bold text-gray-700">{pendingFile?.name}</p>
+              <p className="text-[10px] text-gray-500">{(pendingFile?.size! / 1024 / 1024).toFixed(2)} MB • 等待发送</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center bg-gray-100 rounded-full px-2 py-2">
           <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp,.mp4,.avi,.mov" />
 
@@ -2889,7 +2942,7 @@ const PageGames = ({
     isVR: fg.isVR,
     steps: fg.steps.map(s => ({
       instruction: s.instruction,
-      guidance: s.expectedOutcome
+      guidance: s.instruction  // 地板游戏中，指令本身就是指导
     })),
     summary: fg.summary,
     materials: [],
@@ -2908,11 +2961,37 @@ const PageGames = ({
   const [clickedLog, setClickedLog] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
+  const [gameReview, setGameReview] = useState<GameReviewResult | null>(null);
   const [hasUpdatedTrend, setHasUpdatedTrend] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState('全部');
   const [showVideoCall, setShowVideoCall] = useState(false); // AI 视频通话状态
+  const [coverImages, setCoverImages] = useState<Map<string, string>>(new Map()); // gameId → 第一步图片（列表封面）
+  const [stepImages, setStepImages] = useState<Map<number, string>>(new Map()); // stepIndex → dataUrl（当前游戏步骤图片）
   const FILTERS = ['全部', '共同注意', '自我调节', '亲密感', '双向沟通', '情绪思考', '创造力'];
+
+  // Feedback State (Moved to top level)
+  const [feedback, setFeedback] = useState('');
+  const [gameVideo, setGameVideo] = useState<File | null>(null);
+  const [isProcessingVideo, setIsProcessingVideo] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmitFeedback = async () => {
+    let videoSummary = '';
+    if (gameVideo) {
+      setIsProcessingVideo(true);
+      try {
+        const result = await multimodalService.parseVideo(gameVideo, "请对这段地板游戏互动视频进行简要复盘，重点关注眼神对视、共享注意和互动质量。");
+        if (result.success) videoSummary = result.content;
+      } catch (e) {
+        console.warn('[Feedback] 视频分析失败，将降级处理:', e);
+      } finally {
+        setIsProcessingVideo(false);
+      }
+    }
+    setGameState(GameState.SUMMARY);
+    performAnalysis(feedback, videoSummary);
+  };
 
   useEffect(() => {
     if (initialGameId && !internalActiveGame) {
@@ -2934,7 +3013,7 @@ const PageGames = ({
           isVR: floorGame.isVR,
           steps: floorGame.steps.map(s => ({
             instruction: s.instruction,
-            guidance: s.expectedOutcome
+            guidance: s.instruction  // 地板游戏中，指令本身就是指导
           })),
           summary: floorGame.summary,
           materials: []
@@ -2964,14 +3043,89 @@ const PageGames = ({
 
   useEffect(() => { if (gameState === GameState.SUMMARY && !evaluation && !isAnalyzing) performAnalysis(); }, [gameState]);
 
-  const performAnalysis = async () => {
+  // 加载游戏封面图（每个游戏的第一步图片）和监听实时更新
+  useEffect(() => {
+    let cancelled = false;
+    const loadCovers = async () => {
+      try {
+        const { imageStorageService } = await import('./services/imageStorage');
+        const newCovers = new Map<string, string>();
+        for (const fg of floorGames) {
+          const img = await imageStorageService.getStepImage(fg.id, 0);
+          if (img && !cancelled) newCovers.set(fg.id, img);
+        }
+        if (!cancelled) setCoverImages(newCovers);
+      } catch (e) { console.warn('[PageGames] 加载封面图失败:', e); }
+    };
+    loadCovers();
+
+    const handleImageUpdate = async (e: Event) => {
+      const { gameId, stepIndex } = (e as CustomEvent).detail;
+      if (stepIndex === 0) {
+        try {
+          const { imageStorageService } = await import('./services/imageStorage');
+          const img = await imageStorageService.getStepImage(gameId, 0);
+          if (img && !cancelled) setCoverImages(prev => new Map(prev).set(gameId, img));
+        } catch (_) { /* ignore */ }
+      }
+      // 如果正在查看的游戏有新图片，更新步骤图片
+      if (internalActiveGame?.id === gameId) {
+        try {
+          const { imageStorageService } = await import('./services/imageStorage');
+          const img = await imageStorageService.getStepImage(gameId, stepIndex);
+          if (img && !cancelled) setStepImages(prev => new Map(prev).set(stepIndex, img));
+        } catch (_) { /* ignore */ }
+      }
+    };
+    window.addEventListener('floorGameStepImagesUpdated', handleImageUpdate);
+    return () => { cancelled = true; window.removeEventListener('floorGameStepImagesUpdated', handleImageUpdate); };
+  }, [floorGames.length]);
+
+  // 当选中游戏变化时，加载该游戏的全部步骤图片
+  useEffect(() => {
+    if (!internalActiveGame?.id) { setStepImages(new Map()); return; }
+    let cancelled = false;
+    const loadStepImages = async () => {
+      try {
+        const { imageStorageService } = await import('./services/imageStorage');
+        const imgs = await imageStorageService.getGameImages(internalActiveGame.id);
+        if (!cancelled) setStepImages(imgs);
+      } catch (e) { console.warn('[PageGames] 加载步骤图片失败:', e); }
+    };
+    loadStepImages();
+    return () => { cancelled = true; };
+  }, [internalActiveGame?.id]);
+
+  const performAnalysis = async (userFeedback?: string, videoSummary?: string) => {
     setIsAnalyzing(true);
     try {
       const logsToAnalyze = logs.length > 0 ? logs : [{ type: 'emoji', content: '完成了游戏', timestamp: new Date() } as LogEntry];
 
-      // *** Evaluation Agent Call (Session) ***
-      const result = await api.analyzeSession(logsToAnalyze);
+      // 格式化聊天记录用于复盘基础
+      const chatHistoryText = logsToAnalyze.map(log => {
+        const time = log.timestamp instanceof Date ? log.timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
+        return `[${time}] ${log.type === 'emoji' ? '快速记录' : '语音记录'}: ${log.content}`;
+      }).join('\n');
+
+      // 从 storage 获取完整的 FloorGame 数据
+      const floorGame = internalActiveGame?.id ? floorGameStorageService.getGameById(internalActiveGame.id) : null;
+
+      // 并行调用：评估 + 复盘 (现在包含真实家长反馈和视频摘要)
+      const evaluationPromise = api.analyzeSession(logsToAnalyze);
+      const reviewPromise = floorGame ? reviewFloorGame({
+        game: { ...floorGame, status: 'completed', dtend: new Date().toISOString() },
+        chatHistory: chatHistoryText,
+        videoSummary: videoSummary || '',
+        parentFeedback: userFeedback || chatHistoryText
+      }).catch(e => { console.error('[GameReview] 复盘失败:', e); return null; }) : Promise.resolve(null);
+
+      const [result, reviewResult] = await Promise.all([evaluationPromise, reviewPromise]);
+
       setEvaluation(result);
+      if (reviewResult) {
+        setGameReview(reviewResult);
+        console.log('[GameReview] 复盘完成，综合得分:', reviewResult.overallScore);
+      }
 
       // 将评估结果写入 FloorGame 记录
       if (internalActiveGame?.id) {
@@ -3018,6 +3172,7 @@ const PageGames = ({
     setTimer(0);
     setLogs([]);
     setEvaluation(null);
+    setGameReview(null);
     setHasUpdatedTrend(false);
   };
   const handleLog = (type: 'emoji' | 'voice', content: string) => { setLogs(prev => [...prev, { type, content, timestamp: new Date() }]); setClickedLog(content); setTimeout(() => setClickedLog(null), 300); };
@@ -3042,7 +3197,7 @@ const PageGames = ({
             const statusConfig = game.status === 'completed' ? { label: '已完成', cls: 'bg-green-50 text-green-700' } : game.status === 'aborted' ? { label: '已中止', cls: 'bg-red-50 text-red-700' } : { label: '未开始', cls: 'bg-gray-100 text-gray-500' };
             // LIST 状态：只显示年月日
             const dateStr = game.date ? new Date(game.date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '';
-            return (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><div className="flex items-center space-x-2 shrink-0 ml-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>{dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}</div></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div>);
+            return (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30 overflow-hidden">{coverImages.get(game.id) && (<div className="w-full h-32 overflow-hidden"><img src={coverImages.get(game.id)} alt="" className="w-full h-full object-cover" /></div>)}<div className="p-5"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><div className="flex items-center space-x-2 shrink-0 ml-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>{dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}</div></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div></div>);
           })) : (<div className="text-center py-10 text-gray-400 flex flex-col items-center"><div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><Search className="w-8 h-8 text-gray-300" /></div><p>没有找到匹配的游戏</p><button onClick={() => { setSearchText(''); setActiveFilter('全部') }} className="mt-2 text-primary font-bold text-sm">清除筛选</button></div>)}
         </div>
       </div>
@@ -3094,13 +3249,90 @@ const PageGames = ({
             </div>
           )}
 
-          <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar"><h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current" /> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
-        <div className="flex items-center justify-between px-6 py-4 mb-2"><button onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))} disabled={currentStepIndex === 0} className={`flex items-center text-gray-400 font-bold transition px-4 py-3 ${currentStepIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-600'}`}><ChevronLeft className="w-5 h-5 mr-1" /> 上一步</button><div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-xs font-bold text-gray-500 tracking-wide">步骤 {currentStepIndex + 1} / {internalActiveGame.steps.length}</div>{isLastStep ? (<button onClick={() => setGameState(GameState.SUMMARY)} className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 flex items-center hover:bg-green-600 transition transform active:scale-95">完成 <CheckCircle2 className="w-5 h-5 ml-2" /></button>) : (<button onClick={() => setCurrentStepIndex(currentStepIndex + 1)} className="bg-secondary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-secondary/30 flex items-center hover:bg-blue-600 transition transform active:scale-95">下一步 <ChevronRight className="w-5 h-5 ml-1" /></button>)}</div>
+          <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar">{stepImages.get(currentStepIndex) && (<div className="w-full mb-4 rounded-2xl overflow-hidden shrink-0"><img src={stepImages.get(currentStepIndex)} alt={`步骤 ${currentStepIndex + 1} 插图`} className="w-full h-48 object-cover rounded-2xl" /></div>)}<h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current" /> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
+        <div className="flex items-center justify-between px-6 py-4 mb-2"><button onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))} disabled={currentStepIndex === 0} className={`flex items-center text-gray-400 font-bold transition px-4 py-3 ${currentStepIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-600'}`}><ChevronLeft className="w-5 h-5 mr-1" /> 上一步</button><div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-xs font-bold text-gray-500 tracking-wide">步骤 {currentStepIndex + 1} / {internalActiveGame.steps.length}</div>{isLastStep ? (<button onClick={() => setGameState(GameState.FEEDBACK)} className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 flex items-center hover:bg-green-600 transition transform active:scale-95">完成 <CheckCircle2 className="w-5 h-5 ml-2" /></button>) : (<button onClick={() => setCurrentStepIndex(currentStepIndex + 1)} className="bg-secondary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-secondary/30 flex items-center hover:bg-blue-600 transition transform active:scale-95">下一步 <ChevronRight className="w-5 h-5 ml-1" /></button>)}</div>
         <div className="p-4 bg-white border-t border-gray-100 pb-8 rounded-t-3xl shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 relative"><p className="text-center text-[10px] text-gray-400 mb-3 uppercase tracking-widest font-bold">快速记录当前反应</p><div className="flex justify-between max-w-sm mx-auto mb-3 space-x-2">{[{ icon: Smile, label: '微笑', color: 'text-yellow-600 bg-yellow-100 ring-yellow-300' }, { icon: Eye, label: '眼神', color: 'text-blue-600 bg-blue-100 ring-blue-300' }, { icon: Handshake, label: '互动', color: 'text-green-600 bg-green-100 ring-green-300' }, { icon: Frown, label: '抗拒', color: 'text-red-500 bg-red-100 ring-red-300' }].map((btn, i) => (<button key={i} onClick={() => handleLog('emoji', btn.label)} className={`flex-1 py-3 rounded-xl shadow-sm active:scale-95 transition flex flex-col items-center justify-center ${btn.color} ${clickedLog === btn.label ? 'ring-4 ring-offset-2 scale-110 bg-opacity-100' : ''}`}><btn.icon className="w-5 h-5 mb-1" /><span className="text-[10px] font-bold">{btn.label}</span></button>))}</div><button onMouseDown={() => { setClickedLog('voice'); handleLog('voice', '录音开始...'); }} onMouseUp={() => handleLog('voice', '录音结束')} className={`w-full bg-gray-50 border border-gray-200 py-3 rounded-xl text-gray-600 font-bold flex items-center justify-center shadow-sm active:bg-gray-200 active:scale-98 transition text-sm ${clickedLog === 'voice' ? 'ring-2 ring-gray-300 bg-gray-100' : ''}`}><Mic className="w-4 h-4 mr-2" /> 按住说话 记录观察笔记</button></div>
       </div>
     );
   }
 
+  if (gameState === GameState.FEEDBACK) {
+    return (
+      <div className="h-full bg-background p-6 flex flex-col pt-12 overflow-y-auto no-scrollbar">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <ClipboardList className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800">互动随手记</h2>
+          <p className="text-gray-500 text-sm mt-2">您的观察对生成专业的 DIR 复盘报告至关重要</p>
+        </div>
+
+        <div className="space-y-6 flex-1">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h3 className="font-bold text-gray-700 mb-3 flex items-center">
+              <MessageSquare className="w-4 h-4 mr-2 text-primary" /> 本次观察建议
+            </h3>
+            <textarea
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              className="w-full bg-gray-50 rounded-xl p-4 text-sm min-h-[120px] focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none transition"
+              placeholder="例如：孩子今天主动发起了 3 次沟通；我们通过玩车建立了良好的循环..."
+            />
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h3 className="font-bold text-gray-700 mb-3 flex items-center">
+              <Camera className="w-4 h-4 mr-2 text-primary" /> 上传互动视频 (可选)
+            </h3>
+            <p className="text-xs text-gray-400 mb-4">分析视频画面中的眼神接触与非言语互动</p>
+
+            <input
+              type="file"
+              ref={videoInputRef}
+              hidden
+              accept="video/*"
+              onChange={(e) => setGameVideo(e.target.files?.[0] || null)}
+            />
+
+            {gameVideo ? (
+              <div className="flex items-center justify-between bg-blue-50 p-4 rounded-xl">
+                <div className="flex items-center">
+                  <Video className="w-5 h-5 text-primary mr-3" />
+                  <div className="max-w-[150px]">
+                    <p className="text-sm font-bold text-gray-800 truncate">{gameVideo.name}</p>
+                    <p className="text-[10px] text-gray-500">{(gameVideo.size / 1024 / 1024).toFixed(1)} MB</p>
+                  </div>
+                </div>
+                <button onClick={() => setGameVideo(null)} className="p-2 text-gray-400 hover:text-red-500"><X className="w-5 h-5" /></button>
+              </div>
+            ) : (
+              <button
+                onClick={() => videoInputRef.current?.click()}
+                className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-8 flex flex-col items-center justify-center hover:bg-gray-50 transition group"
+              >
+                <Upload className="w-8 h-8 text-gray-300 group-hover:text-primary transition mb-2" />
+                <span className="text-sm font-bold text-gray-400 group-hover:text-gray-600">选择视频文件</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-8 pb-10">
+          <button
+            onClick={handleSubmitFeedback}
+            disabled={isProcessingVideo}
+            className={`w-full bg-primary text-white py-4 rounded-xl font-bold shadow-lg shadow-primary/30 flex items-center justify-center transition active:scale-95 ${isProcessingVideo ? 'opacity-70 animate-pulse cursor-wait' : 'hover:bg-green-600'}`}
+          >
+            {isProcessingVideo ? (
+              <>AI 正在分析视频画面...</>
+            ) : (
+              <>提交并生成 AI 复盘报表 <Sparkles className="w-5 h-5 ml-2" /></>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (gameState === GameState.SUMMARY) {
     // SUMMARY 状态：显示游戏开始时间（年月日 时:分）
     const gameStartTime = internalActiveGame?.date
@@ -3151,6 +3383,63 @@ const PageGames = ({
             </div>
             {evaluation.interestAnalysis && evaluation.interestAnalysis.length > 0 && (<div className="bg-white p-5 rounded-2xl shadow-sm mb-6 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center"><Dna className="w-5 h-5 mr-2 text-indigo-500" /> 兴趣探索度分析</h3><div className="space-y-4">{evaluation.interestAnalysis.map((item, idx) => (<div key={idx} className="bg-gray-50 rounded-xl p-3 border border-gray-100"><p className="text-sm font-semibold text-gray-800 mb-2">"{item.behavior}"</p><div className="flex flex-wrap gap-2">{item.matches.map((match, mIdx) => { const config = getDimensionConfig(match.dimension); return (<div key={mIdx} className="flex flex-col"><div className={`flex items-center px-2 py-1 rounded-md text-xs font-bold ${config.color}`}><config.icon className="w-3 h-3 mr-1" />{config.label} {(match.weight * 100).toFixed(0)}%</div></div>) })}</div>{item.matches[0] && (<p className="text-[10px] text-gray-500 mt-2 italic border-t border-gray-200 pt-1">💡 {item.matches[0].reasoning}</p>)}</div>))}</div></div>)}
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-5 rounded-2xl shadow-lg mb-6 relative overflow-hidden"><div className="relative z-10"><h3 className="font-bold flex items-center mb-3"><Lightbulb className="w-4 h-4 mr-2 text-yellow-300" /> 下一步建议</h3><p className="text-indigo-100 text-sm leading-relaxed font-medium">{evaluation.suggestion}</p></div><Sparkles className="absolute -right-2 -bottom-2 text-white/10 w-24 h-24 rotate-12" /></div>
+
+            {/* AI 专业复盘 */}
+            {gameReview && (
+              <div className="space-y-4 mb-6">
+                {/* 复盘总结 + 推荐标签 */}
+                <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-700 flex items-center">
+                      <Activity className="w-5 h-5 mr-2 text-primary" /> AI 专业复盘
+                    </h3>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${gameReview.recommendation === 'continue' ? 'bg-green-100 text-green-700' :
+                      gameReview.recommendation === 'adjust' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                      {gameReview.recommendation === 'continue' ? '继续此游戏' :
+                        gameReview.recommendation === 'adjust' ? '建议调整' : '建议避免'}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 text-sm leading-relaxed mb-5">{gameReview.reviewSummary}</p>
+                  {/* 多维度打分 */}
+                  <div className="space-y-2.5">
+                    {([
+                      { key: 'childEngagement', label: '孩子配合度', color: 'bg-green-500' },
+                      { key: 'gameCompletion', label: '游戏完成度', color: 'bg-blue-500' },
+                      { key: 'emotionalConnection', label: '情感连接', color: 'bg-pink-500' },
+                      { key: 'communicationLevel', label: '沟通互动', color: 'bg-purple-500' },
+                      { key: 'skillProgress', label: '能力进步', color: 'bg-yellow-500' },
+                      { key: 'parentExecution', label: '家长执行', color: 'bg-indigo-500' }
+                    ] as const).map(dim => {
+                      const score = gameReview.scores[dim.key as keyof typeof gameReview.scores];
+                      return (
+                        <div key={dim.key}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-bold text-gray-600">{dim.label}</span>
+                            <span className="text-xs font-bold text-gray-800">{score}</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2">
+                            <div className={`${dim.color} h-2 rounded-full transition-all duration-700`} style={{ width: `${score}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 下一步建议 */}
+                <div className="bg-gradient-to-br from-teal-500 to-emerald-600 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden">
+                  <div className="relative z-10">
+                    <h3 className="font-bold flex items-center mb-3">
+                      <Lightbulb className="w-4 h-4 mr-2 text-yellow-300" /> 下一步建议
+                    </h3>
+                    <p className="text-teal-100 text-sm leading-relaxed">{gameReview.nextStepSuggestion}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="bg-white p-4 rounded-2xl shadow-sm mb-20 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center justify-between"><span className="flex items-center"><TrendingUp className="w-4 h-4 mr-2 text-green-500" /> 成长曲线已更新</span><span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">+1 记录</span></h3><div className="h-40 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" /><XAxis dataKey="name" tick={{ fontSize: 9, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 100]} /><Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} /><Line type="monotone" dataKey="engagement" stroke="#10B981" strokeWidth={3} dot={(props: any) => { const isLast = props.index === trendData.length - 1; return (<circle cx={props.cx} cy={props.cy} r={isLast ? 6 : 4} fill={isLast ? "#10B981" : "#fff"} stroke="#10B981" strokeWidth={2} />); }} isAnimationActive={true} /></LineChart></ResponsiveContainer></div></div>
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100"><button onClick={() => { setGameState(GameState.LIST); onBack(); }} className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-gray-800 transition active:scale-95 flex items-center justify-center"><RefreshCw className="w-4 h-4 mr-2" /> 返回游戏库</button></div>
           </div>
@@ -3185,6 +3474,11 @@ export default function App() {
   const [trendData, setTrendData] = useState(INITIAL_TREND_DATA);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false); // 退出互动确认
+
+  // Abort State in App
+  const [abortTags, setAbortTags] = useState<string[]>([]);
+  const [abortReason, setAbortReason] = useState('');
+  const ABORT_TAGS = ['😐 失去兴趣', '😫 情绪崩溃', '🤯 难度太高', '🦋 注意力分散', '🛑 外部干扰'];
 
   // 加载真实的儿童档案
   const [childProfile, setChildProfile] = useState<ChildProfile | null>(() => {
@@ -3407,6 +3701,48 @@ export default function App() {
     setShowExitConfirm(false);
   };
 
+  const handleToggleAbortTag = (tag: string) => {
+    setAbortTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  };
+
+  const handleConfirmAbort = () => {
+    if (!activeGameId) return;
+    const floorGame = floorGameStorageService.getGameById(activeGameId);
+    if (!floorGame) return;
+
+    // 构建行为记录
+    const tagsStr = abortTags.length > 0 ? `[${abortTags.join(',')}]` : '';
+    const reasonStr = abortReason ? `- ${abortReason}` : '';
+    const behaviorDesc = `[游戏中止] ${tagsStr} ${reasonStr}`.trim();
+
+
+    // 保存行为
+    const behavior: BehaviorAnalysis = {
+      behavior: behaviorDesc,
+      source: 'GAME',
+      timestamp: new Date().toISOString(),
+      matches: [{
+        dimension: floorGame.goal as any,
+        weight: 1,
+        intensity: -0.5,
+        reasoning: `Game aborted. Tags: ${abortTags.join(',')}. Note: ${abortReason}`
+      }]
+    };
+    behaviorStorageService.saveBehavior(behavior);
+
+    // 退出 (Update game status if possible, or just exit)
+    if (activeGameId) {
+      floorGameStorageService.updateGame(activeGameId, { status: 'aborted' });
+    }
+    setGameMode(GameState.LIST);
+    setShowExitConfirm(false);
+
+    // Reset state
+    setAbortTags([]);
+    setAbortReason('');
+  };
+
+
   return (
     <div className="max-w-md mx-auto h-screen bg-gray-50 flex flex-col shadow-2xl overflow-hidden relative">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} setPage={handleNavigate} onLogout={handleLogout} childProfile={childProfile} />
@@ -3439,36 +3775,61 @@ export default function App() {
         </div>
       )}
 
-      {/* 退出互动确认对话框 */}
+      {/* 退出互动确认对话框 (改造成中止记录弹窗) */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowExitConfirm(false)}></div>
           <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 mx-auto mb-4">
-              <LogOut className="w-6 h-6 text-blue-600" />
+            <div className="text-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">记录中止原因</h3>
+              <p className="text-xs text-gray-500 mt-1">请告诉我们为什么提前结束，帮助 AI 优化推荐</p>
             </div>
-            <h3 className="text-xl font-bold text-gray-800 text-center mb-2">退出本次互动？</h3>
-            <p className="text-gray-600 text-center mb-6 text-sm">您可以选择生成评估报告以保存记录，或者直接退出本次游戏。</p>
-            <div className="flex flex-col gap-3">
+
+            {/* 标签选择 */}
+            <div className="flex flex-wrap gap-2 mb-4 justify-center">
+              {ABORT_TAGS.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => handleToggleAbortTag(tag)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition border ${abortTags.includes(tag) ? 'bg-red-50 text-red-600 border-red-200 shadow-sm' : 'bg-gray-50 text-gray-500 border-gray-100 hover:bg-gray-100'}`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+
+            {/* 备注输入 */}
+            <textarea
+              value={abortReason}
+              onChange={(e) => setAbortReason(e.target.value)}
+              placeholder="其他原因或详细说明（可选）..."
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition mb-4 resize-none h-20"
+            />
+
+            <div className="flex flex-col gap-2">
               <button
-                onClick={() => handleExitInteraction('report')}
-                className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-green-600 transition flex items-center justify-center"
+                onClick={handleConfirmAbort}
+                disabled={abortTags.length === 0 && !abortReason.trim()}
+                className={`w-full py-3 rounded-xl font-bold transition flex items-center justify-center ${abortTags.length === 0 && !abortReason.trim() ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30'}`}
               >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                生成评估报告并保存
+                <LogOut className="w-4 h-4 mr-2" />
+                确认中止并记录
               </button>
-              <button
-                onClick={() => handleExitInteraction('list')}
-                className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition text-sm"
-              >
-                直接返回列表 (不保存)
-              </button>
-              <button
-                onClick={() => setShowExitConfirm(false)}
-                className="w-full text-gray-400 py-2 font-medium hover:text-gray-600 transition text-xs"
-              >
-                继续游戏
-              </button>
+
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => handleExitInteraction('list')}
+                  className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl font-bold hover:bg-gray-200 transition text-xs"
+                >
+                  直接退出 (不保存)
+                </button>
+                <button
+                  onClick={() => setShowExitConfirm(false)}
+                  className="flex-1 text-gray-400 py-2.5 font-medium hover:text-gray-600 transition text-xs"
+                >
+                  取消
+                </button>
+              </div>
             </div>
           </div>
         </div>

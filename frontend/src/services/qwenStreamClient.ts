@@ -37,6 +37,8 @@ interface QwenStreamRequest {
       strict?: boolean;
     };
   };
+  enable_search?: boolean;
+  forced_search?: boolean;
 }
 
 interface StreamChunk {
@@ -86,16 +88,35 @@ class QwenStreamClient {
    * 流式调用 Qwen API
    */
   async streamChat(
-    request: Omit<QwenStreamRequest, 'stream' | 'model'>,
+    request: Omit<QwenStreamRequest, 'stream' | 'model'> & {
+      extra_body?: {
+        enable_search?: boolean;
+        forced_search?: boolean;
+      };
+    },
     callbacks: StreamCallbacks
   ): Promise<void> {
     try {
+      const { extra_body, ...restRequest } = request;
+      
       const fullRequest: QwenStreamRequest = {
         model: this.model,
         stream: true,
         modalities: ['text'], // 仅输出文本模态
-        ...request
+        ...restRequest
       };
+
+      // 添加 extra_body 参数（联网搜索等）
+      if (extra_body) {
+        Object.assign(fullRequest, extra_body);
+      }
+
+      console.log('[Qwen Stream] Request:', {
+        model: fullRequest.model,
+        hasTools: !!fullRequest.tools,
+        toolCount: fullRequest.tools?.length || 0,
+        toolChoice: fullRequest.tool_choice
+      });
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -227,21 +248,34 @@ class QwenStreamClient {
           schema: any;
         };
       };
+      extra_body?: {
+        enable_search?: boolean;
+        forced_search?: boolean;
+      };
     }
   ): Promise<string> {
     try {
+      const requestBody: any = {
+        model: this.model,
+        messages,
+        stream: false,
+        temperature: options?.temperature,
+        max_tokens: options?.max_tokens,
+        response_format: options?.response_format
+      };
+
+      // 添加 extra_body 参数（用于联网搜索）
+      if (options?.extra_body) {
+        Object.assign(requestBody, options.extra_body);
+      }
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          model: this.model,
-          messages,
-          stream: false,
-          ...options
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {

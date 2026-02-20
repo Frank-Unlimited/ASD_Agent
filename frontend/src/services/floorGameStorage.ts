@@ -4,6 +4,7 @@
  */
 
 import { FloorGame } from '../types';
+import { imageStorageService } from './imageStorage';
 
 const FLOOR_GAMES_STORAGE_KEY = 'asd_floor_games';
 
@@ -77,6 +78,8 @@ class FloorGameStorageService {
     try {
       const games = this.getAllGames();
       const filtered = games.filter(g => g.id !== id);
+      // 清理 IndexedDB 中该游戏的步骤图片
+      void imageStorageService.deleteGameImages(id);
       localStorage.setItem(FLOOR_GAMES_STORAGE_KEY, JSON.stringify(filtered));
     } catch (error) {
       console.error('Failed to delete floor game:', error);

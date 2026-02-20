@@ -16,9 +16,9 @@ class ChatStorageService {
     try {
       const data = localStorage.getItem(CHAT_HISTORY_KEY);
       if (!data) return this.getDefaultMessages();
-      
+
       const messages = JSON.parse(data);
-      
+
       // 转换 timestamp 为 Date 对象
       return messages.map((msg: any) => ({
         ...msg,
@@ -37,13 +37,13 @@ class ChatStorageService {
     try {
       // 只保留最近的消息
       const messagesToSave = messages.slice(-MAX_MESSAGES);
-      
+
       // 转换 Date 对象为 ISO 字符串
       const serializedMessages = messagesToSave.map(msg => ({
         ...msg,
         timestamp: msg.timestamp.toISOString()
       }));
-      
+
       localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(serializedMessages));
     } catch (error) {
       console.error('Failed to save chat history:', error);
@@ -84,12 +84,11 @@ class ChatStorageService {
    */
   getDefaultMessages(): ChatMessage[] {
     return [
-      { 
-        id: '1', 
-        role: 'model', 
-        text: "**你好！我是地板时光助手。** 👋 \n\n我已读取了孩子的最新档案。今天我们重点关注什么？", 
-        timestamp: new Date(),
-        options: ["🎮 推荐今日游戏", "📝 记录刚才的互动", "🤔 咨询孩子行为问题", "📅 查看本周计划"] 
+      {
+        id: '1',
+        role: 'model',
+        text: "**你好！我是地板时光助手。** 👋 \n\n我已读取了孩子的最新档案。今天我们重点关注什么？",
+        timestamp: new Date()
       }
     ];
   }

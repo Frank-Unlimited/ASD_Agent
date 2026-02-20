@@ -522,10 +522,6 @@ export const GameRecommendationDetailedSchema = {
         type: 'string',
         description: '详细推荐理由，150-200字，说明为什么这个游戏最适合'
       },
-      expectedOutcome: {
-        type: 'string',
-        description: '预期效果，100字左右，具体可观察的改善'
-      },
       parentGuidance: {
         type: 'string',
         description: '家长指导要点，150字左右，如何引导、注意事项'
@@ -544,10 +540,50 @@ export const GameRecommendationDetailedSchema = {
     required: [
       'game',
       'reason',
-      'expectedOutcome',
       'parentGuidance',
       'adaptationSuggestions'
     ],
+    additionalProperties: false
+  }
+};
+
+// --- Game Review Schema ---
+
+export const GameReviewSchema = {
+  name: 'game_review',
+  description: '游戏复盘结果',
+  schema: {
+    type: 'object',
+    properties: {
+      reviewSummary: {
+        type: 'string',
+        description: '游戏过程总结与复盘，200-400字，从 DIR/Floortime 视角回顾本次游戏互动过程、孩子表现、亲子互动质量'
+      },
+      scores: {
+        type: 'object',
+        description: '多维度打分，每个维度 0-100',
+        properties: {
+          childEngagement: { type: 'number', description: '孩子参与度/配合度', minimum: 0, maximum: 100 },
+          gameCompletion: { type: 'number', description: '游戏完成度', minimum: 0, maximum: 100 },
+          emotionalConnection: { type: 'number', description: '情感连接质量', minimum: 0, maximum: 100 },
+          communicationLevel: { type: 'number', description: '沟通互动水平', minimum: 0, maximum: 100 },
+          skillProgress: { type: 'number', description: '目标能力进步', minimum: 0, maximum: 100 },
+          parentExecution: { type: 'number', description: '家长执行质量', minimum: 0, maximum: 100 }
+        },
+        required: ['childEngagement', 'gameCompletion', 'emotionalConnection', 'communicationLevel', 'skillProgress', 'parentExecution'],
+        additionalProperties: false
+      },
+      recommendation: {
+        type: 'string',
+        enum: ['continue', 'adjust', 'avoid'],
+        description: '建议：continue(继续此类游戏)、adjust(调整后再玩)、avoid(避免此类游戏)'
+      },
+      nextStepSuggestion: {
+        type: 'string',
+        description: '下一步建议，200-300字，包含：是否继续此类游戏的理由、需要改进的方面、未来干预方向'
+      }
+    },
+    required: ['reviewSummary', 'scores', 'recommendation', 'nextStepSuggestion'],
     additionalProperties: false
   }
 };

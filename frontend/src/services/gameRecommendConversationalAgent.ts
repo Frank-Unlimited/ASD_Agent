@@ -183,6 +183,9 @@ ${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
         max_tokens: 3000,
         response_format: {
           type: 'json_object'
+        },
+        extra_body: {
+          enable_search: true  // 启用 LLM 联网搜索，获取最新游戏信息
         }
       }
     );

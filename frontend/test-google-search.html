@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Custom Search API 测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background: #4285f4;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #357ae8;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .result-item {
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            background: #fafafa;
+        }
+        .result-title {
+            font-size: 18px;
+            color: #1a0dab;
+            margin-bottom: 5px;
+        }
+        .result-link {
+            color: #006621;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .result-snippet {
+            color: #545454;
+            line-height: 1.5;
+        }
+        .error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c00;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .success {
+            background: #efe;
+            border: 1px solid #cfc;
+            color: #060;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            color: #004085;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Google Custom Search API 测试工具</h1>
+        
+        <div class="info">
+            <strong>说明：</strong>此工具用于测试 Google Custom Search API 配置是否正确。
+            <br>请确保已在 Google Cloud Console 中启用 Custom Search API 并创建了 Programmable Search Engine。
+        </div>
+
+        <div class="form-group">
+            <label for="apiKey">API Key:</label>
+            <input type="text" id="apiKey" placeholder="输入你的 Google API Key">
+        </div>
+
+        <div class="form-group">
+            <label for="searchEngineId">Search Engine ID (cx):</label>
+            <input type="text" id="searchEngineId" placeholder="输入你的 Search Engine ID">
+        </div>
+
+        <div class="form-group">
+            <label for="query">搜索关键词:</label>
+            <input type="text" id="query" value="自闭症儿童 DIR Floortime 地板游戏" placeholder="输入搜索关键词">
+        </div>
+
+        <button onclick="testSearch()">🔍 测试搜索</button>
+        <button onclick="loadFromEnv()">📋 从 .env 加载配置</button>
+        <button onclick="clearResults()">🗑️ 清空结果</button>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        // 从 .env 文件加载配置（需要手动复制）
+        function loadFromEnv() {
+            const apiKey = 'AIzaSyDRC1FAafnOaNldcRAIRx_urkfmxDLt1As';
+            const searchEngineId = '56363f89704ea4faa';
+            
+            document.getElementById('apiKey').value = apiKey;
+            document.getElementById('searchEngineId').value = searchEngineId;
+            
+            showMessage('✅ 已从 .env 加载配置', 'success');
+        }
+
+        async function testSearch() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const searchEngineId = document.getElementById('searchEngineId').value.trim();
+            const query = document.getElementById('query').value.trim();
+
+            if (!apiKey || !searchEngineId || !query) {
+                showMessage('❌ 请填写所有字段', 'error');
+                return;
+            }
+
+            const output = document.getElementById('output');
+            output.innerHTML = '<div class="info">⏳ 正在搜索...</div>';
+
+            try {
+                const params = new URLSearchParams({
+                    key: apiKey,
+                    cx: searchEngineId,
+                    q: query,
+                    num: '5',
+                    lr: 'lang_zh-CN'
+                });
+
+                const url = `https://www.googleapis.com/customsearch/v1?${params.toString()}`;
+                
+                console.log('🔍 请求 URL:', url);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+
+                console.log('📡 响应数据:', data);
+
+                if (!response.ok) {
+                    showError(data);
+                    return;
+                }
+
+                if (data.items && data.items.length > 0) {
+                    showResults(data);
+                } else {
+                    showMessage('⚠️ 搜索成功，但没有找到结果', 'info');
+                }
+
+            } catch (error) {
+                console.error('❌ 错误:', error);
+                showMessage(`❌ 请求失败: ${error.message}`, 'error');
+            }
+        }
+
+        function showResults(data) {
+            const output = document.getElementById('output');
+            
+            let html = `<div class="success">✅ 搜索成功！找到 ${data.items.length} 个结果</div>`;
+            html += '<div class="results">';
+            
+            data.items.forEach((item, index) => {
+                html += `
+                    <div class="result-item">
+                        <div class="result-title">${index + 1}. ${escapeHtml(item.title)}</div>
+                        <div class="result-link">${escapeHtml(item.link)}</div>
+                        <div class="result-snippet">${escapeHtml(item.snippet)}</div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            html += '<h3>完整响应数据：</h3>';
+            html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            
+            output.innerHTML = html;
+        }
+
+        function showError(data) {
+            const output = document.getElementById('output');
+            
+            let html = '<div class="error">';
+            html += '<h3>❌ API 错误</h3>';
+            
+            if (data.error) {
+                html += `<p><strong>错误代码:</strong> ${data.error.code}</p>`;
+                html += `<p><strong>错误信息:</strong> ${data.error.message}</p>`;
+                
+                if (data.error.details) {
+                    html += '<h4>详细信息:</h4>';
+                    data.error.details.forEach(detail => {
+                        if (detail['@type'] === 'type.googleapis.com/google.rpc.ErrorInfo') {
+                            html += `<p><strong>原因:</strong> ${detail.reason}</p>`;
+                            if (detail.metadata) {
+                                html += '<p><strong>元数据:</strong></p>';
+                                html += '<ul>';
+                                for (const [key, value] of Object.entries(detail.metadata)) {
+                                    html += `<li>${key}: ${value}</li>`;
+                                }
+                                html += '</ul>';
+                            }
+                        }
+                    });
+                }
+            }
+            
+            html += '</div>';
+            html += '<h3>完整错误响应：</h3>';
+            html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            
+            // 添加解决方案提示
+            html += '<div class="info">';
+            html += '<h4>💡 可能的解决方案：</h4>';
+            html += '<ol>';
+            html += '<li>确认已在 <a href="https://console.cloud.google.com/apis/library/customsearch.googleapis.com" target="_blank">Google Cloud Console</a> 中启用 Custom Search API</li>';
+            html += '<li>检查 API Key 是否正确，是否有访问限制</li>';
+            html += '<li>确认 API Key 允许访问 Custom Search API（在 API Key 设置中检查 API 限制）</li>';
+            html += '<li>检查是否需要启用计费（某些 API 需要）</li>';
+            html += '<li>等待几分钟让 API 启用生效</li>';
+            html += '</ol>';
+            html += '</div>';
+            
+            output.innerHTML = html;
+        }
+
+        function showMessage(message, type) {
+            const output = document.getElementById('output');
+            output.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function clearResults() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 页面加载时自动加载配置
+        window.onload = function() {
+            loadFromEnv();
+        };
+    </script>
+</body>
+</html>

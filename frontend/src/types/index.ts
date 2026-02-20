@@ -249,6 +249,7 @@ export interface FloorGame {
   result?: string;             // 实施结果（预留）
   evaluation?: EvaluationResult; // 游戏结束后的评估结果
   chat_history_in_game?: string; // AI 视频通话的聊天记录（JSON 字符串）
+  review?: GameReviewResult;     // 游戏复盘结果
 }
 
 // 家长偏好
