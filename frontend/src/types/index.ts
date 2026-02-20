@@ -229,6 +229,22 @@ export interface GameImplementationPlan {
 
 export type FloorGameStatus = 'pending' | 'completed' | 'aborted';
 
+export interface GameReviewScores {
+  childEngagement: number;      // 孩子参与度/配合度 0-100
+  gameCompletion: number;       // 游戏完成度 0-100
+  emotionalConnection: number;  // 情感连接质量 0-100
+  communicationLevel: number;   // 沟通互动水平 0-100
+  skillProgress: number;        // 目标能力进步 0-100
+  parentExecution: number;      // 家长执行质量 0-100
+}
+
+export interface GameReviewResult {
+  reviewSummary: string;        // 游戏过程总结与复盘
+  scores: GameReviewScores;     // 多维度打分
+  recommendation: 'continue' | 'adjust' | 'avoid';
+  nextStepSuggestion: string;   // 下一步建议（含改进方向和理由）
+}
+
 export interface FloorGame {
   id: string;                  // 如 floor_game_1739612345678
   gameTitle: string;
