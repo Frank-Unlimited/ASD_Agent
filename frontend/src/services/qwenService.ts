@@ -363,7 +363,10 @@ export const sendQwenMessage = async (
       ...history.map((msg) => ({
         role: msg.role === 'user' ? ('user' as const) : ('assistant' as const),
         content: msg.text
-      })),
+          .replace(/:::TOOL_CALL_START:::[\s\S]*?:::TOOL_CALL_END:::/g, '')
+          .replace(/:::[A-Z_]+:[\s\S]*?:::/g, '')
+          .trim()
+      })).filter(m => m.content.length > 0),
       {
         role: 'user' as const,
         content: currentMessage
@@ -404,7 +407,10 @@ export const sendQwenMessageSync = async (
       ...history.map((msg) => ({
         role: msg.role === 'user' ? ('user' as const) : ('assistant' as const),
         content: msg.text
-      })),
+          .replace(/:::TOOL_CALL_START:::[\s\S]*?:::TOOL_CALL_END:::/g, '')
+          .replace(/:::[A-Z_]+:[\s\S]*?:::/g, '')
+          .trim()
+      })).filter(m => m.content.length > 0),
       {
         role: 'user' as const,
         content: currentMessage
