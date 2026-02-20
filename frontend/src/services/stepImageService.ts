@@ -103,7 +103,7 @@ async function downloadAsDataUrl(imageUrl: string): Promise<string> {
 export async function generateAndSaveStepImages(
   gameId: string,
   gameTitle: string,
-  steps: Array<{ stepTitle: string; instruction: string }>
+  steps: Array<{ stepTitle?: string; instruction: string }>
 ): Promise<void> {
   if (!API_KEY) {
     console.warn('[StepImages] VITE_DASHSCOPE_API_KEY 未配置，跳过图片生成');
