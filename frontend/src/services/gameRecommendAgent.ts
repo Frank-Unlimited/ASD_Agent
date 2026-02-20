@@ -58,6 +58,17 @@ export const recommendGameForChild = async (
       candidateGames
     );
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Game Recommend Agent] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(GAME_RECOMMEND_SYSTEM_PROMPT);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(prompt);
+    console.log('='.repeat(80));
+
     const response = await qwenStreamClient.chat(
       [
         { role: 'system', content: GAME_RECOMMEND_SYSTEM_PROMPT },
@@ -72,6 +83,13 @@ export const recommendGameForChild = async (
         }
       }
     );
+
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Game Recommend Agent] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
 
     const data = JSON.parse(response);
     

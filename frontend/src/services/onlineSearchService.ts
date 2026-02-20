@@ -72,6 +72,17 @@ export const searchGamesOnline = async (
     // 使用 LLM 解析搜索结果并结构化
     const parsePrompt = buildParsePrompt(searchResults, query, childContext);
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Online Search Parser] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log('你是一位专业的 DIR/Floortime 游戏设计师。请根据搜索结果推荐适合自闭症儿童的地板游戏，并按照指定的 JSON 格式返回。');
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(parsePrompt);
+    console.log('='.repeat(80));
+
     const response = await qwenStreamClient.chat(
       [
         {
@@ -88,6 +99,13 @@ export const searchGamesOnline = async (
         max_tokens: 2000
       }
     );
+
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Online Search Parser] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
 
     console.log('📡 LLM 解析完成');
 

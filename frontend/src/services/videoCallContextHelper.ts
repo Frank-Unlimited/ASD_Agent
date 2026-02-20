@@ -28,10 +28,26 @@ export function calculateInterestProfile(behaviors: BehaviorAnalysis[]): Record<
   };
 
   behaviors.forEach(behavior => {
+    if (!behavior.matches || !Array.isArray(behavior.matches)) {
+      console.warn('[calculateInterestProfile] Behavior has no matches:', behavior);
+      return;
+    }
+    
     behavior.matches.forEach(match => {
-      profile[match.dimension].weight += match.weight;
-      profile[match.dimension].intensity += match.intensity;
-      counts[match.dimension]++;
+      // 防御性检查：确保 match 对象完整
+      if (!match || !match.dimension) {
+        console.warn('[calculateInterestProfile] Invalid match:', match);
+        return;
+      }
+      
+      // 确保 dimension 存在于 profile 中
+      if (profile[match.dimension]) {
+        profile[match.dimension].weight += match.weight || 0;
+        profile[match.dimension].intensity += match.intensity || 0;
+        counts[match.dimension]++;
+      } else {
+        console.warn(`[calculateInterestProfile] Unknown dimension: ${match.dimension}`);
+      }
     });
   });
 
@@ -142,7 +158,6 @@ export async function collectVideoCallContext(
     steps: Array<{
       stepTitle: string;
       instruction: string;
-      expectedOutcome: string;
     }>;
     materials: string[];
     currentStep: number;

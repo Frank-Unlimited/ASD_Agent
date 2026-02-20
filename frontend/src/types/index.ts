@@ -221,8 +221,7 @@ export interface GameImplementationPlan {
   goal: string;                      // 游戏目标（明确的训练目标）
   steps: Array<{                     // 游戏步骤
     stepTitle: string;               // 步骤标题，如 "第一步：准备材料"
-    instruction: string;             // 详细指令（家长应该做什么）
-    expectedOutcome: string;         // 预期效果（这一步期望达到什么效果）
+    instruction: string;             // 详细指令（家长应该做什么，如何跟随孩子）
   }>;
   materials?: string[];               // 所需材料清单
   _analysis?: string;                // LLM 分析总结（可选，用于显示）
@@ -254,7 +253,6 @@ export interface FloorGame {
   steps: Array<{
     stepTitle: string;
     instruction: string;
-    expectedOutcome: string;
   }>;
   materials?: string[];           // 所需材料清单
   _analysis?: string;

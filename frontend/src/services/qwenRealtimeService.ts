@@ -48,7 +48,6 @@ export interface RealtimeInitOptions {
     steps: Array<{
       stepTitle: string;
       instruction: string;
-      expectedOutcome: string;
     }>;
     materials: string[];
     currentStep: number;

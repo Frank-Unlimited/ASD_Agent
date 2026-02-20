@@ -107,13 +107,30 @@ function calculateInterestTrends(
   });
 
   behaviors.forEach(behavior => {
+    if (!behavior.matches || !Array.isArray(behavior.matches)) {
+      return;
+    }
+    
     behavior.matches.forEach(match => {
+      if (!match || !match.dimension) {
+        return;
+      }
+      
       const dim = match.dimension;
+      
+      // 确保维度存在于 accumulated 中
+      if (!accumulated[dim]) {
+        console.warn(`[calculateInterestTrends] Unknown dimension: ${dim}`);
+        return;
+      }
+      
       // 分数 = intensity * weight * 50 + 50
       // intensity 范围 [-1, 1]，转换为 [0, 100]
-      const score = (match.intensity * match.weight * 50) + 50;
-      accumulated[dim].totalScore += score * match.weight;
-      accumulated[dim].totalWeight += match.weight;
+      const intensity = match.intensity || 0;
+      const weight = match.weight || 0;
+      const score = (intensity * weight * 50) + 50;
+      accumulated[dim].totalScore += score * weight;
+      accumulated[dim].totalWeight += weight;
     });
   });
 
@@ -192,14 +209,29 @@ export const calculateDimensionMetrics = (
   });
 
   behaviors.forEach(behavior => {
+    if (!behavior.matches || !Array.isArray(behavior.matches)) {
+      return;
+    }
+    
     behavior.matches.forEach(match => {
+      if (!match || !match.dimension) {
+        return;
+      }
+      
       const dim = match.dimension;
-      if (!accumulated[dim]) return;
+      if (!accumulated[dim]) {
+        console.warn(`[calculateDimensionMetrics] Unknown dimension: ${dim}`);
+        return;
+      }
+      
+      const intensity = match.intensity || 0;
+      const weight = match.weight || 0;
+      
       // 强度：intensity × weight 的加权累计
-      accumulated[dim].totalIntensityWeighted += match.intensity * match.weight;
-      accumulated[dim].totalWeight += match.weight;
+      accumulated[dim].totalIntensityWeighted += intensity * weight;
+      accumulated[dim].totalWeight += weight;
       // 探索度：weight 累加
-      accumulated[dim].explorationSum += match.weight;
+      accumulated[dim].explorationSum += weight;
     });
   });
 

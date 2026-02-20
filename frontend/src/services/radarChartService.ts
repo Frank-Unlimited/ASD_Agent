@@ -111,9 +111,16 @@ function calculateRadarData(behaviors: BehaviorAnalysis[]): RadarDataPoint[] {
   behaviors.forEach(behavior => {
     behavior.matches.forEach(match => {
       const dim = match.dimension;
-      dimensionData[dim].weightSum += match.weight;
-      dimensionData[dim].intensitySum += match.intensity !== undefined ? match.intensity : 0;
-      dimensionData[dim].count += 1;
+      // 防御性检查：只处理预定义的维度
+      if (dimensionData[dim]) {
+        dimensionData[dim].weightSum += match.weight;
+        dimensionData[dim].intensitySum += match.intensity !== undefined ? match.intensity : 0;
+        dimensionData[dim].count += 1;
+      } else {
+        console.warn(`[radarChartService] 未知的维度: ${dim}，已忽略`);
+        console.warn(`[radarChartService] 来源行为:`, behavior.behavior);
+        console.warn(`[radarChartService] 完整 match:`, match);
+      }
     });
   });
   

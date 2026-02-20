@@ -9,6 +9,7 @@
 
 import { qwenStreamClient } from './qwenStreamClient';
 import { searchGamesOnline } from './onlineSearchService';
+import { InterestAnalysisSchema, GameImplementationPlanSchema } from './qwenSchemas';
 import {
   InterestAnalysisResult,
   GameImplementationPlan,
@@ -64,6 +65,17 @@ export const analyzeInterestDimensions = async (
       parentContext
     });
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Interest Analysis Agent] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(CONVERSATIONAL_SYSTEM_PROMPT);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(prompt);
+    console.log('='.repeat(80));
+
     const response = await qwenStreamClient.chat(
       [
         { role: 'system', content: CONVERSATIONAL_SYSTEM_PROMPT },
@@ -73,16 +85,30 @@ export const analyzeInterestDimensions = async (
         temperature: 0.7,
         max_tokens: 4000,
         response_format: {
-          type: 'json_object'
+          type: 'json_schema',
+          json_schema: InterestAnalysisSchema
         }
       }
     );
 
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Interest Analysis Agent] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
+
     console.log('[analyzeInterestDimensions] Raw LLM response:', response);
+    
+    if (!response || typeof response !== 'string') {
+      throw new Error(`Invalid LLM response: ${typeof response}`);
+    }
+    
     const cleanedResponse = cleanLLMResponse(response);
-    console.log('[analyzeInterestDimensions] Cleaned response:', cleanedResponse.substring(0, 200));
+    console.log('[analyzeInterestDimensions] Cleaned response (first 500 chars):', cleanedResponse.substring(0, 500));
+    
     const raw = JSON.parse(cleanedResponse);
-    console.log('[analyzeInterestDimensions] Parsed JSON:', JSON.stringify(raw, null, 2));
+    console.log('[analyzeInterestDimensions] Parsed JSON:', raw);
     // 确保所有字段都有默认值，防止 LLM 返回不完整
     const result: InterestAnalysisResult = {
       summary: raw.summary || '',
@@ -173,6 +199,17 @@ ${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
       specificObjects
     });
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Game Plan Agent] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(CONVERSATIONAL_SYSTEM_PROMPT);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(prompt);
+    console.log('='.repeat(80));
+
     const response = await qwenStreamClient.chat(
       [
         { role: 'system', content: CONVERSATIONAL_SYSTEM_PROMPT },
@@ -182,7 +219,8 @@ ${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
         temperature: 0.8,
         max_tokens: 3000,
         response_format: {
-          type: 'json_object'
+          type: 'json_schema',
+          json_schema: GameImplementationPlanSchema
         },
         extra_body: {
           enable_search: true  // 启用 LLM 联网搜索，获取最新游戏信息
@@ -190,7 +228,14 @@ ${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
       }
     );
 
-    console.log('[generateFloorGamePlan] Raw LLM response:', response);
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Game Plan Agent] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
+
+    // console.log('[generateFloorGamePlan] Raw LLM response:', response);
     const cleanedPlanResponse = cleanLLMResponse(response);
     const data = JSON.parse(cleanedPlanResponse);
 

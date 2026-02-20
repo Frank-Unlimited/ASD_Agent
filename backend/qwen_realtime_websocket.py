@@ -11,9 +11,16 @@ import os
 import time
 from dashscope.audio.qwen_omni import *
 import dashscope
+from dotenv import load_dotenv
 
-# API Key
-dashscope.api_key = os.getenv('DASHSCOPE_API_KEY', 'sk-5cd70747046b4cf787793bb6ee28cb44')
+# 加载 .env 文件
+load_dotenv()
+
+# API Key（从环境变量读取）
+dashscope.api_key = os.getenv('DASHSCOPE_API_KEY')
+
+if not dashscope.api_key:
+    raise ValueError('DASHSCOPE_API_KEY environment variable is not set')
 
 PORT = 8766
 

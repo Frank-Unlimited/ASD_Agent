@@ -47,6 +47,17 @@ export async function reviewFloorGame(params: {
     latestAssessment
   });
 
+  // 打印完整的 prompt
+  console.log('='.repeat(80));
+  console.log('[Game Review Agent] 完整 Prompt:');
+  console.log('='.repeat(80));
+  console.log('System Prompt:');
+  console.log(GAME_REVIEW_SYSTEM_PROMPT);
+  console.log('-'.repeat(80));
+  console.log('User Prompt:');
+  console.log(userPrompt);
+  console.log('='.repeat(80));
+
   // 调用 LLM
   const response = await qwenStreamClient.chat(
     [
@@ -62,6 +73,13 @@ export async function reviewFloorGame(params: {
       }
     }
   );
+
+  // 打印完整的响应
+  console.log('='.repeat(80));
+  console.log('[Game Review Agent] 完整响应:');
+  console.log('='.repeat(80));
+  console.log(response);
+  console.log('='.repeat(80));
 
   console.log('[GameReview] Raw response:', response);
 

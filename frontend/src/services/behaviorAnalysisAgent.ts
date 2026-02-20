@@ -59,6 +59,17 @@ export const analyzeBehavior = async (
   try {
     const prompt = buildAnalysisPrompt(behaviorDescription, childProfile, conversationContext);
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Behavior Analysis Agent] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(BEHAVIOR_ANALYSIS_SYSTEM_PROMPT);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(prompt);
+    console.log('='.repeat(80));
+
     const response = await qwenStreamClient.chat(
       [
         { role: 'system', content: BEHAVIOR_ANALYSIS_SYSTEM_PROMPT },
@@ -106,7 +117,8 @@ export const analyzeBehavior = async (
                         description: '推理说明（30-50字）：解释关联度和强度的依据'
                       }
                     },
-                    required: ['dimension', 'weight', 'intensity', 'reasoning']
+                    required: ['dimension', 'weight', 'intensity', 'reasoning'],
+                    additionalProperties: false
                   }
                 },
                 analysis: {
@@ -114,14 +126,20 @@ export const analyzeBehavior = async (
                   description: '一句话分析其发展意义（20-30字），例如："显示出对建构活动的兴趣，有助于精细动作发展"'
                 }
               },
-              required: ['behavior', 'dimensions', 'analysis']
+              required: ['behavior', 'dimensions', 'analysis'],
+              additionalProperties: false
             }
           }
         }
       }
     );
 
-    console.log('[Behavior Analysis Agent] Raw response:', response);
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Behavior Analysis Agent] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
     
     // 解析响应
     let data;
@@ -135,8 +153,9 @@ export const analyzeBehavior = async (
     }
     
     // 验证必需字段
-    if (!data || !data.behavior || !data.dimensions || !data.analysis) {
+    if (!data || !data.behavior || !data.dimensions || !Array.isArray(data.dimensions) || !data.analysis) {
       console.error('[Behavior Analysis Agent] 缺少必需字段:', data);
+      console.error('[Behavior Analysis Agent] 期望字段: behavior, dimensions, analysis');
       throw new Error('行为分析数据不完整');
     }
     
