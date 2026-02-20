@@ -1500,6 +1500,9 @@ const PageAIChat = ({
                           : msg
                       )
                     );
+
+                    // 清除 loading 状态
+                    setLoading(false);
                   } catch (error) {
                     console.error('[综合评估] 生成失败:', error);
 
@@ -1523,6 +1526,9 @@ const PageAIChat = ({
                           : msg
                       )
                     );
+
+                    // 清除 loading 状态
+                    setLoading(false);
                   }
                 })();
                 break;
@@ -2173,7 +2179,7 @@ const PageAIChat = ({
             推荐今日互动
           </button>
           <button
-            onClick={() => handleSend("请根据今天的互动情况，生成一份综合评估报告")}
+            onClick={() => handleSend("请根据孩子最近的情况，生成一份综合评估报告")}
             className="bg-white/90 backdrop-blur shadow-sm px-4 py-2 rounded-full text-xs font-bold text-primary border border-green-100 flex items-center hover:bg-white hover:shadow-md transition active:scale-95 whitespace-nowrap"
           >
             <Activity className="w-3 h-3 mr-1.5" />
