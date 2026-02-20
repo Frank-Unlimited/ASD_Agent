@@ -1,8 +1,0 @@
-{
-  "name": "Copy of Floortime AI Companion",
-  "description": "An AI-powered assistant for ASD Floortime intervention, featuring personalized game plans, progress tracking, and real-time guidance.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
-}
