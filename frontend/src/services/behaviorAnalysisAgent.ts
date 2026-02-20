@@ -59,6 +59,17 @@ export const analyzeBehavior = async (
   try {
     const prompt = buildAnalysisPrompt(behaviorDescription, childProfile, conversationContext);
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Behavior Analysis Agent] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(BEHAVIOR_ANALYSIS_SYSTEM_PROMPT);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(prompt);
+    console.log('='.repeat(80));
+
     const response = await qwenStreamClient.chat(
       [
         { role: 'system', content: BEHAVIOR_ANALYSIS_SYSTEM_PROMPT },
@@ -123,7 +134,12 @@ export const analyzeBehavior = async (
       }
     );
 
-    console.log('[Behavior Analysis Agent] Raw response:', response);
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Behavior Analysis Agent] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
     
     // 解析响应
     let data;

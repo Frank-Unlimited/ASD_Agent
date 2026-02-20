@@ -98,6 +98,17 @@ ${profileContext}
 请只返回选中游戏的序号（1-${candidateGames.length}），例如：{"id": "2"}
 `;
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Recommend Agent] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(SYSTEM_INSTRUCTION_BASE);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(prompt);
+    console.log('='.repeat(80));
+
     response = await qwenStreamClient.chat(
       [
         { role: 'system', content: SYSTEM_INSTRUCTION_BASE },
@@ -108,6 +119,13 @@ ${profileContext}
         max_tokens: 500
       }
     );
+
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Recommend Agent] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
 
     console.log('[Recommend Agent] 原始响应:', response);
 
@@ -199,6 +217,17 @@ ${logContent}
 请严格按照 JSON Schema 返回结果。
 `;
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Evaluation Agent] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(SYSTEM_INSTRUCTION_BASE);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(evalPrompt);
+    console.log('='.repeat(80));
+
     // 并行执行评估和兴趣分析
     const [evalResponse, interestData] = await Promise.all([
       qwenStreamClient.chat(
@@ -217,6 +246,13 @@ ${logContent}
       ),
       analyzeInterests(logContent)
     ]);
+
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Evaluation Agent] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(evalResponse);
+    console.log('='.repeat(80));
 
     const evalData = JSON.parse(evalResponse);
 
@@ -269,6 +305,17 @@ ${ABILITY_DIMENSIONS_DEF}
 请严格按照 JSON Schema 返回 ProfileUpdate 结构。
 `;
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Report Analysis Agent] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(SYSTEM_INSTRUCTION_BASE);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(prompt);
+    console.log('='.repeat(80));
+
     const response = await qwenStreamClient.chat(
       [
         { role: 'system', content: SYSTEM_INSTRUCTION_BASE },
@@ -283,6 +330,13 @@ ${ABILITY_DIMENSIONS_DEF}
         }
       }
     );
+
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Report Analysis Agent] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
 
     const data = JSON.parse(response);
     return {
@@ -320,6 +374,17 @@ ${INTEREST_DIMENSIONS_DEF}
 请严格按照 JSON Schema 返回结果。
 `;
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Interest Analysis Helper] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(SYSTEM_INSTRUCTION_BASE);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(prompt);
+    console.log('='.repeat(80));
+
     const response = await qwenStreamClient.chat(
       [
         { role: 'system', content: SYSTEM_INSTRUCTION_BASE },
@@ -334,6 +399,13 @@ ${INTEREST_DIMENSIONS_DEF}
         }
       }
     );
+
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Interest Analysis Helper] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
 
     const data = JSON.parse(response);
     return data.analyses || [];

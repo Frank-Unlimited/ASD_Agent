@@ -261,13 +261,13 @@ export const GenerateAssessmentTool = {
   type: 'function' as const,
   function: {
     name: 'generate_assessment',
-    description: '生成孩子的综合评估报告。当家长询问以下内容时必须调用此工具：1) 孩子的评估报告 2) 孩子的发展情况 3) 孩子的当前状态 4) 孩子的进步情况 5) 孩子的综合评估 6) 查看评估 7) 生成报告。这个工具会基于历史数据生成正式的、结构化的评估报告。',
+    description: '生成孩子的正式综合评估报告（PDF格式的专业报告）。只有当家长明确要求生成正式报告时才调用此工具，例如：1) "生成评估报告" 2) "我要一份评估报告" 3) "给我一份正式的评估" 4) "导出评估报告"。注意：如果家长只是询问孩子的情况、想推荐游戏、或日常咨询，不要调用此工具。',
     parameters: {
       type: 'object',
       properties: {
         reason: {
           type: 'string',
-          description: '为什么需要生成评估报告，例如：家长询问孩子的发展情况'
+          description: '为什么需要生成评估报告，例如：家长明确要求生成正式评估报告'
         }
       },
       required: ['reason']
@@ -283,9 +283,10 @@ export const AnalyzeInterestTool = {
     description: `分析孩子的兴趣维度，生成8个维度的强度/探索度分析、分类建议和干预建议。这是游戏推荐的第一步。
 
 🚨 **调用场景**：
-1. 家长说"推荐游戏"、"今天玩什么"等 → 调用此工具进行兴趣分析
+1. 家长说"推荐游戏"、"今天玩什么"、"根据孩子最近的情况推荐游戏" → 调用此工具进行兴趣分析
 2. 家长说"重新分析"、"再看看兴趣" → 重新调用此工具
 3. 家长说"换一批"且想重新分析 → 调用此工具
+4. 家长询问"孩子最近的情况"并且想要游戏推荐 → 调用此工具
 
 ⚠️ 调用后流程：
 - 展示分析结果（维度强度/探索度、分类、干预建议）
@@ -296,7 +297,7 @@ export const AnalyzeInterestTool = {
       properties: {
         reason: {
           type: 'string',
-          description: '调用原因，如"家长请求推荐游戏"、"家长要求重新分析"'
+          description: '调用原因，如"家长请求推荐游戏"、"家长要求重新分析"、"家长询问最近情况并想要游戏推荐"'
         },
         parentContext: {
           type: 'string',
@@ -584,6 +585,200 @@ export const GameReviewSchema = {
       }
     },
     required: ['reviewSummary', 'scores', 'recommendation', 'nextStepSuggestion'],
+    additionalProperties: false
+  }
+};
+
+// --- Interest Analysis Schema ---
+
+export const InterestAnalysisSchema = {
+  name: 'interest_analysis',
+  description: '兴趣维度分析结果',
+  schema: {
+    type: 'object',
+    properties: {
+      summary: {
+        type: 'string',
+        description: '总体分析，100-150字，概括孩子的兴趣特点和发展状况'
+      },
+      dimensions: {
+        type: 'array',
+        description: '8个兴趣维度的详细分析',
+        items: {
+          type: 'object',
+          properties: {
+            dimension: {
+              type: 'string',
+              enum: ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social'],
+              description: '兴趣维度名称'
+            },
+            strength: {
+              type: 'number',
+              description: '强度 0-100，表示孩子对该维度的兴趣程度',
+              minimum: 0,
+              maximum: 100
+            },
+            exploration: {
+              type: 'number',
+              description: '探索度 0-100，表示孩子在该维度的探索广度和深度',
+              minimum: 0,
+              maximum: 100
+            },
+            category: {
+              type: 'string',
+              enum: ['leverage', 'explore', 'avoid', 'neutral'],
+              description: '分类：leverage(可利用的优势)、explore(可探索的潜力)、avoid(应避免的敏感点)、neutral(中性)'
+            },
+            specificObjects: {
+              type: 'array',
+              description: '从行为中提取的具体对象，如"积木"、"音乐"、"绒布"等',
+              items: {
+                type: 'string'
+              }
+            },
+            reasoning: {
+              type: 'string',
+              description: '推理说明，50-80字，解释为什么这样分类'
+            }
+          },
+          required: ['dimension', 'strength', 'exploration', 'category', 'specificObjects', 'reasoning'],
+          additionalProperties: false
+        },
+        minItems: 8,
+        maxItems: 8
+      },
+      leverageDimensions: {
+        type: 'array',
+        description: '可利用的维度列表（优势维度）',
+        items: {
+          type: 'string',
+          enum: ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social']
+        }
+      },
+      exploreDimensions: {
+        type: 'array',
+        description: '可探索的维度列表（潜力维度）',
+        items: {
+          type: 'string',
+          enum: ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social']
+        }
+      },
+      avoidDimensions: {
+        type: 'array',
+        description: '应避免的维度列表（敏感维度）',
+        items: {
+          type: 'string',
+          enum: ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social']
+        }
+      },
+      interventionSuggestions: {
+        type: 'array',
+        description: '3-5条干预建议',
+        items: {
+          type: 'object',
+          properties: {
+            targetDimension: {
+              type: 'string',
+              enum: ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social'],
+              description: '目标维度'
+            },
+            strategy: {
+              type: 'string',
+              enum: ['leverage', 'explore'],
+              description: '策略：leverage(利用)或explore(探索)'
+            },
+            suggestion: {
+              type: 'string',
+              description: '建议内容，50-80字'
+            },
+            rationale: {
+              type: 'string',
+              description: '理由说明，30-50字'
+            },
+            exampleActivities: {
+              type: 'array',
+              description: '2-3个示例活动',
+              items: {
+                type: 'string'
+              },
+              minItems: 2,
+              maxItems: 3
+            }
+          },
+          required: ['targetDimension', 'strategy', 'suggestion', 'rationale', 'exampleActivities'],
+          additionalProperties: false
+        },
+        minItems: 3,
+        maxItems: 5
+      }
+    },
+    required: ['summary', 'dimensions', 'leverageDimensions', 'exploreDimensions', 'avoidDimensions', 'interventionSuggestions'],
+    additionalProperties: false
+  }
+};
+
+// --- Game Implementation Plan Schema ---
+
+export const GameImplementationPlanSchema = {
+  name: 'game_implementation_plan',
+  description: '游戏实施方案',
+  schema: {
+    type: 'object',
+    properties: {
+      gameId: {
+        type: 'string',
+        description: '游戏ID，格式：floor_game_时间戳'
+      },
+      gameTitle: {
+        type: 'string',
+        description: '游戏名称，简洁有吸引力，10-20字'
+      },
+      summary: {
+        type: 'string',
+        description: '游戏概要，2-3句话描述游戏的核心玩法，80-120字'
+      },
+      goal: {
+        type: 'string',
+        description: '游戏目标，明确的训练目标，30-50字'
+      },
+      steps: {
+        type: 'array',
+        description: '游戏步骤，3-6个步骤',
+        items: {
+          type: 'object',
+          properties: {
+            stepTitle: {
+              type: 'string',
+              description: '步骤标题，如"第一步：准备材料"、"第二步：引导互动"'
+            },
+            instruction: {
+              type: 'string',
+              description: '详细指令，家长应该做什么，50-100字'
+            },
+            expectedOutcome: {
+              type: 'string',
+              description: '预期效果，这一步期望达到什么效果，30-50字'
+            }
+          },
+          required: ['stepTitle', 'instruction', 'expectedOutcome'],
+          additionalProperties: false
+        },
+        minItems: 3,
+        maxItems: 6
+      },
+      materials: {
+        type: 'array',
+        description: '所需材料清单',
+        items: {
+          type: 'string'
+        }
+      },
+      _analysis: {
+        type: 'string',
+        description: 'LLM 分析总结（可选），用于显示设计思路'
+      }
+    },
+    required: ['gameId', 'gameTitle', 'summary', 'goal', 'steps'],
     additionalProperties: false
   }
 };

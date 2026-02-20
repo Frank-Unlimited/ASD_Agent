@@ -9,6 +9,7 @@
 
 import { qwenStreamClient } from './qwenStreamClient';
 import { searchGamesOnline } from './onlineSearchService';
+import { InterestAnalysisSchema, GameImplementationPlanSchema } from './qwenSchemas';
 import {
   InterestAnalysisResult,
   GameImplementationPlan,
@@ -64,6 +65,17 @@ export const analyzeInterestDimensions = async (
       parentContext
     });
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Interest Analysis Agent] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(CONVERSATIONAL_SYSTEM_PROMPT);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(prompt);
+    console.log('='.repeat(80));
+
     const response = await qwenStreamClient.chat(
       [
         { role: 'system', content: CONVERSATIONAL_SYSTEM_PROMPT },
@@ -73,10 +85,18 @@ export const analyzeInterestDimensions = async (
         temperature: 0.7,
         max_tokens: 4000,
         response_format: {
-          type: 'json_object'
+          type: 'json_schema',
+          json_schema: InterestAnalysisSchema
         }
       }
     );
+
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Interest Analysis Agent] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
 
     console.log('[analyzeInterestDimensions] Raw LLM response:', response);
     
@@ -179,6 +199,17 @@ ${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
       specificObjects
     });
 
+    // 打印完整的 prompt
+    console.log('='.repeat(80));
+    console.log('[Game Plan Agent] 完整 Prompt:');
+    console.log('='.repeat(80));
+    console.log('System Prompt:');
+    console.log(CONVERSATIONAL_SYSTEM_PROMPT);
+    console.log('-'.repeat(80));
+    console.log('User Prompt:');
+    console.log(prompt);
+    console.log('='.repeat(80));
+
     const response = await qwenStreamClient.chat(
       [
         { role: 'system', content: CONVERSATIONAL_SYSTEM_PROMPT },
@@ -188,13 +219,21 @@ ${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
         temperature: 0.8,
         max_tokens: 3000,
         response_format: {
-          type: 'json_object'
+          type: 'json_schema',
+          json_schema: GameImplementationPlanSchema
         },
         extra_body: {
           enable_search: true  // 启用 LLM 联网搜索，获取最新游戏信息
         }
       }
     );
+
+    // 打印完整的响应
+    console.log('='.repeat(80));
+    console.log('[Game Plan Agent] 完整响应:');
+    console.log('='.repeat(80));
+    console.log(response);
+    console.log('='.repeat(80));
 
     // console.log('[generateFloorGamePlan] Raw LLM response:', response);
     const cleanedPlanResponse = cleanLLMResponse(response);
