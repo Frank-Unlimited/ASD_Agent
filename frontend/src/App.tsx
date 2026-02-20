@@ -89,6 +89,7 @@ import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from '
 import { PageRadar } from './components/RadarChartPage';
 import { PageCalendar } from './components/CalendarPage';
 import { GameStepCard } from './components/GameStepCard';
+import AIVideoCall from './components/AIVideoCall';
 import { AIAssistantPanel } from './components/AIAssistantPanel';
 import defaultAvatar from './img/cute_dog.jpg';
 
@@ -2999,6 +3000,8 @@ const PageGames = ({
     return () => window.removeEventListener('floorGameStatusUpdated', refreshGames);
   }, []);
 
+  const [isVideoActive, setIsVideoActive] = useState(false);
+
   const GAMES_FROM_STORAGE: Game[] = floorGames.map(fg => ({
     id: fg.id,
     title: fg.gameTitle,
@@ -3275,9 +3278,9 @@ const PageGames = ({
     const currentStep = internalActiveGame.steps[currentStepIndex];
 
     return (
-      <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
-        {/* Top: Game Context (60%) */}
-        <div className="h-[60%] min-h-0 p-3 pb-2">
+      <div className="h-full flex flex-col bg-gray-50 overflow-hidden relative">
+        {/* Main Content (Full Height) */}
+        <div className="flex-1 min-h-0 p-3 pb-24">
           <GameStepCard
             game={internalActiveGame}
             currentStepIndex={currentStepIndex}
@@ -3290,14 +3293,25 @@ const PageGames = ({
           />
         </div>
 
-        {/* Bottom: AI Assistant (40%) */}
-        <div className="h-[40%] min-h-0">
-          <AIAssistantPanel
+        {/* Video Call (Floating overlay) */}
+        {isVideoActive && (
+          <AIVideoCall
             childProfile={childProfile}
             gameData={floorGameStorageService.getGameById(internalActiveGame.id)}
-            gameContext={`当前游戏: ${internalActiveGame.title}\n当前步骤: ${currentStep.instruction}\n引导建议: ${currentStep.guidance}`}
+            gameId={internalActiveGame.id}
+            onClose={() => setIsVideoActive(false)}
+            isInline={false}
           />
-        </div>
+        )}
+
+        {/* AI Assistant (Bottom Sheet overlay) */}
+        <AIAssistantPanel
+          childProfile={childProfile}
+          gameData={floorGameStorageService.getGameById(internalActiveGame.id)}
+          gameContext={`当前游戏: ${internalActiveGame.title}\n当前步骤: ${currentStep.instruction}\n引导建议: ${currentStep.guidance}`}
+          onVideoToggle={setIsVideoActive}
+          isVideoActive={isVideoActive}
+        />
       </div>
     );
   }
