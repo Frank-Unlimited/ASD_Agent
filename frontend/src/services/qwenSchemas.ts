@@ -743,24 +743,20 @@ export const GameImplementationPlanSchema = {
       },
       steps: {
         type: 'array',
-        description: '游戏步骤，3-6个步骤',
+        description: '游戏步骤，3-6个步骤。地板游戏是以孩子为主导的游戏，家长跟随孩子的兴趣和节奏，不设定每步的预期效果',
         items: {
           type: 'object',
           properties: {
             stepTitle: {
               type: 'string',
-              description: '步骤标题，如"第一步：准备材料"、"第二步：引导互动"'
+              description: '步骤标题，如"第一步：准备材料"、"第二步：观察并跟随"'
             },
             instruction: {
               type: 'string',
-              description: '详细指令，家长应该做什么，50-100字'
-            },
-            expectedOutcome: {
-              type: 'string',
-              description: '预期效果，这一步期望达到什么效果，30-50字'
+              description: '详细指令，家长应该如何跟随孩子、如何回应孩子的行为，50-100字。强调跟随而非引导'
             }
           },
-          required: ['stepTitle', 'instruction', 'expectedOutcome'],
+          required: ['stepTitle', 'instruction'],
           additionalProperties: false
         },
         minItems: 3,

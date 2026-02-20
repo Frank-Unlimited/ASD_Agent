@@ -1193,8 +1193,7 @@ const PageAIChat = ({
                       goal: plan.goal,
                       steps: plan.steps.map(s => ({
                         stepTitle: s.stepTitle,
-                        instruction: s.instruction,
-                        expectedOutcome: s.expectedOutcome
+                        instruction: s.instruction
                       })),
                       materials: plan.materials || [],
                       _analysis: plan._analysis,
@@ -3281,8 +3280,7 @@ const PageGames = ({
                   summary: internalActiveGame.reason,
                   steps: internalActiveGame.steps.map((step, index) => ({
                     stepTitle: `第${index + 1}步`,
-                    instruction: step.instruction,
-                    expectedOutcome: step.guidance
+                    instruction: step.instruction
                   })),
                   materials: [],
                   status: 'pending' as const,

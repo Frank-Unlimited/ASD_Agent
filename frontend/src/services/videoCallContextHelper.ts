@@ -158,7 +158,6 @@ export async function collectVideoCallContext(
     steps: Array<{
       stepTitle: string;
       instruction: string;
-      expectedOutcome: string;
     }>;
     materials: string[];
     currentStep: number;
