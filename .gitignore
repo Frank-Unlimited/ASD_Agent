@@ -32,3 +32,8 @@ frontend_backup_old/
 
 # Third-party demos
 alibabacloud-bailian-speech-demo/
+
+# Local data and uploads
+data/
+uploads/
+.venv/
