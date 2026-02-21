@@ -262,6 +262,14 @@ export interface FloorGame {
   review?: GameReviewResult;     // 游戏复盘结果
 }
 
+export interface FeedbackData {
+  q1: string; // Shared Attention
+  q2: string; // Communication Circles
+  q3: string; // Self-Regulation
+  q4: string; // Open Notes / Flashpoints
+  q5: string; // AI Helpfulness
+}
+
 // 家长偏好
 export interface ParentPreference {
   duration: 'short' | 'medium' | 'long'; // 游戏时长偏好
