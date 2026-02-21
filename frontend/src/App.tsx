@@ -88,7 +88,9 @@ import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
 import { PageRadar } from './components/RadarChartPage';
 import { PageCalendar } from './components/CalendarPage';
+import { GameStepCard } from './components/GameStepCard';
 import AIVideoCall from './components/AIVideoCall';
+import { AIAssistantPanel } from './components/AIAssistantPanel';
 import defaultAvatar from './img/cute_dog.jpg';
 
 // --- Helper Components ---
@@ -964,7 +966,7 @@ const PageAIChat = ({
                       console.log('[Tool Call] 开始更新消息，当前消息数:', prev.length);
                       const targetMsg = prev.find(m => m.id === tempMsgId);
                       console.log('[Tool Call] 找到目标消息:', !!targetMsg, '当前文本长度:', targetMsg?.text.length);
-                      
+
                       return prev.map(msg => {
                         if (msg.id === tempMsgId) {
                           let updatedText = msg.text;
@@ -1074,7 +1076,7 @@ const PageAIChat = ({
                         return msg;
                       })
                     );
-                    
+
                     // 工具调用完成，关闭 loading
                     setLoading(false);
                   } catch (error) {
@@ -1191,9 +1193,10 @@ const PageAIChat = ({
                       gameTitle: plan.gameTitle,
                       summary: plan.summary,
                       goal: plan.goal,
-                      steps: plan.steps.map(s => ({
-                        stepTitle: s.stepTitle,
-                        instruction: s.instruction
+                      steps: plan.steps.map((step, index) => ({
+                        stepTitle: step.stepTitle || `第${index + 1}步`,
+                        instruction: step.instruction,
+                        guidance: step.instruction
                       })),
                       materials: plan.materials || [],
                       _analysis: plan._analysis,
@@ -1208,7 +1211,11 @@ const PageAIChat = ({
                     void (async () => {
                       try {
                         const { generateAndSaveStepImages } = await import('./services/stepImageService');
-                        await generateAndSaveStepImages(floorGame.id, floorGame.gameTitle, floorGame.steps);
+                        await generateAndSaveStepImages(floorGame.id, floorGame.gameTitle, floorGame.steps.map(s => ({
+                          stepTitle: s.stepTitle || '',
+                          instruction: s.instruction,
+                          guidance: s.guidance || s.instruction
+                        })));
                       } catch (err) {
                         console.warn('[App] Background image generation error:', err);
                       }
@@ -1253,7 +1260,7 @@ const PageAIChat = ({
                         return msg;
                       })
                     );
-                    
+
                     // 工具调用完成，关闭 loading
                     setLoading(false);
                   } catch (error) {
@@ -2965,7 +2972,9 @@ const PageGames = ({
   onUpdateTrend,
   onProfileUpdate,
   activeGame,
-  childProfile
+  childProfile,
+  onGameStart, // Added prop to sync activeGameId
+  onAbort      // Added prop to trigger exit confirmation
 }: {
   initialGameId?: string,
   gameState: GameState,
@@ -2975,10 +2984,24 @@ const PageGames = ({
   onUpdateTrend: (score: number) => void,
   onProfileUpdate: (u: ProfileUpdate) => void,
   activeGame?: Game,
-  childProfile: ChildProfile | null
+  childProfile: ChildProfile | null,
+  onGameStart?: (gameId: string) => void,
+  onAbort?: () => void
 }) => {
   // 从 floorGameStorage 读取游戏并转换为 Game 类型
-  const floorGames = floorGameStorageService.getAllGames();
+  const [floorGames, setFloorGames] = useState(floorGameStorageService.getAllGames());
+
+  useEffect(() => {
+    const refreshGames = () => {
+      console.log('[PageGames] 收到更新通知，重新加载游戏列表');
+      setFloorGames(floorGameStorageService.getAllGames());
+    };
+    window.addEventListener('floorGameStatusUpdated', refreshGames);
+    return () => window.removeEventListener('floorGameStatusUpdated', refreshGames);
+  }, []);
+
+  const [isVideoActive, setIsVideoActive] = useState(false);
+
   const GAMES_FROM_STORAGE: Game[] = floorGames.map(fg => ({
     id: fg.id,
     title: fg.gameTitle,
@@ -3214,6 +3237,7 @@ const PageGames = ({
     });
     setInternalActiveGame(game);
     setGameState(GameState.PLAYING);
+    if (onGameStart) onGameStart(game.id); // Sync with parent App state
     setCurrentStepIndex(0);
     setTimer(0);
     setLogs([]);
@@ -3252,51 +3276,42 @@ const PageGames = ({
 
   if (gameState === GameState.PLAYING && internalActiveGame) {
     const currentStep = internalActiveGame.steps[currentStepIndex];
-    const isLastStep = currentStepIndex === internalActiveGame.steps.length - 1;
 
     return (
-      <div className="h-full flex flex-col bg-background">
-        <div className="w-full flex flex-col items-center py-4 bg-background z-0 relative">
-          <button
-            onClick={() => setShowVideoCall(!showVideoCall)}
-            className={`absolute left-4 top-4 text-xs px-3 py-1.5 rounded-lg font-bold transition flex items-center ${showVideoCall ? 'text-red-500 bg-red-50 hover:bg-red-100' : 'text-blue-500 bg-blue-50 hover:bg-blue-100'}`}
-          >
-            <Camera className="w-3 h-3 mr-1" />
-            {showVideoCall ? '关闭视频通话' : 'AI 视频通话'}
-          </button>
-          <h3 className="font-bold text-sm text-gray-500 mb-1">{internalActiveGame.title}</h3>
-          <div className="text-green-600 font-mono text-3xl font-bold">{formatTime(timer)}</div>
+      <div className="h-full flex flex-col bg-gray-50 overflow-hidden relative">
+        {/* Main Content (Full Height) */}
+        <div className="flex-1 min-h-0 p-3 pb-24">
+          <GameStepCard
+            game={internalActiveGame}
+            currentStepIndex={currentStepIndex}
+            timer={timer}
+            stepImages={stepImages}
+            onStepChange={setCurrentStepIndex}
+            onComplete={() => setGameState(GameState.FEEDBACK)}
+            onAbort={() => onAbort && onAbort()}
+            formatTime={formatTime}
+          />
         </div>
-        <div className="flex-1 px-4 pb-2 flex flex-col min-h-0">
-          {/* 视频通话组件 */}
-          {showVideoCall && internalActiveGame && (
-            <div className="mb-4 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-              <AIVideoCall
-                childProfile={childProfile}
-                gameData={{
-                  id: internalActiveGame.id,
-                  gameTitle: internalActiveGame.title,
-                  goal: internalActiveGame.target,
-                  summary: internalActiveGame.reason,
-                  steps: internalActiveGame.steps.map((step, index) => ({
-                    stepTitle: `第${index + 1}步`,
-                    instruction: step.instruction
-                  })),
-                  materials: [],
-                  status: 'pending' as const,
-                  dtstart: new Date().toISOString(),
-                  dtend: '',
-                  isVR: internalActiveGame.isVR || false
-                }}
-                gameId={internalActiveGame.id}
-                onClose={() => setShowVideoCall(false)}
-              />
-            </div>
-          )}
 
-          <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 flex-1 flex flex-col p-6 relative overflow-hidden"><div className="w-full flex justify-center mb-6 shrink-0"><div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">{currentStepIndex + 1}</div></div><div className="flex-1 flex flex-col justify-center overflow-y-auto no-scrollbar">{stepImages.get(currentStepIndex) && (<div className="w-full mb-4 rounded-2xl overflow-hidden shrink-0"><img src={stepImages.get(currentStepIndex)} alt={`步骤 ${currentStepIndex + 1} 插图`} className="w-full h-48 object-cover rounded-2xl" /></div>)}<h2 className="text-2xl font-bold text-gray-800 leading-normal text-center mb-8">{currentStep.instruction}</h2><div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full"><h4 className="text-blue-800 font-bold mb-2 flex items-center text-sm"><Lightbulb className="w-4 h-4 mr-2 text-yellow-500 fill-current" /> 互动小贴士</h4><p className="text-blue-900/80 text-sm leading-relaxed font-medium">{currentStep.guidance}</p></div></div></div></div>
-        <div className="flex items-center justify-between px-6 py-4 mb-2"><button onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))} disabled={currentStepIndex === 0} className={`flex items-center text-gray-400 font-bold transition px-4 py-3 ${currentStepIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:text-gray-600'}`}><ChevronLeft className="w-5 h-5 mr-1" /> 上一步</button><div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 text-xs font-bold text-gray-500 tracking-wide">步骤 {currentStepIndex + 1} / {internalActiveGame.steps.length}</div>{isLastStep ? (<button onClick={() => setGameState(GameState.FEEDBACK)} className="bg-primary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-primary/30 flex items-center hover:bg-green-600 transition transform active:scale-95">完成 <CheckCircle2 className="w-5 h-5 ml-2" /></button>) : (<button onClick={() => setCurrentStepIndex(currentStepIndex + 1)} className="bg-secondary text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-secondary/30 flex items-center hover:bg-blue-600 transition transform active:scale-95">下一步 <ChevronRight className="w-5 h-5 ml-1" /></button>)}</div>
-        <div className="p-4 bg-white border-t border-gray-100 pb-8 rounded-t-3xl shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 relative"><p className="text-center text-[10px] text-gray-400 mb-3 uppercase tracking-widest font-bold">快速记录当前反应</p><div className="flex justify-between max-w-sm mx-auto mb-3 space-x-2">{[{ icon: Smile, label: '微笑', color: 'text-yellow-600 bg-yellow-100 ring-yellow-300' }, { icon: Eye, label: '眼神', color: 'text-blue-600 bg-blue-100 ring-blue-300' }, { icon: Handshake, label: '互动', color: 'text-green-600 bg-green-100 ring-green-300' }, { icon: Frown, label: '抗拒', color: 'text-red-500 bg-red-100 ring-red-300' }].map((btn, i) => (<button key={i} onClick={() => handleLog('emoji', btn.label)} className={`flex-1 py-3 rounded-xl shadow-sm active:scale-95 transition flex flex-col items-center justify-center ${btn.color} ${clickedLog === btn.label ? 'ring-4 ring-offset-2 scale-110 bg-opacity-100' : ''}`}><btn.icon className="w-5 h-5 mb-1" /><span className="text-[10px] font-bold">{btn.label}</span></button>))}</div><button onMouseDown={() => { setClickedLog('voice'); handleLog('voice', '录音开始...'); }} onMouseUp={() => handleLog('voice', '录音结束')} className={`w-full bg-gray-50 border border-gray-200 py-3 rounded-xl text-gray-600 font-bold flex items-center justify-center shadow-sm active:bg-gray-200 active:scale-98 transition text-sm ${clickedLog === 'voice' ? 'ring-2 ring-gray-300 bg-gray-100' : ''}`}><Mic className="w-4 h-4 mr-2" /> 按住说话 记录观察笔记</button></div>
+        {/* Video Call (Floating overlay) */}
+        {isVideoActive && (
+          <AIVideoCall
+            childProfile={childProfile}
+            gameData={floorGameStorageService.getGameById(internalActiveGame.id)}
+            gameId={internalActiveGame.id}
+            onClose={() => setIsVideoActive(false)}
+            isInline={false}
+          />
+        )}
+
+        {/* AI Assistant (Bottom Sheet overlay) */}
+        <AIAssistantPanel
+          childProfile={childProfile}
+          gameData={floorGameStorageService.getGameById(internalActiveGame.id)}
+          gameContext={`当前游戏: ${internalActiveGame.title}\n当前步骤: ${currentStep.instruction}\n引导建议: ${currentStep.guidance}`}
+          onVideoToggle={setIsVideoActive}
+          isVideoActive={isVideoActive}
+        />
       </div>
     );
   }
@@ -3880,7 +3895,24 @@ export default function App() {
         </div>
       )}
 
-      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 z-10 sticky top-0"><div className="flex items-center">{currentPage !== Page.CHAT && currentPage !== Page.WELCOME && (<button onClick={() => setCurrentPage(Page.CHAT)} className="mr-3 text-gray-500 hover:text-primary transition"><ChevronLeft className="w-6 h-6" /></button>)}{currentPage === Page.CHAT && (<button onClick={() => setSidebarOpen(true)} className="mr-3 text-gray-700 hover:text-primary transition"><Menu className="w-6 h-6" /></button>)}<h1 className="text-lg font-bold text-gray-800">{getHeaderTitle()}</h1></div>{currentPage === Page.GAMES && gameMode === GameState.PLAYING ? (<button onClick={() => setShowExitConfirm(true)} className="text-red-500 font-bold text-sm h-8 flex items-center px-2 rounded hover:bg-red-50 transition">退出互动</button>) : currentPage !== Page.WELCOME && (<div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden border border-gray-200"><img src={childProfile?.avatar || defaultAvatar} alt="User" /></div>)}</header>
+      {!(currentPage === Page.GAMES && gameMode === GameState.PLAYING) && (
+        <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 z-10 sticky top-0">
+          <div className="flex items-center">
+            {currentPage !== Page.CHAT && currentPage !== Page.WELCOME && (
+              <button onClick={() => setCurrentPage(Page.CHAT)} className="mr-3 text-gray-500 hover:text-primary transition"><ChevronLeft className="w-6 h-6" /></button>
+            )}
+            {currentPage === Page.CHAT && (
+              <button onClick={() => setSidebarOpen(true)} className="mr-3 text-gray-700 hover:text-primary transition"><Menu className="w-6 h-6" /></button>
+            )}
+            <h1 className="text-lg font-bold text-gray-800">{getHeaderTitle()}</h1>
+          </div>
+          {currentPage !== Page.WELCOME && (
+            <div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden border border-gray-200">
+              <img src={childProfile?.avatar || defaultAvatar} alt="User" />
+            </div>
+          )}
+        </header>
+      )}
       <main className="flex-1 overflow-hidden relative">
         {currentPage === Page.WELCOME && <PageWelcome onComplete={handleWelcomeComplete} />}
         {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} childProfile={childProfile} />}
@@ -3888,7 +3920,7 @@ export default function App() {
         {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} onUpdateAvatar={handleUpdateAvatar} />}
         {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}
         {currentPage === Page.RADAR && <PageRadar />}
-        {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CALENDAR)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} />)}
+        {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CALENDAR)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} onGameStart={setActiveGameId} onAbort={() => setShowExitConfirm(true)} />)}
       </main>
     </div>
   );
