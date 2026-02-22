@@ -45,6 +45,7 @@ export interface Report {
 export type MedicalReport = Report;
 
 export interface GameStep {
+  stepTitle: string;   // Required title for the step
   instruction: string; // The main action
   guidance: string;    // The coaching tip/interaction guide
 }
@@ -99,8 +100,8 @@ export interface InterestCategory {
 
 // --- New Types for Interest Analysis Agent ---
 
-export type InterestDimensionType = 
-  | 'Visual' | 'Auditory' | 'Tactile' | 'Motor' 
+export type InterestDimensionType =
+  | 'Visual' | 'Auditory' | 'Tactile' | 'Motor'
   | 'Construction' | 'Order' | 'Cognitive' | 'Social';
 
 // Store accumulated raw scores for Interests
@@ -123,7 +124,7 @@ export interface BehaviorAnalysis {
 
 // --- New Types for Ability/Radar Analysis ---
 
-export type AbilityDimensionType = 
+export type AbilityDimensionType =
   | '自我调节' | '亲密感' | '双向沟通' | '复杂沟通' | '情绪思考' | '逻辑思维';
 
 // Store accumulated scores for Radar Chart (0-100 scale)
@@ -135,7 +136,7 @@ export interface EvaluationResult {
   explorationScore: number; // Exploration/Breadth score
   summary: string;
   suggestion: string;
-  interestAnalysis?: BehaviorAnalysis[]; 
+  interestAnalysis?: BehaviorAnalysis[];
 }
 
 // --- Module Separation Types ---
@@ -177,7 +178,7 @@ export interface GameRecommendation {
 }
 
 // 游戏推荐对话状态
-export type GameRecommendationState = 
+export type GameRecommendationState =
   | 'idle'              // 空闲状态
   | 'discussing'        // 需求探讨阶段
   | 'designing'         // 方案细化阶段
@@ -219,10 +220,7 @@ export interface GameImplementationPlan {
   gameTitle: string;                 // 游戏名称
   summary: string;                   // 游戏概要（2-3句话描述游戏的核心玩法）
   goal: string;                      // 游戏目标（明确的训练目标）
-  steps: Array<{                     // 游戏步骤
-    stepTitle: string;               // 步骤标题，如 "第一步：准备材料"
-    instruction: string;             // 详细指令（家长应该做什么，如何跟随孩子）
-  }>;
+  steps: GameStep[];
   materials?: string[];               // 所需材料清单
   _analysis?: string;                // LLM 分析总结（可选，用于显示）
 }
@@ -250,10 +248,7 @@ export interface FloorGame {
   gameTitle: string;
   summary: string;
   goal: string;
-  steps: Array<{
-    stepTitle: string;
-    instruction: string;
-  }>;
+  steps: GameStep[];
   materials?: string[];           // 所需材料清单
   _analysis?: string;
 
@@ -265,6 +260,14 @@ export interface FloorGame {
   evaluation?: EvaluationResult; // 游戏结束后的评估结果
   chat_history_in_game?: string; // AI 视频通话的聊天记录（JSON 字符串）
   review?: GameReviewResult;     // 游戏复盘结果
+}
+
+export interface FeedbackData {
+  q1: string; // Shared Attention
+  q2: string; // Communication Circles
+  q3: string; // Self-Regulation
+  q4: string; // Open Notes / Flashpoints
+  q5: string; // AI Helpfulness
 }
 
 // 家长偏好

@@ -13,9 +13,9 @@ class FloorGameStorageService {
     try {
       const data = localStorage.getItem(FLOOR_GAMES_STORAGE_KEY);
       if (!data) return [];
-      
+
       const games = JSON.parse(data);
-      
+
       // 数据迁移：将旧的 date 字段转换为 dtstart/dtend
       const migratedGames = games.map((game: any) => {
         if (game.date && !game.dtstart) {
@@ -29,7 +29,7 @@ class FloorGameStorageService {
         }
         return game;
       });
-      
+
       return migratedGames;
     } catch (error) {
       console.error('Failed to load floor games:', error);
@@ -44,6 +44,8 @@ class FloorGameStorageService {
       // 按 dtstart 倒序
       games.sort((a, b) => new Date(b.dtstart).getTime() - new Date(a.dtstart).getTime());
       localStorage.setItem(FLOOR_GAMES_STORAGE_KEY, JSON.stringify(games));
+      // 触发更新事件
+      window.dispatchEvent(new CustomEvent('floorGameStatusUpdated'));
     } catch (error) {
       console.error('Failed to save floor game:', error);
       throw new Error('保存地板游戏失败');
@@ -62,6 +64,8 @@ class FloorGameStorageService {
       if (index !== -1) {
         games[index] = { ...games[index], ...updates };
         localStorage.setItem(FLOOR_GAMES_STORAGE_KEY, JSON.stringify(games));
+        // 触发更新事件
+        window.dispatchEvent(new CustomEvent('floorGameStatusUpdated'));
       }
     } catch (error) {
       console.error('Failed to update floor game:', error);
@@ -81,6 +85,8 @@ class FloorGameStorageService {
       // 清理 IndexedDB 中该游戏的步骤图片
       void imageStorageService.deleteGameImages(id);
       localStorage.setItem(FLOOR_GAMES_STORAGE_KEY, JSON.stringify(filtered));
+      // 触发更新事件
+      window.dispatchEvent(new CustomEvent('floorGameStatusUpdated'));
     } catch (error) {
       console.error('Failed to delete floor game:', error);
       throw new Error('删除地板游戏失败');
