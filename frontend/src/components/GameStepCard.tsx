@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lightbulb, ChevronLeft, ChevronRight, AlertTriangle, Timer, X } from 'lucide-react';
+import { Lightbulb, ChevronLeft, ChevronRight, Timer, X } from 'lucide-react';
 import { Game, FloorGame } from '../types';
 
 interface GameStepCardProps {
@@ -28,6 +28,11 @@ export const GameStepCard: React.FC<GameStepCardProps> = ({
     const steps = 'steps' in game ? game.steps : [];
     const currentStep = steps[currentStepIndex];
     const isLastStep = currentStepIndex === steps.length - 1;
+
+    // Handle both Game and FloorGame step formats
+    const stepTitle = currentStep && 'stepTitle' in currentStep ? currentStep.stepTitle : `步骤 ${currentStepIndex + 1}`;
+    const instruction = currentStep && 'instruction' in currentStep ? currentStep.instruction : '';
+    const guidance = currentStep && 'guidance' in currentStep ? currentStep.guidance : '';
 
 
     return (
@@ -78,31 +83,33 @@ export const GameStepCard: React.FC<GameStepCardProps> = ({
 
                 {currentStep && (
                     <div className="mb-3 px-3 py-1.5 bg-primary/10 rounded-full text-primary text-xs font-bold tracking-wide text-center">
-                        {currentStep.stepTitle}
+                        {stepTitle}
                     </div>
                 )}
                 <h2 className="text-xl md:text-2xl font-black text-gray-800 leading-tight text-center mb-6 px-4">
-                    {currentStep?.instruction}
+                    {instruction}
                 </h2>
 
                 {/* Hint Box - Minimalist Toggle */}
-                <div className="w-full transition-all duration-300">
-                    <button
-                        onClick={() => setShowHint(!showHint)}
-                        className="flex items-center space-x-2 text-xs font-bold text-blue-600 mb-2 hover:opacity-80 transition"
-                    >
-                        <Lightbulb className={`w-3.5 h-3.5 ${showHint ? 'fill-yellow-400 text-yellow-500' : ''}`} />
-                        <span>{showHint ? '隐藏互动建议' : '查看互动建议'}</span>
-                    </button>
+                {guidance && (
+                    <div className="w-full transition-all duration-300">
+                        <button
+                            onClick={() => setShowHint(!showHint)}
+                            className="flex items-center space-x-2 text-xs font-bold text-blue-600 mb-2 hover:opacity-80 transition"
+                        >
+                            <Lightbulb className={`w-3.5 h-3.5 ${showHint ? 'fill-yellow-400 text-yellow-500' : ''}`} />
+                            <span>{showHint ? '隐藏互动建议' : '查看互动建议'}</span>
+                        </button>
 
-                    {showHint && (
-                        <div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full animate-in fade-in slide-in-from-top-2 duration-300">
-                            <p className="text-blue-900/80 text-sm leading-relaxed font-medium">
-                                {currentStep?.guidance}
-                            </p>
-                        </div>
-                    )}
-                </div>
+                        {showHint && (
+                            <div className="bg-blue-50/80 p-5 rounded-2xl border border-blue-100 text-left w-full animate-in fade-in slide-in-from-top-2 duration-300">
+                                <p className="text-blue-900/80 text-sm leading-relaxed font-medium">
+                                    {guidance}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Navigation Footer */}

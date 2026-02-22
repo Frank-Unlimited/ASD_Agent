@@ -328,3 +328,13 @@ export interface RadarChartData {
   totalBehaviors: number; // 时间段内的总行为数
   summary: string; // 数据摘要
 }
+
+// 反馈调查数据
+export interface FeedbackData {
+  q1: string; // 共同注意
+  q2: string; // 沟通循环
+  q3: string; // 情绪调节
+  q4: string; // 互动随手记
+  q5: string; // 助手反馈
+}
+
