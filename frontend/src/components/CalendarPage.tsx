@@ -53,190 +53,8 @@ export const PageCalendar = ({ navigateTo, onStartGame }: {
   const [selectedBehavior, setSelectedBehavior] = useState<BehaviorAnalysis | null>(null);
   const [showBehaviorDetail, setShowBehaviorDetail] = useState(false);
   
-  // 滑动相关的 state
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  const [isSwipeAnimating, setIsSwipeAnimating] = useState(false);
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
-  const [dragOffset, setDragOffset] = useState(0); // 实时拖拽偏移量
-  const [nextWeekDates, setNextWeekDates] = useState<Date[]>([]); // 下一周的日期
-  const [prevWeekDates, setPrevWeekDates] = useState<Date[]>([]); // 上一周的日期
-  const [showNextWeek, setShowNextWeek] = useState(false); // 是否显示下一周
-  const [showPrevWeek, setShowPrevWeek] = useState(false); // 是否显示上一周
-  
   // 时间轴容器的引用
   const timelineRef = React.useRef<HTMLDivElement>(null);
-  
-  // 最小滑动距离（像素）
-  const minSwipeDistance = 50;
-  
-  // 触摸开始
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-    setDragOffset(0);
-    setShowNextWeek(false);
-    setShowPrevWeek(false);
-  };
-  
-  // 触摸移动
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (touchStart === null) return;
-    const currentTouch = e.targetTouches[0].clientX;
-    setTouchEnd(currentTouch);
-    // 实时更新拖拽偏移量，添加阻尼效果
-    const offset = (currentTouch - touchStart) * 0.3;
-    setDragOffset(offset);
-    
-    // 根据拖拽方向显示对应的周
-    if (offset < 0) {
-      setShowNextWeek(true);
-      setShowPrevWeek(false);
-    } else if (offset > 0) {
-      setShowPrevWeek(true);
-      setShowNextWeek(false);
-    }
-  };
-  
-  // 触摸结束
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) {
-      setDragOffset(0);
-      setShowNextWeek(false);
-      setShowPrevWeek(false);
-      setTouchStart(null);
-      setTouchEnd(null);
-      return;
-    }
-    
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-    
-    if (isLeftSwipe) {
-      // 向左滑动 - 下一周
-      setSwipeDirection('left');
-      setIsSwipeAnimating(true);
-      setTimeout(() => {
-        const newDate = new Date(selectedDate);
-        newDate.setDate(newDate.getDate() + 7);
-        setSelectedDate(newDate);
-        setIsSwipeAnimating(false);
-        setSwipeDirection(null);
-        setDragOffset(0);
-        setShowNextWeek(false);
-        setShowPrevWeek(false);
-      }, 300);
-    } else if (isRightSwipe) {
-      // 向右滑动 - 上一周
-      setSwipeDirection('right');
-      setIsSwipeAnimating(true);
-      setTimeout(() => {
-        const newDate = new Date(selectedDate);
-        newDate.setDate(newDate.getDate() - 7);
-        setSelectedDate(newDate);
-        setIsSwipeAnimating(false);
-        setSwipeDirection(null);
-        setDragOffset(0);
-        setShowNextWeek(false);
-        setShowPrevWeek(false);
-      }, 300);
-    } else {
-      // 回弹 - 重置偏移量，但保持显示状态直到动画结束
-      setDragOffset(0);
-      setTimeout(() => {
-        setShowNextWeek(false);
-        setShowPrevWeek(false);
-      }, 300);
-    }
-    
-    setTouchStart(null);
-    setTouchEnd(null);
-  };
-  
-  // 鼠标拖拽开始
-  const onMouseDown = (e: React.MouseEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.clientX);
-    setDragOffset(0);
-    setShowNextWeek(false);
-    setShowPrevWeek(false);
-  };
-  
-  // 鼠标拖拽移动
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (touchStart === null) return;
-    const currentX = e.clientX;
-    setTouchEnd(currentX);
-    // 实时更新拖拽偏移量，添加阻尼效果
-    const offset = (currentX - touchStart) * 0.3;
-    setDragOffset(offset);
-    
-    // 根据拖拽方向显示对应的周
-    if (offset < 0) {
-      setShowNextWeek(true);
-      setShowPrevWeek(false);
-    } else if (offset > 0) {
-      setShowPrevWeek(true);
-      setShowNextWeek(false);
-    }
-  };
-  
-  // 鼠标拖拽结束
-  const onMouseUp = () => {
-    if (!touchStart || !touchEnd) {
-      setDragOffset(0);
-      setShowNextWeek(false);
-      setShowPrevWeek(false);
-      setTouchStart(null);
-      setTouchEnd(null);
-      return;
-    }
-    
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-    
-    if (isLeftSwipe) {
-      // 向左滑动 - 下一周
-      setSwipeDirection('left');
-      setIsSwipeAnimating(true);
-      setTimeout(() => {
-        const newDate = new Date(selectedDate);
-        newDate.setDate(newDate.getDate() + 7);
-        setSelectedDate(newDate);
-        setIsSwipeAnimating(false);
-        setSwipeDirection(null);
-        setDragOffset(0);
-        setShowNextWeek(false);
-        setShowPrevWeek(false);
-      }, 300);
-    } else if (isRightSwipe) {
-      // 向右滑动 - 上一周
-      setSwipeDirection('right');
-      setIsSwipeAnimating(true);
-      setTimeout(() => {
-        const newDate = new Date(selectedDate);
-        newDate.setDate(newDate.getDate() - 7);
-        setSelectedDate(newDate);
-        setIsSwipeAnimating(false);
-        setSwipeDirection(null);
-        setDragOffset(0);
-        setShowNextWeek(false);
-        setShowPrevWeek(false);
-      }, 300);
-    } else {
-      // 回弹 - 重置偏移量，但保持显示状态直到动画结束
-      setDragOffset(0);
-      setTimeout(() => {
-        setShowNextWeek(false);
-        setShowPrevWeek(false);
-      }, 300);
-    }
-    
-    setTouchStart(null);
-    setTouchEnd(null);
-  };
   
   // 加载真实数据
   const behaviors = behaviorStorageService.getAllBehaviors();
@@ -352,17 +170,6 @@ export const PageCalendar = ({ navigateTo, onStartGame }: {
   const monthDates = getMonthDates(new Date(selectedDate));
   const dailyEvents = getDailyEvents();
   
-  // 计算上一周和下一周的日期
-  React.useEffect(() => {
-    const nextWeekDate = new Date(selectedDate);
-    nextWeekDate.setDate(nextWeekDate.getDate() + 7);
-    setNextWeekDates(getWeekDates(nextWeekDate));
-    
-    const prevWeekDate = new Date(selectedDate);
-    prevWeekDate.setDate(prevWeekDate.getDate() - 7);
-    setPrevWeekDates(getWeekDates(prevWeekDate));
-  }, [selectedDate]);
-  
   // 格式化日期显示
   const formatDateHeader = (date: Date) => {
     const year = date.getFullYear();
@@ -411,93 +218,45 @@ export const PageCalendar = ({ navigateTo, onStartGame }: {
         </div>
       </div>
       
-      {/* 周视图 - 简洁美化版 */}
-      <div 
-        className="bg-white/90 backdrop-blur-sm border-b border-gray-200/50 px-4 py-4 shadow-sm cursor-grab active:cursor-grabbing select-none overflow-hidden relative"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
-      >
-        <div 
-          className={`${
-            isSwipeAnimating 
-              ? 'transition-all duration-400 ease-out' 
-              : dragOffset !== 0
-              ? 'transition-none'
-              : 'transition-all duration-300 ease-out'
-          }`}
-          style={{
-            transform: isSwipeAnimating
-              ? swipeDirection === 'left'
-                ? 'translateX(-120%) scale(0.9)'
-                : swipeDirection === 'right'
-                ? 'translateX(120%) scale(0.9)'
-                : `translateX(${dragOffset}px) scale(${Math.max(0.95, 1 - Math.abs(dragOffset) / 800)})`
-              : `translateX(${dragOffset}px) scale(${Math.max(0.95, 1 - Math.abs(dragOffset) / 800)})`,
-            opacity: isSwipeAnimating 
-              ? swipeDirection ? 0 : 1
-              : Math.max(0.6, 1 - Math.abs(dragOffset) / 250)
-          }}
-        >
-          <div className="grid grid-cols-7 gap-3">
-            {['日', '一', '二', '三', '四', '五', '六'].map((day, i) => (
-              <div key={i} className="text-center text-xs text-gray-500 font-bold mb-2 uppercase tracking-wider">
-                {day}
-              </div>
-            ))}
-            {weekDates.map((date, i) => {
-              const isToday = isSameDay(date, today);
-              const isSelected = isSameDay(date, selectedDate);
-              const hasEvents = hasEventsOnDate(date);
-              
-              return (
-                <div key={i} className="flex flex-col items-center">
-                  <button
-                    onClick={() => setSelectedDate(new Date(date))}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all transform ${
-                      isSelected 
-                        ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg scale-110' 
-                        : isToday
-                        ? 'bg-blue-50 text-blue-600 ring-2 ring-blue-300'
-                        : 'text-gray-700 hover:bg-gray-100 hover:scale-105'
-                    }`}
-                  >
-                    {date.getDate()}
-                  </button>
-                  {isToday && !isSelected && (
-                    <div className="w-7 h-1 rounded-full bg-gradient-to-r from-red-400 via-pink-500 to-red-400 mt-1.5 shadow-sm animate-pulse"></div>
-                  )}
-                  {hasEvents && !isToday && !isSelected && (
-                    <div className="flex gap-1 mt-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 shadow-sm"></div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        
-        {/* 拖拽方向提示 */}
-        {dragOffset !== 0 && !isSwipeAnimating && Math.abs(dragOffset) > 20 && (
-          <div className={`absolute top-1/2 transform -translate-y-1/2 transition-all ${
-            dragOffset < 0 ? 'right-4' : 'left-4'
-          }`}>
-            <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${
-              dragOffset < 0 
-                ? 'from-blue-400 to-purple-500' 
-                : 'from-purple-400 to-blue-500'
-            } flex items-center justify-center shadow-lg animate-pulse`}>
-              <ChevronRight className={`w-6 h-6 text-white ${
-                dragOffset > 0 ? 'rotate-180' : ''
-              }`} />
+      {/* 周视图 - 紧凑设计 */}
+      <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200/50 px-4 py-3 shadow-sm">
+        <div className="grid grid-cols-7 gap-2">
+          {['日', '一', '二', '三', '四', '五', '六'].map((day, i) => (
+            <div key={i} className="text-center text-xs text-gray-400 font-bold mb-1.5 uppercase tracking-wider">
+              {day}
             </div>
-          </div>
-        )}
+          ))}
+          {weekDates.map((date, i) => {
+            const isToday = isSameDay(date, today);
+            const isSelected = isSameDay(date, selectedDate);
+            const hasEvents = hasEventsOnDate(date);
+            
+            return (
+              <div key={i} className="flex flex-col items-center">
+                <button
+                  onClick={() => setSelectedDate(new Date(date))}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold transition-all transform ${
+                    isSelected 
+                      ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg scale-110' 
+                      : isToday
+                      ? 'bg-gradient-to-br from-blue-50 to-purple-50 text-blue-600 ring-2 ring-blue-200'
+                      : 'text-gray-700 hover:bg-gray-100 hover:scale-105'
+                  }`}
+                >
+                  {date.getDate()}
+                </button>
+                {isToday && !isSelected && (
+                  <div className="w-6 h-0.5 rounded-full bg-gradient-to-r from-red-400 to-pink-500 mt-1 shadow-sm"></div>
+                )}
+                {hasEvents && !isToday && !isSelected && (
+                  <div className="flex gap-0.5 mt-1">
+                    <div className="w-1 h-1 rounded-full bg-green-500"></div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
       
       {/* 月历展开视图 - 紧凑设计 */}
