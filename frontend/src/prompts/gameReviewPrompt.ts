@@ -46,7 +46,7 @@ export function buildGameReviewPrompt(params: {
 
   const age = calculateAge(childProfile.birthDate);
   const gameDuration = calculateDuration(game.dtstart, game.dtend);
-  const stepsText = game.steps.map((s, i) => `${i + 1}. ${s.stepTitle || s.instruction}`).join('\n');
+  const stepsText = game.steps.map((s, i) => `${i + 1}. ${s.stepTitle}`).join('\n');
 
   let prompt = `
 请对以下地板游戏互动进行专业复盘：

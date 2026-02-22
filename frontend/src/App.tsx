@@ -1194,8 +1194,8 @@ const PageAIChat = ({
                       gameTitle: plan.gameTitle,
                       summary: plan.summary,
                       goal: plan.goal,
-                      steps: plan.steps.map((step, index) => ({
-                        stepTitle: step.stepTitle || `第${index + 1}步`,
+                      steps: plan.steps.map((step) => ({
+                        stepTitle: step.stepTitle,
                         instruction: step.instruction,
                         guidance: step.instruction
                       })),
@@ -1213,7 +1213,7 @@ const PageAIChat = ({
                       try {
                         const { generateAndSaveStepImages } = await import('./services/stepImageService');
                         await generateAndSaveStepImages(floorGame.id, floorGame.gameTitle, floorGame.steps.map(s => ({
-                          stepTitle: s.stepTitle || '',
+                          stepTitle: s.stepTitle,
                           instruction: s.instruction,
                           guidance: s.guidance || s.instruction
                         })));
@@ -2152,7 +2152,7 @@ const PageAIChat = ({
                       {card.plan.steps && card.plan.steps.map((step: any, idx: number) => (
                         <div key={idx} className="border-l-4 border-green-300 pl-3 pb-2">
                           <div className="mb-1">
-                            <span className="font-bold text-sm text-gray-800">{step.stepTitle || step.title}</span>
+                            <span className="font-bold text-sm text-gray-800">{step.stepTitle}</span>
                           </div>
                           <p className="text-xs text-gray-600 mb-1">{step.instruction}</p>
                         </div>

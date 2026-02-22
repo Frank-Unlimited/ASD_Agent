@@ -45,7 +45,7 @@ export interface Report {
 export type MedicalReport = Report;
 
 export interface GameStep {
-  stepTitle?: string;  // Optional title for the step
+  stepTitle: string;   // Required title for the step
   instruction: string; // The main action
   guidance: string;    // The coaching tip/interaction guide
 }
