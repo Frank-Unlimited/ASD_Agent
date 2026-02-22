@@ -73,7 +73,7 @@ import {
   CartesianGrid,
   Tooltip
 } from 'recharts';
-import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult } from './types';
+import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult, FeedbackData } from './types';
 import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
@@ -91,6 +91,7 @@ import { PageCalendar } from './components/CalendarPage';
 import { GameStepCard } from './components/GameStepCard';
 import AIVideoCall from './components/AIVideoCall';
 import { AIAssistantPanel } from './components/AIAssistantPanel';
+import FeedbackSurvey from './components/FeedbackSurvey';
 import defaultAvatar from './img/cute_dog.jpg';
 
 // --- Helper Components ---
@@ -3040,12 +3041,26 @@ const PageGames = ({
   const FILTERS = ['全部', '共同注意', '自我调节', '亲密感', '双向沟通', '情绪思考', '创造力'];
 
   // Feedback State (Moved to top level)
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState<FeedbackData | string>('');
   const [gameVideo, setGameVideo] = useState<File | null>(null);
   const [isProcessingVideo, setIsProcessingVideo] = useState(false);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmitFeedback = async () => {
+  const formatFeedbackToText = (data: FeedbackData | string): string => {
+    if (typeof data === 'string') return data;
+    return [
+      `【共同注意】${data.q1}`,
+      `【沟通循环】${data.q2}`,
+      `【情绪调节】${data.q3}`,
+      `【互动随手记】${data.q4}`,
+      `【助手反馈】对AI建议评价：${data.q5}`
+    ].filter(line => line.length > 5).join('\n');
+  };
+
+  const handleSubmitFeedback = async (directData?: FeedbackData) => {
+    const finalData = directData || feedback;
+    const feedbackText = formatFeedbackToText(finalData);
+
     let videoSummary = '';
     if (gameVideo) {
       setIsProcessingVideo(true);
@@ -3059,7 +3074,7 @@ const PageGames = ({
       }
     }
     setGameState(GameState.SUMMARY);
-    performAnalysis(feedback, videoSummary);
+    performAnalysis(feedbackText, videoSummary);
   };
 
   useEffect(() => {
@@ -3318,77 +3333,30 @@ const PageGames = ({
 
   if (gameState === GameState.FEEDBACK) {
     return (
-      <div className="h-full bg-background p-6 flex flex-col pt-12 overflow-y-auto no-scrollbar">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <ClipboardList className="w-8 h-8 text-primary" />
+      <div className="h-full bg-background flex flex-col pt-12">
+        <div className="text-center mb-4 px-6">
+          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <ClipboardList className="w-6 h-6 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">互动随手记</h2>
-          <p className="text-gray-500 text-sm mt-2">您的观察对生成专业的 DIR 复盘报告至关重要</p>
+          <h2 className="text-xl font-bold text-gray-800">互动随手记</h2>
+          <p className="text-gray-500 text-xs mt-1">您的反馈对生成复盘报告至关重要</p>
         </div>
 
-        <div className="space-y-6 flex-1">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <h3 className="font-bold text-gray-700 mb-3 flex items-center">
-              <MessageSquare className="w-4 h-4 mr-2 text-primary" /> 本次观察建议
-            </h3>
-            <textarea
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              className="w-full bg-gray-50 rounded-xl p-4 text-sm min-h-[120px] focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none transition"
-              placeholder="例如：孩子今天主动发起了 3 次沟通；我们通过玩车建立了良好的循环..."
-            />
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <h3 className="font-bold text-gray-700 mb-3 flex items-center">
-              <Camera className="w-4 h-4 mr-2 text-primary" /> 上传互动视频 (可选)
-            </h3>
-            <p className="text-xs text-gray-400 mb-4">分析视频画面中的眼神接触与非言语互动</p>
-
-            <input
-              type="file"
-              ref={videoInputRef}
-              hidden
-              accept="video/*"
-              onChange={(e) => setGameVideo(e.target.files?.[0] || null)}
-            />
-
-            {gameVideo ? (
-              <div className="flex items-center justify-between bg-blue-50 p-4 rounded-xl">
-                <div className="flex items-center">
-                  <Video className="w-5 h-5 text-primary mr-3" />
-                  <div className="max-w-[150px]">
-                    <p className="text-sm font-bold text-gray-800 truncate">{gameVideo.name}</p>
-                    <p className="text-[10px] text-gray-500">{(gameVideo.size / 1024 / 1024).toFixed(1)} MB</p>
-                  </div>
-                </div>
-                <button onClick={() => setGameVideo(null)} className="p-2 text-gray-400 hover:text-red-500"><X className="w-5 h-5" /></button>
-              </div>
-            ) : (
-              <button
-                onClick={() => videoInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-8 flex flex-col items-center justify-center hover:bg-gray-50 transition group"
-              >
-                <Upload className="w-8 h-8 text-gray-300 group-hover:text-primary transition mb-2" />
-                <span className="text-sm font-bold text-gray-400 group-hover:text-gray-600">选择视频文件</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-8 pb-10">
-          <button
-            onClick={handleSubmitFeedback}
-            disabled={isProcessingVideo}
-            className={`w-full bg-primary text-white py-4 rounded-xl font-bold shadow-lg shadow-primary/30 flex items-center justify-center transition active:scale-95 ${isProcessingVideo ? 'opacity-70 animate-pulse cursor-wait' : 'hover:bg-green-600'}`}
-          >
-            {isProcessingVideo ? (
-              <>AI 正在分析视频画面...</>
-            ) : (
-              <>提交并生成 AI 复盘报表 <Sparkles className="w-5 h-5 ml-2" /></>
-            )}
-          </button>
+        <div className="flex-1 overflow-hidden">
+          <FeedbackSurvey
+            gameTitle={internalActiveGame?.title}
+            videoFile={gameVideo}
+            onVideoChange={setGameVideo}
+            isProcessingVideo={isProcessingVideo}
+            onComplete={(data) => {
+              setFeedback(data);
+              handleSubmitFeedback(data);
+            }}
+            onSkip={() => {
+              setFeedback('');
+              handleSubmitFeedback();
+            }}
+          />
         </div>
       </div>
     );
