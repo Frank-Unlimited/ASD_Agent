@@ -76,7 +76,7 @@ export const GameStepCard: React.FC<GameStepCardProps> = ({
                     </div>
                 )}
 
-                {currentStep?.stepTitle && (
+                {currentStep && (
                     <div className="mb-3 px-3 py-1.5 bg-primary/10 rounded-full text-primary text-xs font-bold tracking-wide text-center">
                         {currentStep.stepTitle}
                     </div>
