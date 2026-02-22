@@ -1215,7 +1215,7 @@ const PageAIChat = ({
                         await generateAndSaveStepImages(floorGame.id, floorGame.gameTitle, floorGame.steps.map(s => ({
                           stepTitle: s.stepTitle,
                           instruction: s.instruction,
-                          guidance: s.guidance || s.instruction
+                          guidance: s.instruction // FloorGame steps don't have guidance, use instruction as fallback
                         })));
                       } catch (err) {
                         console.warn('[App] Background image generation error:', err);
