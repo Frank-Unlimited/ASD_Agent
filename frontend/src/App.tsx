@@ -1231,6 +1231,7 @@ const PageAIChat = ({
                       reason: plan.summary,
                       isVR: false,
                       steps: plan.steps.map(s => ({
+                        stepTitle: s.stepTitle,
                         instruction: s.instruction,
                         guidance: s.instruction  // 地板游戏中，指令本身就是指导
                       })),
