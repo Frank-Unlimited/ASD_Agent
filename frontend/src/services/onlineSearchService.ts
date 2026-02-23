@@ -1,11 +1,11 @@
 /**
  * Online Search Service - 联网游戏搜索服务
- * 使用 Google Custom Search API 从互联网搜索游戏信息
+ * 使用博查AI搜索从互联网搜索游戏信息
  * 然后使用 LLM 解析和结构化搜索结果
  */
 
 import { Game } from '../types';
-import { googleSearchService } from './googleSearchService';
+import { bochaSearchService } from './bochaSearchService';
 import { qwenStreamClient } from './qwenStreamClient';
 
 function buildSearchQuery(query: string): string {
@@ -45,7 +45,7 @@ ${childContext ? `【儿童情况】\n${childContext}\n` : ''}
 }
 
 /**
- * 联网搜索游戏（使用 Google Search API + LLM 解析）
+ * 联网搜索游戏（使用博查AI搜索 + LLM 解析）
  * 真正从互联网搜索适合的地板游戏
  */
 export const searchGamesOnline = async (
@@ -56,18 +56,18 @@ export const searchGamesOnline = async (
   try {
     console.log('🌐 开始联网搜索游戏...');
 
-    // 使用 Google Search API 联网搜索
+    // 使用博查AI搜索 联网搜索
     const searchQuery = buildSearchQuery(query);
     console.log('🔍 搜索关键词:', searchQuery);
 
-    const searchResults = await googleSearchService.searchAndFormat(searchQuery, 10);
+    const searchResults = await bochaSearchService.searchAndFormat(searchQuery, 10);
 
     if (!searchResults) {
-      console.warn('⚠️  Google Search 无结果');
+      console.warn('⚠️  博查搜索无结果');
       return [];
     }
 
-    console.log('✅ Google Search 返回结果');
+    console.log('✅ 博查搜索返回结果');
 
     // 使用 LLM 解析搜索结果并结构化
     const parsePrompt = buildParsePrompt(searchResults, query, childContext);
