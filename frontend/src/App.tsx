@@ -1231,6 +1231,7 @@ const PageAIChat = ({
                       reason: plan.summary,
                       isVR: false,
                       steps: plan.steps.map(s => ({
+                        stepTitle: s.stepTitle,
                         instruction: s.instruction,
                         guidance: s.instruction  // 地板游戏中，指令本身就是指导
                       })),
@@ -3011,6 +3012,7 @@ const PageGames = ({
     reason: fg.summary,
     isVR: fg.isVR,
     steps: fg.steps.map(s => ({
+      stepTitle: s.stepTitle,
       instruction: s.instruction,
       guidance: s.instruction  // 地板游戏中，指令本身就是指导
     })),
@@ -3096,6 +3098,7 @@ const PageGames = ({
           reason: floorGame.summary,
           isVR: floorGame.isVR,
           steps: floorGame.steps.map(s => ({
+            stepTitle: s.stepTitle,
             instruction: s.instruction,
             guidance: s.instruction  // 地板游戏中，指令本身就是指导
           })),

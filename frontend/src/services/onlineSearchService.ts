@@ -176,7 +176,8 @@ function parseGamesFromSearchResult(content: string): Game[] {
 
     const games = gamesData.map((game, index) => {
       const keyPoints = game.keyPoints || [];
-      const steps = keyPoints.map((point: string) => ({
+      const steps = keyPoints.map((point: string, i: number) => ({
+        stepTitle: `第${i + 1}步`,
         instruction: point,
         guidance: ''
       }));
