@@ -3011,8 +3011,8 @@ const PageGames = ({
     duration: '15-20分钟',
     reason: fg.summary,
     isVR: fg.isVR,
-    steps: fg.steps.map(s => ({
-      stepTitle: s.stepTitle,
+    steps: fg.steps.map((s, idx) => ({
+      stepTitle: s.stepTitle || `步骤 ${idx + 1}`,
       instruction: s.instruction,
       guidance: s.instruction  // 地板游戏中，指令本身就是指导
     })),
@@ -3097,8 +3097,8 @@ const PageGames = ({
           duration: '15-20分钟',
           reason: floorGame.summary,
           isVR: floorGame.isVR,
-          steps: floorGame.steps.map(s => ({
-            stepTitle: s.stepTitle,
+          steps: floorGame.steps.map((s, idx) => ({
+            stepTitle: s.stepTitle || `步骤 ${idx + 1}`,
             instruction: s.instruction,
             guidance: s.instruction  // 地板游戏中，指令本身就是指导
           })),
@@ -3869,10 +3869,7 @@ export default function App() {
       {!(currentPage === Page.GAMES && gameMode === GameState.PLAYING) && (
         <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 z-10 sticky top-0">
           <div className="flex items-center">
-            {currentPage !== Page.CHAT && currentPage !== Page.WELCOME && (
-              <button onClick={() => setCurrentPage(Page.CHAT)} className="mr-3 text-gray-500 hover:text-primary transition"><ChevronLeft className="w-6 h-6" /></button>
-            )}
-            {currentPage === Page.CHAT && (
+            {currentPage !== Page.WELCOME && (
               <button onClick={() => setSidebarOpen(true)} className="mr-3 text-gray-700 hover:text-primary transition"><Menu className="w-6 h-6" /></button>
             )}
             <h1 className="text-lg font-bold text-gray-800">{getHeaderTitle()}</h1>
