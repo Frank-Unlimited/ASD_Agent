@@ -11,6 +11,7 @@ export enum Page {
 
 export enum GameState {
   LIST = 'LIST',
+  PREVIEW = 'PREVIEW',
   PLAYING = 'PLAYING',
   FEEDBACK = 'FEEDBACK',
   SUMMARY = 'SUMMARY'
