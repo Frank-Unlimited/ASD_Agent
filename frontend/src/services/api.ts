@@ -1,39 +1,14 @@
 
-import { ChildProfile, Game, CalendarEvent, InterestCategory, ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate } from '../types';
-import { sendQwenMessageSync, evaluateSession, analyzeReport, recommendGame } from './qwenService';
+import { LogEntry, ProfileUpdate } from '../types';
+import { sendQwenMessageSync, evaluateSession, analyzeReport } from './qwenService';
 import { MEDICAL_REPORT_ANALYSIS_PROMPT, VERBAL_DESCRIPTION_ANALYSIS_PROMPT } from '../prompts';
 
 // --- Configuration ---
 export const USE_REAL_API = true;
-const API_BASE_URL = 'http://127.0.0.1:8000';
 
 // --- API Client ---
 
 export const api = {
-  // 3. Dialogue Agent: Chat with Context
-  sendMessage: async (message: string, history: ChatMessage[], profileContext: string): Promise<string> => {
-    if (USE_REAL_API) {
-      try {
-        return await sendQwenMessageSync(message, history, profileContext);
-      } catch (err: any) {
-        console.warn("Qwen API failed, using fallback.");
-      }
-    }
-    return "网络连接不稳定，请稍后再试。";
-  },
-
-  // 4. Recommendation Agent: Explicit Recommendation
-  getRecommendation: async (profileContext: string) => {
-      if (USE_REAL_API) {
-          try {
-              return await recommendGame(profileContext);
-          } catch (e) {
-              console.warn("Recommendation failed");
-          }
-      }
-      return { id: '1', title: '积木高塔 (离线推荐)', reason: '无法连接AI，推荐基础互动游戏。' };
-  },
-
   // 5. Evaluation Agent: Session Analysis
   analyzeSession: async (logs: LogEntry[]) => {
      if (USE_REAL_API) {
