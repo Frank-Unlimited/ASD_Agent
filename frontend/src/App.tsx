@@ -1,4 +1,5 @@
 ﻿﻿import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { sendQwenMessage } from './services/qwenService';
 import { clearAllCache } from './utils/clearCache'; // 导入清空缓存功能
@@ -56,7 +57,8 @@ import {
   Package,
   LogOut,
   ClipboardList,
-  MessageSquare,
+  Timer,
+  Target,
   Video
 } from 'lucide-react';
 import {
@@ -672,7 +674,7 @@ const PageAIChat = ({
   childProfile
 }: {
   navigateTo: (p: Page) => void,
-  onStartGame: (id: string) => void,
+  onStartGame: (id: string, directPlay?: boolean, sourcePage?: Page) => void,
   onProfileUpdate: (u: ProfileUpdate) => void,
   profileContext: string, // Passed from App parent
   childProfile: ChildProfile | null
@@ -770,7 +772,7 @@ const PageAIChat = ({
 
     // 延迟一秒跳转，让用户看一眼消息，体验更平滑
     setTimeout(() => {
-      onStartGame(game.id);
+      onStartGame(game.id, true, Page.CHAT);
     }, 800);
   };
 
@@ -2976,7 +2978,8 @@ const PageGames = ({
   activeGame,
   childProfile,
   onGameStart, // Added prop to sync activeGameId
-  onAbort      // Added prop to trigger exit confirmation
+  onAbort,      // Added prop to trigger exit confirmation
+  gameReturnPage
 }: {
   initialGameId?: string,
   gameState: GameState,
@@ -2988,7 +2991,8 @@ const PageGames = ({
   activeGame?: Game,
   childProfile: ChildProfile | null,
   onGameStart?: (gameId: string) => void,
-  onAbort?: () => void
+  onAbort?: () => void,
+  gameReturnPage: Page
 }) => {
   // 从 floorGameStorage 读取游戏并转换为 Game 类型
   const [floorGames, setFloorGames] = useState(floorGameStorageService.getAllGames());
@@ -3285,10 +3289,207 @@ const PageGames = ({
             const statusConfig = game.status === 'completed' ? { label: '已完成', cls: 'bg-green-50 text-green-700' } : game.status === 'aborted' ? { label: '已中止', cls: 'bg-red-50 text-red-700' } : { label: '未开始', cls: 'bg-gray-100 text-gray-500' };
             // LIST 状态：只显示年月日
             const dateStr = game.date ? new Date(game.date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '';
-            return (<div key={game.id} onClick={() => handleStartGame(game)} className="bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30 overflow-hidden">{coverImages.get(game.id) && (<div className="w-full h-32 overflow-hidden"><img src={coverImages.get(game.id)} alt="" className="w-full h-full object-cover" /></div>)}<div className="p-5"><div className="flex justify-between items-start"><h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">{game.title}{game.isVR && (<span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse"><Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验</span>)}</h4><div className="flex items-center space-x-2 shrink-0 ml-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>{dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}</div></div><p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p><div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div></div></div>);
-          })) : (<div className="text-center py-10 text-gray-400 flex flex-col items-center"><div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><Search className="w-8 h-8 text-gray-300" /></div><p>没有找到匹配的游戏</p><button onClick={() => { setSearchText(''); setActiveFilter('全部') }} className="mt-2 text-primary font-bold text-sm">清除筛选</button></div>)}
+            return (
+              <div
+                key={game.id}
+                onClick={() => {
+                  setInternalActiveGame(game);
+                  setGameState(GameState.PREVIEW);
+                }}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30 overflow-hidden"
+              >
+                {coverImages.get(game.id) && (
+                  <div className="w-full h-32 overflow-hidden">
+                    <img src={coverImages.get(game.id)} alt="" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="p-5">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-bold text-gray-800 text-lg group-hover:text-primary transition flex items-center">
+                      {game.title}
+                      {game.isVR && (
+                        <span className="ml-2 bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow-sm font-bold flex items-center animate-pulse">
+                          <Sparkles className="w-3 h-3 mr-1 fill-current" /> VR体验
+                        </span>
+                      )}
+                    </h4>
+                    <div className="flex items-center space-x-2 shrink-0 ml-2">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig.cls}`}>{statusConfig.label}</span>
+                      {dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}
+                    </div>
+                  </div>
+                  <p className="text-gray-500 text-sm mt-1 line-clamp-2">{game.reason}</p>
+                  <div className="mt-4 flex items-center text-xs font-bold text-blue-600 bg-blue-50 w-fit px-3 py-1.5 rounded-lg">目标: {game.target}</div>
+                </div>
+              </div>
+            );
+          })) : (
+            <div className="text-center py-10 text-gray-400 flex flex-col items-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-gray-300" />
+              </div>
+              <p>没有找到匹配的游戏</p>
+              <button onClick={() => { setSearchText(''); setActiveFilter('全部') }} className="mt-2 text-primary font-bold text-sm">清除筛选</button>
+            </div>
+          )}
         </div>
       </div>
+    );
+  }
+
+  if (gameState === GameState.PREVIEW && internalActiveGame) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        className="h-full bg-slate-50 flex flex-col overflow-y-auto no-scrollbar"
+      >
+        {/* Immersive Header with Cover Image */}
+        <div className="relative h-[280px] w-full shrink-0 overflow-hidden">
+          {coverImages.get(internalActiveGame.id) ? (
+            <motion.img
+              initial={{ scale: 1.1 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.8 }}
+              src={coverImages.get(internalActiveGame.id)}
+              alt={internalActiveGame.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/20 to-transparent" />
+
+          {/* Floating Back Button */}
+          <button
+            onClick={() => onBack()}
+            className="absolute top-6 left-6 p-3 bg-white/80 backdrop-blur-xl rounded-2xl border border-white/50 text-slate-800 shadow-lg shadow-black/5 hover:bg-white transition-all active:scale-90 z-20"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Content Area */}
+        <div className="px-6 -mt-20 relative z-10 space-y-6 pb-32">
+          {/* Main Title Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-[32px] p-6 shadow-xl shadow-slate-200/50 border border-slate-100"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-black text-slate-800 leading-tight">
+                    {internalActiveGame.title}
+                  </h1>
+                </div>
+                <p className="text-slate-400 text-sm font-bold tracking-tight">游戏预览</p>
+              </div>
+              {internalActiveGame.isVR && (
+                <div className="px-3 py-1 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-200 animate-pulse">
+                  <span className="text-[10px] text-white font-black uppercase tracking-wider">VR 模式</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50/50 rounded-full border border-blue-100/50">
+                <Timer className="w-3.5 h-3.5 text-blue-500" />
+                <span className="text-xs font-black text-blue-600">{internalActiveGame.duration || '15-20 分钟'}</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50/50 rounded-full border border-purple-100/50">
+                <Target className="w-3.5 h-3.5 text-purple-500" />
+                <span className="text-xs font-black text-purple-600">{internalActiveGame.target}</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50/50 rounded-full border border-amber-100/50">
+                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-xs font-black text-amber-600">中等难度</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Summary Section */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="space-y-3"
+          >
+            <h3 className="px-2 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">互动详情</h3>
+            <div className="bg-white/60 backdrop-blur-md rounded-3xl p-6 border border-white shadow-sm">
+              <p className="text-slate-600 leading-relaxed font-medium">
+                {internalActiveGame.reason}
+              </p>
+            </div>
+          </motion.section>
+
+          {/* Goal Section */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="space-y-3"
+          >
+            <h3 className="px-2 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">训练目标</h3>
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 shadow-lg shadow-indigo-200">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                  <Award className="w-6 h-6 text-white" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-white font-black text-lg">核心成长</h4>
+                  <p className="text-indigo-50 text-sm leading-relaxed opacity-90">
+                    {internalActiveGame.target}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.section>
+
+          {/* Steps Preview Section */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="space-y-4"
+          >
+            <h3 className="px-2 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">互动节奏预览</h3>
+            <div className="space-y-4">
+              {internalActiveGame.steps.map((step, idx) => (
+                <div key={idx} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex gap-4 group hover:border-indigo-200 transition-colors">
+                  <div className="flex flex-col items-center shrink-0">
+                    <div className="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 flex items-center justify-center text-xs font-black transition-colors">
+                      {String(idx + 1).padStart(2, '0')}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-black text-slate-800">{step.stepTitle}</h4>
+                    <p className="text-xs text-slate-400 font-medium leading-relaxed line-clamp-2">
+                      {step.instruction}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.section>
+        </div>
+
+        {/* Action Footer */}
+        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent pt-12 z-20">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleStartGame(internalActiveGame)}
+            className="w-full bg-slate-900 text-white py-5 rounded-[24px] font-black shadow-2xl shadow-slate-900/40 flex items-center justify-center gap-3 active:bg-slate-800 transition-all hover:bg-slate-800"
+          >
+            <Play className="w-6 h-6 fill-current" />
+            <span className="text-lg">开启互动时光</span>
+          </motion.button>
+        </div>
+      </motion.div>
     );
   }
 
@@ -3472,7 +3673,7 @@ const PageGames = ({
             )}
 
             <div className="bg-white p-4 rounded-2xl shadow-sm mb-20 border border-gray-100"><h3 className="font-bold text-gray-700 mb-4 flex items-center justify-between"><span className="flex items-center"><TrendingUp className="w-4 h-4 mr-2 text-green-500" /> 成长曲线已更新</span><span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">+1 记录</span></h3><div className="h-40 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" /><XAxis dataKey="name" tick={{ fontSize: 9, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 100]} /><Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} /><Line type="monotone" dataKey="engagement" stroke="#10B981" strokeWidth={3} dot={(props: any) => { const isLast = props.index === trendData.length - 1; return (<circle cx={props.cx} cy={props.cy} r={isLast ? 6 : 4} fill={isLast ? "#10B981" : "#fff"} stroke="#10B981" strokeWidth={2} />); }} isAnimationActive={true} /></LineChart></ResponsiveContainer></div></div>
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100"><button onClick={() => { setGameState(GameState.LIST); onBack(); }} className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-gray-800 transition active:scale-95 flex items-center justify-center"><RefreshCw className="w-4 h-4 mr-2" /> 返回游戏库</button></div>
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100"><button onClick={() => { setGameState(GameState.LIST); onBack(); }} className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-gray-800 transition active:scale-95 flex items-center justify-center"><RefreshCw className="w-4 h-4 mr-2" /> 返回{gameReturnPage === Page.CHAT ? '对话' : gameReturnPage === Page.CALENDAR ? '日历计划' : '游戏库'}</button></div>
           </div>
         ) : (<div className="text-center mt-20 text-gray-400"><p>无法生成评估结果</p><button onClick={() => setGameState(GameState.LIST)} className="mt-4 text-primary">返回</button></div>)}
       </div>
@@ -3505,6 +3706,7 @@ export default function App() {
   const [trendData, setTrendData] = useState(INITIAL_TREND_DATA);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false); // 退出互动确认
+  const [gameReturnPage, setGameReturnPage] = useState<Page>(Page.GAMES); // 记录返回页
 
   // Abort State in App
   const [abortTags, setAbortTags] = useState<string[]>([]);
@@ -3575,12 +3777,22 @@ export default function App() {
   };
 
   const handleNavigate = (page: Page) => { setCurrentPage(page); setActiveGameId(undefined); setGameMode(GameState.LIST); };
-  const handleStartGame = (gameId: string) => {
-    console.log('[App] handleStartGame 被调用，gameId:', gameId);
+  const handleStartGame = (gameId: string, directPlay: boolean = false, sourcePage: Page = Page.GAMES) => {
+    console.log('[App] handleStartGame 被调用，gameId:', gameId, 'directPlay:', directPlay, 'sourcePage:', sourcePage);
+
+    setGameReturnPage(sourcePage);
+
+    if (directPlay) {
+      // 如果是直接开始（如从聊天卡片），需要在这里更新开始时间
+      floorGameStorageService.updateGame(gameId, {
+        dtstart: new Date().toISOString()
+      });
+    }
+
     setActiveGameId(gameId);
-    setGameMode(GameState.PLAYING);
+    setGameMode(directPlay ? GameState.PLAYING : GameState.PREVIEW);
     setCurrentPage(Page.GAMES);
-    console.log('[App] 已设置 activeGameId:', gameId, 'gameMode: PLAYING, currentPage: GAMES');
+    console.log('[App] 已设置 activeGameId:', gameId, 'gameMode:', directPlay ? 'PLAYING' : 'PREVIEW', 'currentPage: GAMES', 'returnPage:', sourcePage);
   };
   const handleUpdateTrend = (newScore: number) => { setTrendData(prev => [...prev, { name: '本次', engagement: newScore }]); };
 
@@ -3728,6 +3940,7 @@ export default function App() {
         floorGameStorageService.updateGame(activeGameId, { status: 'aborted' });
       }
       setGameMode(GameState.LIST);
+      setCurrentPage(gameReturnPage);
     }
     setShowExitConfirm(false);
   };
@@ -3766,6 +3979,7 @@ export default function App() {
       floorGameStorageService.updateGame(activeGameId, { status: 'aborted' });
     }
     setGameMode(GameState.LIST);
+    setCurrentPage(gameReturnPage);
     setShowExitConfirm(false);
 
     // Reset state
@@ -3866,7 +4080,7 @@ export default function App() {
         </div>
       )}
 
-      {!(currentPage === Page.GAMES && gameMode === GameState.PLAYING) && (
+      {!(currentPage === Page.GAMES && gameMode !== GameState.LIST) && (
         <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 z-10 sticky top-0">
           <div className="flex items-center">
             {currentPage !== Page.WELCOME && (
@@ -3888,7 +4102,7 @@ export default function App() {
         {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} onUpdateAvatar={handleUpdateAvatar} />}
         {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}
         {currentPage === Page.RADAR && <PageRadar />}
-        {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CHAT)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} onGameStart={setActiveGameId} onAbort={() => setShowExitConfirm(true)} />)}
+        {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => { if (gameMode === GameState.LIST) { setCurrentPage(Page.CHAT); } else { setCurrentPage(gameReturnPage); setGameMode(GameState.LIST); } }} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} onGameStart={setActiveGameId} onAbort={() => setShowExitConfirm(true)} gameReturnPage={gameReturnPage} />)}
       </main>
     </div>
   );
