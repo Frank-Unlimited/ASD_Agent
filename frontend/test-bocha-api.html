@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>博查AI搜索 API 测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #2196f3;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .search-item {
+            margin: 15px 0;
+            padding: 15px;
+            border-left: 3px solid #007bff;
+            background: #f8f9fa;
+        }
+        .search-item h3 {
+            margin: 0 0 10px 0;
+            color: #007bff;
+        }
+        .search-item .url {
+            color: #28a745;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        .search-item .snippet {
+            margin: 10px 0;
+            color: #666;
+        }
+        .search-item .meta {
+            font-size: 12px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 博查AI搜索 API 测试</h1>
+        
+        <div class="info-box">
+            <p><strong>API Key:</strong> <code>sk-e3f3de24ecc54cb187d3c4eb27b88aaf</code></p>
+            <p><strong>API 域名:</strong> <code>https://api.bocha.cn</code></p>
+            <p><strong>测试时间:</strong> <span id="testTime"></span></p>
+        </div>
+
+        <div>
+            <p><strong>搜索关键词:</strong></p>
+            <input type="text" id="query" value="自闭症干预 地板游戏 DIR Floortime" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button onclick="testSearch()">🔍 测试搜索</button>
+            <button onclick="testSearchWithSummary()">📝 测试搜索（带摘要）</button>
+            <button onclick="clearResults()">🗑️ 清除结果</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_KEY = 'sk-e3f3de24ecc54cb187d3c4eb27b88aaf';
+        const BASE_URL = 'https://api.bocha.cn/v1';
+
+        function updateTime() {
+            document.getElementById('testTime').textContent = new Date().toLocaleString('zh-CN');
+        }
+        updateTime();
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testSearch() {
+            const query = document.getElementById('query').value;
+            const resultsDiv = document.getElementById('results');
+            
+            if (!query) {
+                resultsDiv.innerHTML = '<div class="result error"><p>请输入搜索关键词</p></div>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p>搜索中...</p>';
+            updateTime();
+
+            try {
+                const response = await fetch(`${BASE_URL}/web-search`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        freshness: 'noLimit',
+                        summary: false,
+                        count: 10
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.code !== 200) {
+                    resultsDiv.innerHTML = `
+                        <div class="result error">
+                            <h2>❌ 搜索失败</h2>
+                            <p><strong>错误信息:</strong> ${data.msg || '未知错误'}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                    return;
+                }
+
+                displayResults(data, resultsDiv);
+
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        <h2>❌ 网络错误</h2>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        async function testSearchWithSummary() {
+            const query = document.getElementById('query').value;
+            const resultsDiv = document.getElementById('results');
+            
+            if (!query) {
+                resultsDiv.innerHTML = '<div class="result error"><p>请输入搜索关键词</p></div>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p>搜索中（生成摘要需要更长时间）...</p>';
+            updateTime();
+
+            try {
+                const response = await fetch(`${BASE_URL}/web-search`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        freshness: 'noLimit',
+                        summary: true,  // 启用摘要
+                        count: 5
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.code !== 200) {
+                    resultsDiv.innerHTML = `
+                        <div class="result error">
+                            <h2>❌ 搜索失败</h2>
+                            <p><strong>错误信息:</strong> ${data.msg || '未知错误'}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                    return;
+                }
+
+                displayResults(data, resultsDiv);
+
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        <h2>❌ 网络错误</h2>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        function displayResults(data, resultsDiv) {
+            let html = `
+                <div class="result success">
+                    <h2>✅ 搜索成功！</h2>
+                    <p><strong>搜索关键词:</strong> ${data.data.queryContext.originalQuery}</p>
+                    <p><strong>总结果数:</strong> ${data.data.webPages.totalEstimatedMatches.toLocaleString()}</p>
+                    <p><strong>返回结果数:</strong> ${data.data.webPages.value.length}</p>
+                    <h3>搜索结果：</h3>
+            `;
+
+            data.data.webPages.value.forEach((item, i) => {
+                html += `
+                    <div class="search-item">
+                        <h3>${i+1}. ${item.name}</h3>
+                        <div class="url">${item.url}</div>
+                        <div class="snippet">${item.snippet}</div>
+                        ${item.summary ? `<div class="snippet"><strong>摘要:</strong> ${item.summary}</div>` : ''}
+                        <div class="meta">
+                            来源: ${item.siteName || '未知'} 
+                            ${item.datePublished ? ` | 发布时间: ${new Date(item.datePublished).toLocaleString('zh-CN')}` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
