@@ -14,11 +14,11 @@ import {
   InterestAnalysisResult,
   GameImplementationPlan,
   ChildProfile,
-  ComprehensiveAssessment,
-  BehaviorAnalysis,
   InterestDimensionType
 } from '../types';
 import { DimensionMetrics } from './historicalDataHelper';
+import { fetchMemoryFacts, formatMemoryFactsForPrompt } from './memoryService';
+import { getAccountId } from './accountService';
 import {
   CONVERSATIONAL_SYSTEM_PROMPT,
   buildInterestAnalysisPrompt,
@@ -44,25 +44,27 @@ function cleanLLMResponse(response: string): string {
  */
 export const analyzeInterestDimensions = async (
   childProfile: ChildProfile,
-  latestAssessment: ComprehensiveAssessment | null,
   dimensionMetrics: DimensionMetrics[],
-  recentBehaviors: BehaviorAnalysis[],
   parentContext?: string
 ): Promise<InterestAnalysisResult> => {
   try {
     console.log('[analyzeInterestDimensions] 开始兴趣分析:', {
       childName: childProfile.name,
-      hasAssessment: !!latestAssessment,
-      behaviorsCount: recentBehaviors.length,
       metricsCount: dimensionMetrics.length
     });
 
+    const memoryFacts = await fetchMemoryFacts(
+      getAccountId(),
+      `${childProfile.name}对哪些材料、活动类型有正向反应，以及历史兴趣维度偏好与变化`,
+      15
+    );
+    const memorySection = formatMemoryFactsForPrompt(memoryFacts);
+
     const prompt = buildInterestAnalysisPrompt({
       childProfile,
-      latestAssessment,
       dimensionMetrics,
-      recentBehaviors,
-      parentContext
+      parentContext,
+      memorySection: memorySection || undefined
     });
 
     // 打印完整的 prompt
@@ -138,10 +140,8 @@ export const analyzeInterestDimensions = async (
  */
 export const generateFloorGamePlan = async (
   childProfile: ChildProfile,
-  latestAssessment: ComprehensiveAssessment | null,
   targetDimensions: InterestDimensionType[],
   strategy: 'leverage' | 'explore' | 'mixed',
-  recentBehaviors: BehaviorAnalysis[],
   parentPreferences?: {
     environment?: string;
     duration?: string;
@@ -171,7 +171,6 @@ export const generateFloorGamePlan = async (
       const searchQuery = `${targetDimensions.join(' ')} ${objectKeywords} 自闭症儿童 DIR Floortime 地板游戏 ${strategy === 'explore' ? '探索' : '互动'}`.trim();
       const childContext = `
 儿童：${childProfile.name}，${childProfile.gender}
-${latestAssessment ? `画像：${latestAssessment.currentProfile}` : '首次使用'}
 目标维度：${targetDimensions.join('、')}
 ${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
 策略：${strategy}
@@ -187,16 +186,22 @@ ${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
       console.warn('[generateFloorGamePlan] 联网搜索失败，仅使用LLM生成:', err);
     }
 
+    const memoryFacts = await fetchMemoryFacts(
+      getAccountId(),
+      `${childProfile.name}参与游戏的历史记录、对哪些游戏类型有正向反应以及需要避免的活动`,
+      15
+    );
+    const memorySection = formatMemoryFactsForPrompt(memoryFacts);
+
     const prompt = buildFloorGamePlanPrompt({
       childProfile,
-      latestAssessment,
       targetDimensions,
       strategy,
-      recentBehaviors,
       parentPreferences,
       conversationHistory,
       searchResults: searchResults || undefined,
-      specificObjects
+      specificObjects,
+      memorySection: memorySection || undefined
     });
 
     // 打印完整的 prompt

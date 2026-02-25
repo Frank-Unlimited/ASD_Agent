@@ -20,7 +20,9 @@ pgvector>=0.3.0
 openai>=1.50.0
 anthropic>=0.34.0
 
-# 知识图谱相关依赖已移除
+# 知识图谱 / Graphiti 记忆层
+graphiti-core[neo4j]>=0.3.0
+neo4j>=5.26.0
 
 # 工具库
 pydantic>=2.9.0

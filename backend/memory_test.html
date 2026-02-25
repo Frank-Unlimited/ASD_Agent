@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Service 测试工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+            font-size: 14px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: inherit;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .result-box {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .result-box pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .fact-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .fact-item.pending {
+            border-left: 4px solid #ff9800;
+            background: #fff3e0;
+        }
+        .fact-item.processed {
+            border-left: 4px solid #4caf50;
+        }
+        .fact-text {
+            margin-bottom: 10px;
+            color: #333;
+            line-height: 1.6;
+        }
+        .fact-meta {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-pending {
+            background: #ff9800;
+            color: white;
+        }
+        .badge-processed {
+            background: #4caf50;
+            color: white;
+        }
+        .status-bar {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+        .status-item {
+            flex: 1;
+        }
+        .status-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .status-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .example-box {
+            background: #f0f4ff;
+            border: 1px solid #d0d9ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .example-title {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .example-item {
+            background: white;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid #e0e0e0;
+        }
+        .example-item:hover {
+            border-color: #667eea;
+            transform: translateX(5px);
+        }
+        .example-item-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+        .example-item-desc {
+            font-size: 12px;
+            color: #666;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Memory Service 测试工具</h1>
+            <p>测试 Graphiti 时序知识图谱的写入和检索功能</p>
+        </div>
+
+        <div class="content">
+            <!-- 状态栏 -->
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-value" id="queueSize">-</div>
+                    <div class="status-label">队列中</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value" id="bufferSize">-</div>
+                    <div class="status-label">待处理</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value" id="totalFacts">0</div>
+                    <div class="status-label">已检索</div>
+                </div>
+            </div>
+
+            <!-- 写入部分 -->
+            <div class="section">
+                <div class="section-title">📝 写入记忆</div>
+                
+                <div class="form-group">
+                    <label>Group ID（用户标识，仅支持字母数字下划线）</label>
+                    <input type="text" id="writeGroupId" value="xiaoming" placeholder="例如: xiaoming, user_001">
+                </div>
+
+                <div class="form-group">
+                    <label>记忆内容</label>
+                    <textarea id="writeContent" placeholder="输入观察记录、游戏复盘、评估报告等内容..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>参考时间（ISO 8601格式）</label>
+                    <input type="text" id="writeTime" placeholder="例如: 2026-02-25T10:00:00">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="writeMemory()">
+                        <span>✍️</span> 写入记忆
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearWriteForm()">
+                        <span>🗑️</span> 清空表单
+                    </button>
+                    <button class="btn btn-secondary" onclick="checkStatus()">
+                        <span>🔄</span> 刷新状态
+                    </button>
+                </div>
+
+                <!-- 示例数据 -->
+                <div class="example-box">
+                    <div class="example-title">💡 快速示例（点击填充）</div>
+                    <div class="example-item" onclick="fillExample1()">
+                        <div class="example-item-title">1. 行为记录</div>
+                        <div class="example-item-desc">记录孩子在Construction维度的表现</div>
+                    </div>
+                    <div class="example-item" onclick="fillExample2()">
+                        <div class="example-item-title">2. 游戏复盘</div>
+                        <div class="example-item-desc">彩色积木分类游戏的效果评估</div>
+                    </div>
+                    <div class="example-item" onclick="fillExample3()">
+                        <div class="example-item-title">3. 综合评估</div>
+                        <div class="example-item-desc">孩子的整体发展评估和干预建议</div>
+                    </div>
+                    <div class="example-item" onclick="fillExample4()">
+                        <div class="example-item-title">4. 医疗报告（历史）</div>
+                        <div class="example-item-desc">三个月前的医院诊断报告</div>
+                    </div>
+                </div>
+
+                <div class="result-box" id="writeResult" style="display:none;">
+                    <pre id="writeResultText"></pre>
+                </div>
+            </div>
+
+            <!-- 搜索部分 -->
+            <div class="section">
+                <div class="section-title">🔍 搜索记忆</div>
+                
+                <div class="form-group">
+                    <label>Group ID</label>
+                    <input type="text" id="searchGroupId" value="xiaoming">
+                </div>
+
+                <div class="form-group">
+                    <label>搜索查询</label>
+                    <input type="text" id="searchQuery" placeholder="例如: 小明在Construction维度的历史表现">
+                </div>
+
+                <div class="form-group">
+                    <label>返回结果数量</label>
+                    <input type="number" id="searchNum" value="10" min="1" max="50">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="searchMemory()">
+                        <span>🔍</span> 搜索
+                    </button>
+                    <button class="btn btn-secondary" onclick="fillSearchExample()">
+                        <span>💡</span> 填充示例查询
+                    </button>
+                </div>
+
+                <div class="result-box" id="searchResult" style="display:none;">
+                    <div id="searchResultContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+
+        // 写入记忆
+        async function writeMemory() {
+            const groupId = document.getElementById('writeGroupId').value.trim();
+            const content = document.getElementById('writeContent').value.trim();
+            const referenceTime = document.getElementById('writeTime').value.trim();
+
+            if (!groupId || !content || !referenceTime) {
+                alert('请填写所有字段');
+                return;
+            }
+
+            const resultBox = document.getElementById('writeResult');
+            const resultText = document.getElementById('writeResultText');
+            resultBox.style.display = 'block';
+            resultText.textContent = '正在写入...';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/memory/write`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        group_id: groupId,
+                        content: content,
+                        reference_time: referenceTime
+                    })
+                });
+
+                const data = await response.json();
+                resultText.textContent = JSON.stringify(data, null, 2);
+                
+                if (response.ok) {
+                    setTimeout(checkStatus, 500);
+                }
+            } catch (error) {
+                resultText.textContent = `错误: ${error.message}`;
+            }
+        }
+
+        // 搜索记忆
+        async function searchMemory() {
+            const groupId = document.getElementById('searchGroupId').value.trim();
+            const query = document.getElementById('searchQuery').value.trim();
+            const numResults = parseInt(document.getElementById('searchNum').value);
+
+            if (!groupId || !query) {
+                alert('请填写 Group ID 和搜索查询');
+                return;
+            }
+
+            const resultBox = document.getElementById('searchResult');
+            const resultContent = document.getElementById('searchResultContent');
+            resultBox.style.display = 'block';
+            resultContent.innerHTML = '<div class="loading"></div> 搜索中...';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/memory/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        group_id: groupId,
+                        query: query,
+                        num_results: numResults
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.facts && data.facts.length > 0) {
+                    document.getElementById('totalFacts').textContent = data.facts.length;
+                    
+                    let html = '';
+                    data.facts.forEach((fact, index) => {
+                        const isPending = fact.pending;
+                        html += `
+                            <div class="fact-item ${isPending ? 'pending' : 'processed'}">
+                                <div class="fact-text">${escapeHtml(fact.text)}</div>
+                                <div class="fact-meta">
+                                    <span class="badge ${isPending ? 'badge-pending' : 'badge-processed'}">
+                                        ${isPending ? '⏳ 队列中' : '✅ 已处理'}
+                                    </span>
+                                    <span>📅 有效时间: ${fact.valid_at || 'N/A'}</span>
+                                    ${fact.invalid_at ? `<span>❌ 失效时间: ${fact.invalid_at}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    resultContent.innerHTML = html;
+                } else {
+                    resultContent.innerHTML = '<p style="color: #666;">未找到相关记忆</p>';
+                    document.getElementById('totalFacts').textContent = '0';
+                }
+            } catch (error) {
+                resultContent.innerHTML = `<p style="color: red;">错误: ${error.message}</p>`;
+            }
+        }
+
+        // 检查状态
+        async function checkStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/healthcheck`);
+                const data = await response.json();
+                
+                document.getElementById('queueSize').textContent = data.queue_pending || 0;
+                document.getElementById('bufferSize').textContent = data.buffer_size || 0;
+            } catch (error) {
+                console.error('Failed to check status:', error);
+            }
+        }
+
+        // 清空写入表单
+        function clearWriteForm() {
+            document.getElementById('writeContent').value = '';
+            document.getElementById('writeTime').value = '';
+            document.getElementById('writeResult').style.display = 'none';
+        }
+
+        // 示例1: 行为记录
+        function fillExample1() {
+            document.getElementById('writeGroupId').value = 'xiaoming';
+            document.getElementById('writeContent').value = `小明今天展示了以下行为：主动拿起积木按颜色分类，持续专注约20分钟。
+兴趣维度分析：
+- Construction维度——强烈正向（主动选择积木，持续专注20分钟，完全沉浸在分类活动中）
+- Visual维度——轻微正向（偶尔停下来观察颜色排列，表现出欣赏）
+- Auditory维度——中性（对背景音乐无明显反应）`;
+            document.getElementById('writeTime').value = '2026-02-20T10:30:00';
+        }
+
+        // 示例2: 游戏复盘
+        function fillExample2() {
+            document.getElementById('writeGroupId').value = 'xiaoming';
+            document.getElementById('writeContent').value = `小明参与了「彩色积木分类」游戏，目标是提升专注力和Construction能力。
+游戏时长约25分钟，效果优秀（参与度90/100）。
+观察到：孩子全程主动参与，多次发出满意的叫声，当积木归位时会鼓掌。家长引导顺畅，互动质量高。
+建议：继续（continue）。
+下一步：可以增加积木种类，引入形状分类，逐步提升复杂度。`;
+            document.getElementById('writeTime').value = '2026-02-20T11:00:00';
+        }
+
+        // 示例3: 综合评估
+        function fillExample3() {
+            document.getElementById('writeGroupId').value = 'xiaoming';
+            document.getElementById('writeContent').value = `对小明的综合发展评估：
+当前画像：小明在Construction和Visual维度表现突出，从初期对积木回避转变为主动探索，Social维度仍处于轻微回避阶段，对陌生人互动兴趣低。自我调节能力稳步提升，能在熟悉环境中维持20分钟以上专注。
+评估摘要：孩子在结构性游戏中进步显著，建议扩展到合作类游戏以激活Social维度。
+干预建议：保持每周3次积木游戏，第4周起引入一位固定玩伴，从平行游戏开始过渡到协作游戏。`;
+            document.getElementById('writeTime').value = '2026-02-22T14:00:00';
+        }
+
+        // 示例4: 医疗报告
+        function fillExample4() {
+            document.getElementById('writeGroupId').value = 'xiaoming';
+            document.getElementById('writeContent').value = `小明的医疗报告（医院报告，2025-11-15）显示：
+该儿童ASD诊断明确，语言表达能力处于18个月水平，注意力持续时间约5分钟，对旋转物体有强烈兴趣，对突发声音敏感（Auditory维度明显回避倾向）。
+诊断特征：ASD Level 2，伴随感觉统合问题，Construction和Visual维度为潜在优势区域。
+专业建议：优先发展优势维度，通过积木、拼图等结构性活动建立成功体验，再逐步引入社交互动。`;
+            document.getElementById('writeTime').value = '2025-11-15T09:00:00';
+        }
+
+        // 填充搜索示例
+        function fillSearchExample() {
+            document.getElementById('searchGroupId').value = 'xiaoming';
+            document.getElementById('searchQuery').value = '小明在Construction维度的历史表现';
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 页面加载时检查状态
+        checkStatus();
+        setInterval(checkStatus, 5000); // 每5秒自动刷新状态
+    </script>
+</body>
+</html>

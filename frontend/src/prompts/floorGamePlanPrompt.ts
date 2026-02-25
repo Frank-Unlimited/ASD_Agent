@@ -3,14 +3,12 @@
  * 用于 plan_floor_game 工具
  */
 
-import { ChildProfile, ComprehensiveAssessment, BehaviorAnalysis, InterestDimensionType } from '../types';
+import { ChildProfile, InterestDimensionType } from '../types';
 
 export interface FloorGamePlanPromptParams {
   childProfile: ChildProfile;
-  latestAssessment: ComprehensiveAssessment | null;
   targetDimensions: InterestDimensionType[];
   strategy: 'leverage' | 'explore' | 'mixed';
-  recentBehaviors: BehaviorAnalysis[];
   parentPreferences?: {
     environment?: string;
     duration?: string;
@@ -19,52 +17,24 @@ export interface FloorGamePlanPromptParams {
   conversationHistory?: string;
   searchResults?: string; // RAG 搜索结果
   specificObjects?: Record<string, string[]>; // 维度→具体对象
+  memorySection?: string;
 }
 
 export function buildFloorGamePlanPrompt(params: FloorGamePlanPromptParams): string {
   const {
     childProfile,
-    latestAssessment,
     targetDimensions,
     strategy,
-    recentBehaviors,
     parentPreferences,
     conversationHistory,
     searchResults,
-    specificObjects
+    specificObjects,
+    memorySection
   } = params;
 
   const childAge = childProfile.birthDate
     ? `${new Date().getFullYear() - new Date(childProfile.birthDate).getFullYear()}岁`
     : '未知';
-
-  const assessmentText = latestAssessment
-    ? `
-【当前画像】
-${latestAssessment.currentProfile}
-
-【评估摘要】
-${latestAssessment.summary}
-
-【发展建议】
-${latestAssessment.nextStepSuggestion}`
-    : '首次使用，请基于年龄和性别设计通用方案。';
-
-  // 近期行为摘要
-  let behaviorsText = '';
-  if (recentBehaviors.length > 0) {
-    behaviorsText = `
-【近期行为记录】
-${recentBehaviors.slice(0, 5).map(b => {
-  const topMatches = b.matches
-    .sort((a, bb) => bb.weight - a.weight)
-    .slice(0, 2)
-    .map(m => `${m.dimension}(${m.intensity > 0 ? '+' : ''}${m.intensity.toFixed(1)})`)
-    .join('、');
-  return `- ${b.behavior} → ${topMatches}`;
-}).join('\n')}
-`;
-  }
 
   // 家长偏好
   let prefsText = '';
@@ -121,8 +91,7 @@ ${searchContext}
 姓名：${childProfile.name}
 性别：${childProfile.gender}
 年龄：${childAge}
-${assessmentText}
-${behaviorsText}
+${memorySection ? `【历史游戏记忆（graphiti 提取，含已尝试游戏效果与互动规律）】\n${memorySection}\n` : ''}
 ${prefsText}
 ${specificObjectsText}
 【干预目标】

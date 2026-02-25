@@ -7,8 +7,9 @@ import { qwenStreamClient } from './qwenStreamClient';
 import { GameReviewSchema } from './qwenSchemas';
 import { FloorGame, GameReviewResult, ChildProfile } from '../types';
 import { floorGameStorageService } from './floorGameStorage';
-import { getLatestAssessment } from './assessmentStorage';
 import { GAME_REVIEW_SYSTEM_PROMPT, buildGameReviewPrompt } from '../prompts/gameReviewPrompt';
+import { fetchMemoryFacts, formatMemoryFactsForPrompt } from './memoryService';
+import { getAccountId } from './accountService';
 
 /**
  * 对一次地板游戏进行复盘分析
@@ -34,8 +35,13 @@ export async function reviewFloorGame(params: {
     throw new Error('无法读取孩子档案，请先创建孩子档案');
   }
 
-  // 读取最近评估
-  const latestAssessment = getLatestAssessment();
+  // 拉取历史互动记忆
+  const memoryFacts = await fetchMemoryFacts(
+    getAccountId(),
+    `${childProfile.name}在游戏中的参与模式、情感反应规律和有效的互动策略`,
+    10
+  );
+  const memorySection = formatMemoryFactsForPrompt(memoryFacts);
 
   // 构建 prompt
   const userPrompt = buildGameReviewPrompt({
@@ -44,7 +50,7 @@ export async function reviewFloorGame(params: {
     chatHistory,
     videoSummary,
     parentFeedback,
-    latestAssessment
+    memorySection: memorySection || undefined
   });
 
   // 打印完整的 prompt

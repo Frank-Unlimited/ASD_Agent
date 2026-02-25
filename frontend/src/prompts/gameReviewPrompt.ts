@@ -3,7 +3,7 @@
  * 用于游戏结束后的 AI 专业复盘分析
  */
 
-import { ChildProfile, FloorGame, ComprehensiveAssessment } from '../types';
+import { ChildProfile, FloorGame } from '../types';
 
 export const GAME_REVIEW_SYSTEM_PROMPT = `
 你是一位资深的 DIR/Floortime（地板时光）疗法专家和儿童发展评估师，专注于自闭症谱系障碍（ASD）儿童的干预和评估。
@@ -40,9 +40,9 @@ export function buildGameReviewPrompt(params: {
   chatHistory: string;
   videoSummary?: string;
   parentFeedback: string;
-  latestAssessment?: ComprehensiveAssessment | null;
+  memorySection?: string;
 }): string {
-  const { childProfile, game, chatHistory, videoSummary, parentFeedback, latestAssessment } = params;
+  const { childProfile, game, chatHistory, videoSummary, parentFeedback, memorySection } = params;
 
   const age = calculateAge(childProfile.birthDate);
   const gameDuration = calculateDuration(game.dtstart, game.dtend);
@@ -58,13 +58,10 @@ export function buildGameReviewPrompt(params: {
 当前诊断/画像：${childProfile.diagnosis || '暂无'}
 `;
 
-  if (latestAssessment) {
+  if (memorySection) {
     prompt += `
-【最近一次综合评估】
-时间：${formatDate(latestAssessment.timestamp)}
-摘要：${latestAssessment.summary}
-画像：${latestAssessment.currentProfile.substring(0, 200)}...
-建议：${latestAssessment.nextStepSuggestion.substring(0, 150)}...
+【历史互动记忆（graphiti 提取，含历次游戏参与规律与有效互动策略）】
+${memorySection}
 `;
   }
 
@@ -156,7 +153,3 @@ function calculateDuration(dtstart: string, dtend: string): string {
   return `${minutes}分钟`;
 }
 
-function formatDate(isoString: string): string {
-  const date = new Date(isoString);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}

@@ -3,24 +3,22 @@
  * 用于 analyze_interest 工具
  */
 
-import { ChildProfile, ComprehensiveAssessment, BehaviorAnalysis } from '../types';
+import { ChildProfile } from '../types';
 import { DimensionMetrics } from '../services/historicalDataHelper';
 
 export interface InterestAnalysisPromptParams {
   childProfile: ChildProfile;
-  latestAssessment: ComprehensiveAssessment | null;
   dimensionMetrics: DimensionMetrics[];
-  recentBehaviors: BehaviorAnalysis[];
   parentContext?: string;
+  memorySection?: string;
 }
 
 export function buildInterestAnalysisPrompt(params: InterestAnalysisPromptParams): string {
   const {
     childProfile,
-    latestAssessment,
     dimensionMetrics,
-    recentBehaviors,
-    parentContext
+    parentContext,
+    memorySection
   } = params;
 
   // 构建维度数据表
@@ -28,35 +26,10 @@ export function buildInterestAnalysisPrompt(params: InterestAnalysisPromptParams
     `${m.dimension}: 强度${m.strength}分, 探索度${m.exploration}分`
   ).join('\n');
 
-  // 构建近期行为记录
-  let behaviorsText = '暂无行为记录';
-  if (recentBehaviors.length > 0) {
-    behaviorsText = recentBehaviors.slice(0, 10).map(b => {
-      const topMatches = b.matches
-        .sort((a, b) => b.weight - a.weight)
-        .slice(0, 3)
-        .map(m => `${m.dimension}(关联${(m.weight * 100).toFixed(0)}%, 强度${m.intensity > 0 ? '+' : ''}${m.intensity.toFixed(1)})`)
-        .join('、');
-      return `- ${b.behavior}${b.timestamp ? ` (${b.timestamp.split('T')[0]})` : ''} → ${topMatches}`;
-    }).join('\n');
-  }
-
   // 儿童信息
   const childAge = childProfile.birthDate
     ? `${new Date().getFullYear() - new Date(childProfile.birthDate).getFullYear()}岁`
     : '未知';
-
-  const assessmentText = latestAssessment
-    ? `
-【当前画像】
-${latestAssessment.currentProfile}
-
-【评估摘要】
-${latestAssessment.summary}
-
-【发展建议】
-${latestAssessment.nextStepSuggestion}`
-    : '暂无评估，请基于行为记录进行分析。';
 
   return `
 你是一位专业的 DIR/Floortime 儿童发展分析师。请基于以下数据，对孩子的8个兴趣维度进行深度分析。
@@ -65,15 +38,11 @@ ${latestAssessment.nextStepSuggestion}`
 姓名：${childProfile.name}
 性别：${childProfile.gender}
 年龄：${childAge}
-${assessmentText}
 
 ${parentContext ? `【家长补充信息】\n${parentContext}\n` : ''}
-
+${memorySection ? `【历史干预记忆（graphiti 提取，含历史行为偏好与维度变化）】\n${memorySection}\n` : ''}
 【维度量化数据】（强度=孩子对该维度的喜好程度0-100, 探索度=该维度被探索的深度和广度0-100）
 ${metricsTable}
-
-【近期行为记录】
-${behaviorsText}
 
 【分析规则】
 请对每个维度进行分类：

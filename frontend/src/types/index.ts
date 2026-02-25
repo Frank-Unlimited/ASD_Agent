@@ -291,12 +291,7 @@ export interface UserPreferences {
 
 // 历史数据摘要（用于Agent输入）
 export interface HistoricalDataSummary {
-  recentAssessments: ComprehensiveAssessment[]; // 最近3次评估
-  recentReports: Report[]; // 最近3份报告
-  recentBehaviors: BehaviorAnalysis[]; // 最近10条行为记录
-  recentGames: EvaluationResult[]; // 最近5次游戏评估
-  interestTrends: Record<InterestDimensionType, number>; // 兴趣趋势
-  abilityTrends: Record<AbilityDimensionType, number>; // 能力趋势
+  interestTrends: Record<InterestDimensionType, number>; // 兴趣趋势（各维度加权平均分）
 }
 
 // --- Interest Radar Chart Types ---

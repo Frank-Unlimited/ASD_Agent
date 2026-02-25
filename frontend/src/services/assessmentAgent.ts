@@ -5,11 +5,13 @@
 
 import { qwenStreamClient } from './qwenStreamClient';
 import { ComprehensiveAssessmentSchema } from './qwenSchemas';
-import { 
-  ComprehensiveAssessment, 
-  HistoricalDataSummary, 
-  ChildProfile 
+import {
+  ComprehensiveAssessment,
+  HistoricalDataSummary,
+  ChildProfile
 } from '../types';
+import { fetchMemoryFacts, formatMemoryFactsForPrompt, MemoryFact } from './memoryService';
+import { getAccountId } from './accountService';
 
 const ASSESSMENT_SYSTEM_PROMPT = `
 你是一位资深的 DIR/Floortime 疗法专家和儿童发展评估师。
@@ -51,7 +53,15 @@ export const generateComprehensiveAssessment = async (
   historicalData: HistoricalDataSummary
 ): Promise<ComprehensiveAssessment> => {
   try {
-    const prompt = buildAssessmentPrompt(childProfile, historicalData);
+    // ── 拉取 graphiti 跨时间记忆（降级安全：不可用时返回空数组）──
+    const memoryFacts: MemoryFact[] = await fetchMemoryFacts(
+      getAccountId(),
+      `${childProfile.name}完整干预历史：兴趣维度偏好与变化趋势、游戏活动参与情况与效果、行为表现规律、医疗报告诊断、历次评估画像与干预建议`,
+      30
+    );
+    console.log(`[Assessment Agent] graphiti 记忆: 获取 ${memoryFacts.length} 条 facts`);
+
+    const prompt = buildAssessmentPrompt(childProfile, historicalData, memoryFacts);
 
     // 打印完整的 prompt
     console.log('='.repeat(80));
@@ -147,10 +157,12 @@ export const generateComprehensiveAssessment = async (
  */
 function buildAssessmentPrompt(
   childProfile: ChildProfile,
-  historicalData: HistoricalDataSummary
+  historicalData: HistoricalDataSummary,
+  memoryFacts: MemoryFact[] = []
 ): string {
   const age = calculateAge(childProfile.birthDate);
-  
+  const memorySection = formatMemoryFactsForPrompt(memoryFacts);
+
   return `
 请对以下儿童进行综合评估：
 
@@ -161,44 +173,17 @@ function buildAssessmentPrompt(
 出生日期：${childProfile.birthDate}
 当前诊断：${childProfile.diagnosis || '暂无'}
 
-【历史评估记录】（共${historicalData.recentAssessments.length}次）
-${historicalData.recentAssessments.length > 0 
-  ? historicalData.recentAssessments.map((a, i) => 
-      `${i + 1}. [${formatDate(a.timestamp)}] ${a.nextStepSuggestion}`
-    ).join('\n')
-  : '暂无历史评估'}
+${memorySection ? `【干预历史记忆（graphiti 提取，涵盖行为观察、游戏复盘、医疗报告、历次评估）】
+${memorySection}
 
-【最近报告分析】（共${historicalData.recentReports.length}份）
-${historicalData.recentReports.length > 0
-  ? historicalData.recentReports.map((r, i) => 
-      `${i + 1}. [${r.date}] ${r.summary}\n   画像：${r.diagnosis}`
-    ).join('\n')
-  : '暂无报告'}
+说明：
+- "最新观察"是尚未提炼的原始记录，包含完整上下文，优先参考
+- "当前有效事实"是 graphiti 提炼的现状，是评估的主要依据
+- "历史事实"已被新事实覆盖，仅用于感知变化幅度
+- valid_at 日期表示该事实的生效时间，请注意时序
 
-【最近行为记录】（共${historicalData.recentBehaviors.length}条）
-${historicalData.recentBehaviors.length > 0
-  ? historicalData.recentBehaviors.slice(0, 10).map((b, i) => {
-      const dimensions = b.matches.map(m => 
-        `${m.dimension}(关联${m.weight.toFixed(1)}, 强度${m.intensity > 0 ? '+' : ''}${m.intensity.toFixed(1)})`
-      ).join(', ');
-      return `${i + 1}. ${b.behavior} - ${dimensions}`;
-    }).join('\n')
-  : '暂无行为记录'}
-
-【最近游戏评估】（共${historicalData.recentGames.length}次）
-${historicalData.recentGames.length > 0
-  ? historicalData.recentGames.map((g, i) => 
-      `${i + 1}. 综合${g.score}分, 反馈${g.feedbackScore}分, 探索${g.explorationScore}分\n   总结：${g.summary}\n   建议：${g.suggestion}`
-    ).join('\n')
-  : '暂无游戏评估'}
-
-【兴趣维度趋势】
-${Object.entries(historicalData.interestTrends).map(([dim, score]) => 
-  `${dim}: ${score.toFixed(1)}分`
-).join(', ')}
-
-【能力维度趋势】
-${Object.entries(historicalData.abilityTrends).map(([dim, score]) => 
+` : ''}【兴趣维度趋势】（近期行为记录的数值统计，不含时序变化）
+${Object.entries(historicalData.interestTrends).map(([dim, score]) =>
   `${dim}: ${score.toFixed(1)}分`
 ).join(', ')}
 

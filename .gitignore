@@ -33,6 +33,9 @@ frontend_backup_old/
 # Third-party demos
 alibabacloud-bailian-speech-demo/
 
+# Third-party source references (read-only, not tracked)
+backend/external/graphiti/
+
 # Local data and uploads
 data/
 uploads/

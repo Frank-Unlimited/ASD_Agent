@@ -4,6 +4,7 @@ import { sendQwenMessage } from './services/qwenService';
 import { clearAllCache } from './utils/clearCache'; // 导入清空缓存功能
 import { generateComprehensiveAssessment } from './services/assessmentAgent';
 import { collectHistoricalData } from './services/historicalDataHelper';
+import { getAccountId, setAccountId, ACCOUNT_ID_KEY } from './services/accountService';
 import { saveAssessment, getRecentAssessments } from './services/assessmentStorage';
 import {
   MessageCircle,
@@ -57,7 +58,9 @@ import {
   LogOut,
   ClipboardList,
   MessageSquare,
-  Video
+  Video,
+  Copy,
+  Pencil
 } from 'lucide-react';
 import {
   Radar,
@@ -73,7 +76,7 @@ import {
   CartesianGrid,
   Tooltip
 } from 'recharts';
-import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult, FeedbackData } from './types';
+import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult, FeedbackData, ComprehensiveAssessment } from './types';
 import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
@@ -93,6 +96,72 @@ import AIVideoCall from './components/AIVideoCall';
 import { AIAssistantPanel } from './components/AIAssistantPanel';
 import FeedbackSurvey from './components/FeedbackSurvey';
 import defaultAvatar from './img/cute_dog.jpg';
+
+// ---------------------------------------------------------------------------
+// Graphiti 记忆层辅助函数
+// ---------------------------------------------------------------------------
+
+const MEMORY_SERVICE_URL = 'http://localhost:8000';
+
+/** 向 graphiti 写入记忆 (fire-and-forget，静默忽略失败) */
+function writeMemory(content: string, referenceTime: string): void {
+  fetch(`${MEMORY_SERVICE_URL}/api/memory/write`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      group_id: getAccountId(),
+      content,
+      reference_time: referenceTime,
+    }),
+  }).catch(() => { /* 静默忽略，不阻塞主流程 */ });
+}
+
+/** intensity (-1~1) → 中文情绪标签 */
+function intensityLabel(intensity: number): string {
+  if (intensity >= 0.7) return '强烈正向';
+  if (intensity >= 0.3) return '轻微正向';
+  if (intensity > -0.3) return '中性';
+  if (intensity > -0.7) return '轻微负向';
+  return '明显回避';
+}
+
+/** 构造行为记录的自然语言内容 */
+function buildBehaviorContent(behaviorAnalysis: BehaviorAnalysis, childProfile: ChildProfile | null): string {
+  const name = childProfile?.name || '孩子';
+  const significantMatches = behaviorAnalysis.matches.filter(m => m.weight >= 0.4);
+  const dimensionLines = significantMatches.length > 0
+    ? significantMatches.map(m => `- ${m.dimension}维度——${intensityLabel(m.intensity)}（${m.reasoning}）`).join('\n')
+    : '- 暂无显著维度关联';
+  return `${name}今天展示了以下行为：${behaviorAnalysis.behavior}。\n兴趣维度分析：\n${dimensionLines}`;
+}
+
+/** 构造综合评估的自然语言内容 */
+function buildAssessmentContent(assessment: ComprehensiveAssessment, childProfile: ChildProfile | null): string {
+  const name = childProfile?.name || '孩子';
+  return `对${name}的综合发展评估：\n当前画像：${assessment.currentProfile}\n评估摘要：${assessment.summary}\n干预建议：${assessment.nextStepSuggestion}`;
+}
+
+/** 构造医疗报告的自然语言内容 */
+function buildMedicalReportContent(report: Report, childName: string): string {
+  const typeLabel = report.type === 'hospital' ? '医院报告' : report.type === 'ai_generated' ? 'AI评估报告' : '报告';
+  const suggestionPart = report.nextStepSuggestion ? `\n专业建议：${report.nextStepSuggestion}` : '';
+  return `${childName}的医疗报告（${typeLabel}，${report.date}）显示：\n${report.summary}\n诊断特征：${report.diagnosis}${suggestionPart}`;
+}
+
+/** 构造游戏复盘的自然语言内容 */
+function buildGameReviewContent(floorGame: FloorGame, reviewResult: GameReviewResult, childProfile: ChildProfile | null): string {
+  const name = childProfile?.name || '孩子';
+  const scores = Object.values(reviewResult.scores);
+  const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  const effectivenessMap: Record<string, string> = { '85+': '优秀', '70+': '良好', '50+': '一般', '0+': '较差' };
+  const effectiveness = avgScore >= 85 ? effectivenessMap['85+'] : avgScore >= 70 ? effectivenessMap['70+'] : avgScore >= 50 ? effectivenessMap['50+'] : effectivenessMap['0+'];
+  const dtstart = floorGame.dtstart ? new Date(floorGame.dtstart) : null;
+  const dtend = floorGame.dtend ? new Date(floorGame.dtend) : null;
+  const durationMin = dtstart && dtend ? Math.round((dtend.getTime() - dtstart.getTime()) / 60000) : 0;
+  const recMap: Record<string, string> = { continue: '继续', adjust: '调整', avoid: '避免' };
+  const recLabel = recMap[reviewResult.recommendation] || reviewResult.recommendation;
+  return `${name}参与了「${floorGame.gameTitle}」游戏，目标是${floorGame.goal}。\n游戏时长约${durationMin}分钟，效果${effectiveness}（参与度${reviewResult.scores.childEngagement}/100）。\n观察到：${reviewResult.reviewSummary}\n建议：${recLabel}（${reviewResult.recommendation}）。\n下一步：${reviewResult.nextStepSuggestion}`;
+}
 
 // --- Helper Components ---
 
@@ -268,6 +337,12 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
 
               reportStorageService.saveReport(report);
               console.log('报告已保存到数据库:', report.id);
+
+              // 写入 graphiti 记忆层（fire-and-forget）
+              writeMemory(
+                buildMedicalReportContent(report, name),
+                report.date || report.createdAt || new Date().toISOString()
+              );
             }
           } catch (parseError) {
             // 如果不是 JSON 格式，将整个内容作为画像
@@ -986,7 +1061,6 @@ const PageAIChat = ({
 
                     const { analyzeInterestDimensions } = await import('./services/gameRecommendConversationalAgent');
                     const { calculateDimensionMetrics } = await import('./services/historicalDataHelper');
-                    const { getLatestAssessment } = await import('./services/assessmentStorage');
 
                     if (!currentChildProfile) {
                       setMessages(prev =>
@@ -1003,15 +1077,12 @@ const PageAIChat = ({
                       return;
                     }
 
-                    const latestAssessment = getLatestAssessment();
-                    const recentBehaviors = behaviorStorageService.getRecentBehaviors(20);
-                    const dimensionMetrics = calculateDimensionMetrics(recentBehaviors);
+                    const allBehaviors = behaviorStorageService.getAllBehaviors();
+                    const dimensionMetrics = calculateDimensionMetrics(allBehaviors);
 
                     // 保存上下文到 sessionStorage
                     const interestAnalysisContext = {
                       childProfile: currentChildProfile,
-                      latestAssessment,
-                      recentBehaviors,
                       dimensionMetrics,
                       timestamp: Date.now()
                     };
@@ -1019,9 +1090,7 @@ const PageAIChat = ({
 
                     const result = await analyzeInterestDimensions(
                       currentChildProfile,
-                      latestAssessment,
                       dimensionMetrics,
-                      recentBehaviors,
                       args.parentContext || ''
                     );
 
@@ -1162,10 +1231,8 @@ const PageAIChat = ({
 
                     const plan = await generateFloorGamePlan(
                       currentChildProfile,
-                      context.latestAssessment,
                       args.targetDimensions,
                       args.strategy,
-                      context.recentBehaviors || [],
                       args.parentPreferences,
                       getConversationHistory(),
                       specificObjects
@@ -1329,6 +1396,12 @@ const PageAIChat = ({
                       abilityUpdates: []
                     });
 
+                    // 写入 graphiti 记忆层（fire-and-forget）
+                    writeMemory(
+                      buildBehaviorContent(behaviorAnalysis, currentChildProfile),
+                      behaviorAnalysis.timestamp || new Date().toISOString()
+                    );
+
                     // 获取最新保存的行为ID（最后一条记录）
                     const allBehaviors = behaviorStorageService.getAllBehaviors();
                     const latestBehaviorId = allBehaviors.length > 0 ? allBehaviors[0].id : null;
@@ -1474,6 +1547,12 @@ const PageAIChat = ({
 
                     // 保存评估结果到 assessmentStorage
                     saveAssessment(assessment);
+
+                    // 写入 graphiti 记忆层（fire-and-forget）
+                    writeMemory(
+                      buildAssessmentContent(assessment, currentChildProfile),
+                      assessment.timestamp || new Date().toISOString()
+                    );
 
                     // 同时将评估结果保存为 Report 到 reportStorage
                     const assessmentReport: Report = {
@@ -2622,12 +2701,15 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
   );
 };
 
-const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportReport, onExportReport, childProfile, calculateAge, onUpdateAvatar }: { trendData: any[], interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void, childProfile: ChildProfile | null, calculateAge: (birthDate: string) => number, onUpdateAvatar: (avatarUrl: string) => void }) => {
+const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportReport, onExportReport, childProfile, calculateAge, onUpdateAvatar, accountId, onUpdateAccountId }: { trendData: any[], interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void, childProfile: ChildProfile | null, calculateAge: (birthDate: string) => number, onUpdateAvatar: (avatarUrl: string) => void, accountId: string, onUpdateAccountId: (id: string) => void }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [showReportList, setShowReportList] = useState(false);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
+  const [editingAccountId, setEditingAccountId] = useState(false);
+  const [accountIdInput, setAccountIdInput] = useState('');
+  const [copied, setCopied] = useState(false);
 
   // 加载报告列表
   useEffect(() => {
@@ -2909,6 +2991,61 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
             {childProfile?.gender === 'male' ? '男孩' : childProfile?.gender === 'female' ? '女孩' : ''}
           </p>
         </div>
+      </div>
+
+      {/* 账号 ID */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+        <h3 className="text-sm font-bold text-gray-600 mb-2 flex items-center">
+          <Settings className="w-4 h-4 mr-2 text-gray-400" />
+          账号 ID
+        </h3>
+        {editingAccountId ? (
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={accountIdInput}
+              onChange={e => setAccountIdInput(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 font-mono focus:outline-none focus:border-primary"
+              placeholder="输入新的账号 ID"
+              autoFocus
+            />
+            <div className="flex space-x-2">
+              <button
+                onClick={() => { onUpdateAccountId(accountIdInput); setEditingAccountId(false); }}
+                className="flex-1 bg-primary text-white text-sm py-1.5 rounded-lg font-medium hover:bg-green-600 transition"
+              >
+                保存
+              </button>
+              <button
+                onClick={() => setEditingAccountId(false)}
+                className="flex-1 bg-gray-100 text-gray-600 text-sm py-1.5 rounded-lg font-medium hover:bg-gray-200 transition"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2">
+            <code className="flex-1 text-sm bg-gray-50 px-3 py-2 rounded-lg text-gray-700 font-mono truncate">
+              {accountId}
+            </code>
+            <button
+              onClick={() => { navigator.clipboard.writeText(accountId); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+              className="p-2 text-gray-400 hover:text-gray-600 transition"
+              title="复制"
+            >
+              {copied ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={() => { setAccountIdInput(accountId); setEditingAccountId(true); }}
+              className="p-2 text-gray-400 hover:text-gray-600 transition"
+              title="修改"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+        <p className="text-xs text-gray-400 mt-2">此 ID 用于标识您的记忆数据，修改后历史记忆将无法访问</p>
       </div>
 
       {/* 最新画像 */}
@@ -3212,6 +3349,19 @@ const PageGames = ({
       if (reviewResult) {
         setGameReview(reviewResult);
         console.log('[GameReview] 复盘完成，综合得分:', reviewResult.overallScore);
+
+        // 写入 graphiti 记忆层（fire-and-forget）
+        if (floorGame) {
+          const completedGame: FloorGame = {
+            ...floorGame,
+            status: 'completed',
+            dtend: floorGame.dtend || new Date().toISOString(),
+          };
+          writeMemory(
+            buildGameReviewContent(completedGame, reviewResult, childProfile),
+            completedGame.dtend || new Date().toISOString()
+          );
+        }
       }
 
       // 将评估结果写入 FloorGame 记录
@@ -3511,6 +3661,9 @@ export default function App() {
   const [abortReason, setAbortReason] = useState('');
   const ABORT_TAGS = ['😐 失去兴趣', '😫 情绪崩溃', '🤯 难度太高', '🦋 注意力分散', '🛑 外部干扰'];
 
+  // 账号 ID（graphiti group_id）
+  const [accountId, setAccountIdState] = useState<string>(() => getAccountId());
+
   // 加载真实的儿童档案
   const [childProfile, setChildProfile] = useState<ChildProfile | null>(() => {
     try {
@@ -3657,6 +3810,12 @@ export default function App() {
     console.log('[App] 头像已更新');
   };
 
+  // 账号 ID 修改处理
+  const handleUpdateAccountId = (newId: string) => {
+    const saved = setAccountId(newId);
+    setAccountIdState(saved);
+  };
+
   // 欢迎页面完成处理
   const handleWelcomeComplete = async (childInfo: any) => {
     // 保存孩子信息到 localStorage
@@ -3683,11 +3842,15 @@ export default function App() {
   };
 
   const confirmLogout = () => {
-    // 清空所有 localStorage 数据
-    localStorage.clear();
+    // 保留账号 ID（Neo4j 记忆数据与之绑定，清除后无法恢复）
+    const savedAccountId = localStorage.getItem(ACCOUNT_ID_KEY);
 
-    // 清空所有 sessionStorage 数据
+    // 清空所有 localStorage / sessionStorage 数据
+    localStorage.clear();
     sessionStorage.clear();
+
+    // 恢复账号 ID
+    if (savedAccountId) localStorage.setItem(ACCOUNT_ID_KEY, savedAccountId);
 
     // 重置状态
     setInterestProfile(INITIAL_INTEREST_SCORES);
@@ -3885,7 +4048,7 @@ export default function App() {
         {currentPage === Page.WELCOME && <PageWelcome onComplete={handleWelcomeComplete} />}
         {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} childProfile={childProfile} />}
         {currentPage === Page.CALENDAR && <PageCalendar navigateTo={handleNavigate} onStartGame={handleStartGame} />}
-        {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} onUpdateAvatar={handleUpdateAvatar} />}
+        {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} onUpdateAvatar={handleUpdateAvatar} accountId={accountId} onUpdateAccountId={handleUpdateAccountId} />}
         {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}
         {currentPage === Page.RADAR && <PageRadar />}
         {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => setCurrentPage(Page.CALENDAR)} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} onGameStart={setActiveGameId} onAbort={() => setShowExitConfirm(true)} />)}
