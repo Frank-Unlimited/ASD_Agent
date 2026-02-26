@@ -3,7 +3,11 @@
  */
 
 export { CHAT_SYSTEM_PROMPT } from './chatSystemPrompt';
-export { CONVERSATIONAL_SYSTEM_PROMPT } from './conversationalSystemPrompt';
+export {
+  CONVERSATIONAL_SYSTEM_PROMPT,
+  REACT_INTEREST_ANALYSIS_SYSTEM_PROMPT,
+  REACT_GAME_PLAN_SYSTEM_PROMPT
+} from './conversationalSystemPrompt';
 export { buildInterestAnalysisPrompt } from './interestAnalysisPrompt';
 export { buildFloorGamePlanPrompt } from './floorGamePlanPrompt';
 export { buildImplementationPlanPrompt } from './implementationPlanPrompt';

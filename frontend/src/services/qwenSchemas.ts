@@ -3,6 +3,8 @@
  * 用于强制结构化输出
  */
 
+import type { ToolDefinition } from './qwenStreamClient';
+
 export const GameRecommendationSchema = {
   name: 'game_recommendation',
   description: '游戏推荐结果',
@@ -778,3 +780,54 @@ export const GameImplementationPlanSchema = {
     additionalProperties: false
   }
 };
+
+// ─── ReAct Agent 内部工具定义 ────────────────────────────────────────────────
+// 仅供游戏推荐 Agent 的 ReAct 循环使用，不暴露给外部对话
+
+export const ReActFetchMemoryTool: ToolDefinition = {
+  type: 'function',
+  function: {
+    name: 'fetchMemory',
+    description:
+      '从记忆层搜索与儿童相关的历史事实，包括行为偏好、维度变化、游戏历史、对活动的正负向反应等。' +
+      '使用自然语言语义查询，返回 graphiti 提炼的结构化事实和待处理的原始观察。',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: '语义搜索查询，描述你想了解的信息，例如"孩子对视觉刺激和色彩的历史反应"'
+        }
+      },
+      required: ['query']
+    }
+  }
+};
+
+export const ReActFetchKnowledgeTool: ToolDefinition = {
+  type: 'function',
+  function: {
+    name: 'fetchKnowledge',
+    description:
+      '通过互联网搜索 DIR/Floortime 游戏资料、自闭症儿童干预方法、感统游戏案例等专业知识。' +
+      '当需要参考外部游戏设计资料或寻找具体活动案例时使用。' +
+      '返回格式化的搜索摘要文本。\n' +
+      '// TODO: 未来版本将同时并行查询本地 RAG 知识库（已验证干预案例），与网络搜索结果合并返回。',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: '搜索关键词，例如"自闭症儿童视觉感统游戏 DIR Floortime 室内活动"'
+        }
+      },
+      required: ['query']
+    }
+  }
+};
+
+// 兴趣分析阶段只需要记忆搜索，不需要联网搜索
+export const ReActInterestAnalysisTools: ToolDefinition[] = [ReActFetchMemoryTool];
+
+// 游戏计划阶段同时使用记忆搜索和知识搜索
+export const ReActGamePlanTools: ToolDefinition[] = [ReActFetchMemoryTool, ReActFetchKnowledgeTool];

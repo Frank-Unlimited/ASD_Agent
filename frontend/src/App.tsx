@@ -1091,10 +1091,33 @@ const PageAIChat = ({
                     };
                     sessionStorage.setItem('interest_analysis_context', JSON.stringify(interestAnalysisContext));
 
+                    // ReAct 进度回调：实时将思维链（工具调用/结果）追加到消息
+                    const onReActProgress = (event: import('./services/gameRecommendConversationalAgent').ReActProgressEvent) => {
+                      setMessages(prev => prev.map(msg => {
+                        if (msg.id !== tempMsgId) return msg;
+                        let updatedText = msg.text;
+                        if (event.type === 'tool_call') {
+                          const icon = event.toolName === 'fetchMemory' ? '🔧' : '🌐';
+                          const label = event.toolName === 'fetchMemory' ? '查询记忆' : '联网搜索';
+                          updatedText += `\n\n${icon} **${label}**：${event.query}`;
+                        } else if (event.type === 'tool_result') {
+                          const raw = event.result.replace(/（暂无.*?）/, '').trim();
+                          if (raw) {
+                            const preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                            updatedText += '\n' + preview.split('\n').map((l: string) => `> ${l}`).join('\n');
+                          } else {
+                            updatedText += '\n> （暂无相关记录）';
+                          }
+                        }
+                        return { ...msg, text: updatedText };
+                      }));
+                    };
+
                     const result = await analyzeInterestDimensions(
                       currentChildProfile,
                       dimensionMetrics,
-                      args.parentContext || ''
+                      args.parentContext || '',
+                      onReActProgress
                     );
 
                     // 保存结果到 sessionStorage
@@ -1232,13 +1255,36 @@ const PageAIChat = ({
 
                     const { generateFloorGamePlan } = await import('./services/gameRecommendConversationalAgent');
 
+                    // ReAct 进度回调：实时将思维链（工具调用/结果）追加到消息
+                    const onReActProgress = (event: import('./services/gameRecommendConversationalAgent').ReActProgressEvent) => {
+                      setMessages(prev => prev.map(msg => {
+                        if (msg.id !== tempMsgId) return msg;
+                        let updatedText = msg.text;
+                        if (event.type === 'tool_call') {
+                          const icon = event.toolName === 'fetchMemory' ? '🔧' : '🌐';
+                          const label = event.toolName === 'fetchMemory' ? '查询记忆' : '联网搜索';
+                          updatedText += `\n\n${icon} **${label}**：${event.query}`;
+                        } else if (event.type === 'tool_result') {
+                          const raw = event.result.replace(/（暂无.*?）/, '').trim();
+                          if (raw) {
+                            const preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                            updatedText += '\n' + preview.split('\n').map((l: string) => `> ${l}`).join('\n');
+                          } else {
+                            updatedText += '\n> （暂无相关记录）';
+                          }
+                        }
+                        return { ...msg, text: updatedText };
+                      }));
+                    };
+
                     const plan = await generateFloorGamePlan(
                       currentChildProfile,
                       args.targetDimensions,
                       args.strategy,
                       args.parentPreferences,
                       getConversationHistory(),
-                      specificObjects
+                      specificObjects,
+                      onReActProgress
                     );
 
                     // 构建游戏方案文本

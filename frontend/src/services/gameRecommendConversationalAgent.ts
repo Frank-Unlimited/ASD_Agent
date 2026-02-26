@@ -1,15 +1,18 @@
 /**
  * Game Recommendation Conversational Agent
- * 游戏推荐 Agent（重构版）
+ * 游戏推荐 Agent（ReAct 版）
+ *
+ * 采用 ReAct（推理-行动-观察）循环模式：
+ * LLM 自主决定何时调用 fetchMemory / fetchKnowledge，
+ * 直到信息充足后输出最终 JSON。
  *
  * 两步流程：
  * 1. 兴趣分析（analyzeInterestDimensions）：分析8个维度的强度/探索度
  * 2. 地板游戏计划（generateFloorGamePlan）：设计完整游戏实施方案
  */
 
-import { qwenStreamClient } from './qwenStreamClient';
-import { searchGamesOnline } from './onlineSearchService';
-import { InterestAnalysisSchema, GameImplementationPlanSchema } from './qwenSchemas';
+import { qwenStreamClient, QwenMessage, ToolDefinition } from './qwenStreamClient';
+import { ReActInterestAnalysisTools, ReActGamePlanTools } from './qwenSchemas';
 import {
   InterestAnalysisResult,
   GameImplementationPlan,
@@ -18,12 +21,25 @@ import {
 } from '../types';
 import { DimensionMetrics } from './historicalDataHelper';
 import { fetchMemoryFacts, formatMemoryFactsForPrompt } from './memoryService';
+import { bochaSearchService } from './bochaSearchService';
 import { getAccountId } from './accountService';
 import {
-  CONVERSATIONAL_SYSTEM_PROMPT,
+  REACT_INTEREST_ANALYSIS_SYSTEM_PROMPT,
+  REACT_GAME_PLAN_SYSTEM_PROMPT,
   buildInterestAnalysisPrompt,
   buildFloorGamePlanPrompt
 } from '../prompts';
+
+const MAX_REACT_ITERATIONS = 5;
+
+/**
+ * ReAct 循环进度事件，用于将思维链实时推送给 UI
+ */
+export type ReActProgressEvent =
+  | { type: 'tool_call'; toolName: 'fetchMemory' | 'fetchKnowledge'; query: string }
+  | { type: 'tool_result'; toolName: 'fetchMemory' | 'fetchKnowledge'; result: string };
+
+export type OnReActProgress = (event: ReActProgressEvent) => void;
 
 /**
  * 清理 LLM 返回的 JSON 字符串
@@ -32,86 +48,207 @@ import {
  */
 function cleanLLMResponse(response: string): string {
   let cleaned = response;
-  // 移除 <think>...</think> 标签及其内容
   cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  // 移除 markdown 代码块包裹
   cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
   return cleaned;
 }
 
 /**
- * 步骤1：分析兴趣维度
+ * ReAct 循环核心执行器
+ *
+ * 驱动 LLM 与工具交互，直到 LLM 输出最终内容（不再调用工具）为止。
+ * 工具执行失败时将错误信息回传给 LLM，循环不中断。
+ *
+ * @param systemPrompt  ReAct 系统提示（包含 JSON 格式规范）
+ * @param userPrompt    初始用户消息
+ * @param tools         工具定义列表
+ * @param toolHandlers  工具名称 → 异步执行函数的映射
+ * @returns             LLM 最终输出的字符串（待调用方解析为 JSON）
+ */
+async function runReActLoop(
+  systemPrompt: string,
+  userPrompt: string,
+  tools: ToolDefinition[],
+  toolHandlers: Record<string, (args: Record<string, string>) => Promise<string>>,
+  onProgress?: OnReActProgress
+): Promise<string> {
+  const messages: QwenMessage[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt }
+  ];
+
+  for (let iteration = 0; iteration < MAX_REACT_ITERATIONS; iteration++) {
+    console.log(`[ReAct] 第 ${iteration + 1}/${MAX_REACT_ITERATIONS} 轮`);
+
+    const result = await qwenStreamClient.chatWithTools(messages, tools, {
+      temperature: 0.7,
+      max_tokens: 4000
+    });
+
+    if (result.type === 'content') {
+      console.log(`[ReAct] 第 ${iteration + 1} 轮获得最终答案，循环结束`);
+      return result.content;
+    }
+
+    // LLM 请求调用工具 —— 先将 assistant 的 tool_calls turn 追加到消息历史
+    messages.push({
+      role: 'assistant',
+      content: '',
+      tool_calls: result.toolCalls
+    });
+
+    // 依次执行每个工具调用，结果作为 tool 消息追加
+    for (const toolCall of result.toolCalls) {
+      const toolName = toolCall.function.name;
+      let toolResult: string;
+
+      try {
+        const args = JSON.parse(toolCall.function.arguments) as Record<string, string>;
+        console.log(`[ReAct] 执行工具: ${toolName}`, args);
+
+        // 通知 UI：工具被调用
+        onProgress?.({
+          type: 'tool_call',
+          toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
+          query: args.query || ''
+        });
+
+        const handler = toolHandlers[toolName];
+        if (!handler) {
+          toolResult = `[错误] 未知工具：${toolName}`;
+          console.error(`[ReAct] 未知工具: ${toolName}`);
+        } else {
+          toolResult = await handler(args);
+          console.log(`[ReAct] 工具 ${toolName} 返回 ${toolResult.length} 字符`);
+        }
+
+        // 通知 UI：工具返回结果
+        onProgress?.({
+          type: 'tool_result',
+          toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
+          result: toolResult
+        });
+      } catch (err) {
+        // 工具执行失败不终止循环，将错误信息回传给 LLM 继续推理
+        toolResult = `[工具执行失败] ${err instanceof Error ? err.message : String(err)}`;
+        console.warn(`[ReAct] 工具 ${toolName} 执行失败:`, err);
+        onProgress?.({
+          type: 'tool_result',
+          toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
+          result: toolResult
+        });
+      }
+
+      messages.push({
+        role: 'tool',
+        tool_call_id: toolCall.id,
+        name: toolCall.function.name,
+        content: toolResult || '（无结果）'
+      });
+    }
+  }
+
+  throw new Error(
+    `[ReAct] 达到最大迭代次数 (${MAX_REACT_ITERATIONS})，未获得最终答案。LLM 可能陷入工具调用循环。`
+  );
+}
+
+/**
+ * 构建兴趣分析阶段的工具处理器
+ * 仅需 fetchMemory（无需联网搜索）
+ */
+function buildInterestAnalysisHandlers(accountId: string) {
+  return {
+    fetchMemory: async (args: Record<string, string>) => {
+      const query = args.query || '';
+      console.log('[ReAct/fetchMemory] 查询:', query);
+      const facts = await fetchMemoryFacts(accountId, query, 15);
+      return formatMemoryFactsForPrompt(facts) || '（暂无相关历史记忆）';
+    }
+  };
+}
+
+/**
+ * 构建游戏计划阶段的工具处理器
+ * fetchMemory + fetchKnowledge（联网搜索）
+ */
+function buildGamePlanHandlers(accountId: string) {
+  return {
+    fetchMemory: async (args: Record<string, string>) => {
+      const query = args.query || '';
+      console.log('[ReAct/fetchMemory] 查询:', query);
+      const facts = await fetchMemoryFacts(accountId, query, 15);
+      return formatMemoryFactsForPrompt(facts) || '（暂无相关历史记忆）';
+    },
+    fetchKnowledge: async (args: Record<string, string>) => {
+      const query = args.query || '';
+      console.log('[ReAct/fetchKnowledge] 搜索:', query);
+      // TODO: 未来版本将并行查询本地 RAG 知识库（已验证 DIR/Floortime 案例库）
+      // 实现方案：
+      //   const [webResult, ragResult] = await Promise.allSettled([
+      //     bochaSearchService.searchAndFormat(query, 5),
+      //     ragService.search(query, 5)  // 待实现
+      //   ]);
+      // 将两个结果合并，按相关度排序后返回给 LLM。
+      // 当前版本仅使用 Bocha 网络搜索。
+      const result = await bochaSearchService.searchAndFormat(query, 5);
+      return result || '（暂无相关搜索结果）';
+    }
+  };
+}
+
+/**
+ * 步骤1：分析兴趣维度（ReAct 模式）
+ *
+ * LLM 自主决定何时调用 fetchMemory 查询历史记忆，
+ * 信息充足后输出 InterestAnalysisResult JSON。
  */
 export const analyzeInterestDimensions = async (
   childProfile: ChildProfile,
   dimensionMetrics: DimensionMetrics[],
-  parentContext?: string
+  parentContext?: string,
+  onProgress?: OnReActProgress
 ): Promise<InterestAnalysisResult> => {
   try {
-    console.log('[analyzeInterestDimensions] 开始兴趣分析:', {
+    console.log('[analyzeInterestDimensions] 开始 ReAct 兴趣分析:', {
       childName: childProfile.name,
       metricsCount: dimensionMetrics.length
     });
 
-    const memoryFacts = await fetchMemoryFacts(
-      getAccountId(),
-      `${childProfile.name}对哪些材料、活动类型有正向反应，以及历史兴趣维度偏好与变化`,
-      15
-    );
-    const memorySection = formatMemoryFactsForPrompt(memoryFacts);
-
-    const prompt = buildInterestAnalysisPrompt({
+    const userPrompt = buildInterestAnalysisPrompt({
       childProfile,
       dimensionMetrics,
-      parentContext,
-      memorySection: memorySection || undefined
+      parentContext
+      // 不再预注入 memorySection，由 LLM 通过 fetchMemory 工具自主获取
     });
 
-    // 打印完整的 prompt
     console.log('='.repeat(80));
-    console.log('[Interest Analysis Agent] 完整 Prompt:');
-    console.log('='.repeat(80));
-    console.log('System Prompt:');
-    console.log(CONVERSATIONAL_SYSTEM_PROMPT);
+    console.log('[Interest Analysis Agent] System Prompt:');
+    console.log(REACT_INTEREST_ANALYSIS_SYSTEM_PROMPT);
     console.log('-'.repeat(80));
-    console.log('User Prompt:');
-    console.log(prompt);
+    console.log('[Interest Analysis Agent] User Prompt:');
+    console.log(userPrompt);
     console.log('='.repeat(80));
 
-    const response = await qwenStreamClient.chat(
-      [
-        { role: 'system', content: CONVERSATIONAL_SYSTEM_PROMPT },
-        { role: 'user', content: prompt }
-      ],
-      {
-        temperature: 0.7,
-        max_tokens: 4000,
-        response_format: {
-          type: 'json_schema',
-          json_schema: InterestAnalysisSchema
-        }
-      }
+    const finalResponse = await runReActLoop(
+      REACT_INTEREST_ANALYSIS_SYSTEM_PROMPT,
+      userPrompt,
+      ReActInterestAnalysisTools,
+      buildInterestAnalysisHandlers(getAccountId()),
+      onProgress
     );
 
-    // 打印完整的响应
     console.log('='.repeat(80));
-    console.log('[Interest Analysis Agent] 完整响应:');
-    console.log('='.repeat(80));
-    console.log(response);
+    console.log('[Interest Analysis Agent] 最终响应:');
+    console.log(finalResponse);
     console.log('='.repeat(80));
 
-    console.log('[analyzeInterestDimensions] Raw LLM response:', response);
-    
-    if (!response || typeof response !== 'string') {
-      throw new Error(`Invalid LLM response: ${typeof response}`);
-    }
-    
-    const cleanedResponse = cleanLLMResponse(response);
-    console.log('[analyzeInterestDimensions] Cleaned response (first 500 chars):', cleanedResponse.substring(0, 500));
-    
+    const cleanedResponse = cleanLLMResponse(finalResponse);
+    console.log('[analyzeInterestDimensions] 清理后响应 (前500字):', cleanedResponse.substring(0, 500));
+
     const raw = JSON.parse(cleanedResponse);
-    console.log('[analyzeInterestDimensions] Parsed JSON:', raw);
-    // 确保所有字段都有默认值，防止 LLM 返回不完整
+    console.log('[analyzeInterestDimensions] 解析 JSON 成功');
+
     const result: InterestAnalysisResult = {
       summary: raw.summary || '',
       dimensions: raw.dimensions || [],
@@ -120,6 +257,7 @@ export const analyzeInterestDimensions = async (
       avoidDimensions: raw.avoidDimensions || [],
       interventionSuggestions: raw.interventionSuggestions || []
     };
+
     console.log('[analyzeInterestDimensions] 分析完成:', {
       leverage: result.leverageDimensions,
       explore: result.exploreDimensions,
@@ -135,8 +273,10 @@ export const analyzeInterestDimensions = async (
 };
 
 /**
- * 步骤2：生成地板游戏计划
- * 并行执行：联网搜索 + LLM 生成
+ * 步骤2：生成地板游戏计划（ReAct 模式）
+ *
+ * LLM 自主决定何时调用 fetchMemory（历史记录）和 fetchKnowledge（联网搜索），
+ * 信息充足后输出 GameImplementationPlan JSON。
  */
 export const generateFloorGamePlan = async (
   childProfile: ChildProfile,
@@ -148,100 +288,49 @@ export const generateFloorGamePlan = async (
     otherRequirements?: string;
   },
   conversationHistory?: string,
-  specificObjects?: Record<string, string[]>
+  specificObjects?: Record<string, string[]>,
+  onProgress?: OnReActProgress
 ): Promise<GameImplementationPlan> => {
   try {
-    console.log('[generateFloorGamePlan] 开始生成游戏计划:', {
+    console.log('[generateFloorGamePlan] 开始 ReAct 游戏计划生成:', {
       childName: childProfile.name,
       targetDimensions,
       strategy,
       hasPreferences: !!parentPreferences
     });
 
-    // 并行：联网搜索参考资料 + 准备 prompt
-    let searchResults = '';
-    try {
-      // 从 specificObjects 中提取与目标维度相关的具体对象
-      const objectKeywords = specificObjects
-        ? targetDimensions
-            .flatMap(dim => specificObjects[dim] || [])
-            .slice(0, 4) // 最多取4个，避免关键词过长
-            .join(' ')
-        : '';
-      const searchQuery = `${targetDimensions.join(' ')} ${objectKeywords} 自闭症儿童 DIR Floortime 地板游戏 ${strategy === 'explore' ? '探索' : '互动'}`.trim();
-      const childContext = `
-儿童：${childProfile.name}，${childProfile.gender}
-目标维度：${targetDimensions.join('、')}
-${objectKeywords ? `感兴趣的对象：${objectKeywords}` : ''}
-策略：${strategy}
-`;
-      const games = await searchGamesOnline(searchQuery, childContext, 3);
-      if (games.length > 0) {
-        searchResults = games.map(g =>
-          `- ${g.title}：${g.summary || g.reason}（${g.duration}）`
-        ).join('\n');
-        console.log(`[generateFloorGamePlan] 联网搜索到 ${games.length} 个参考游戏`);
-      }
-    } catch (err) {
-      console.warn('[generateFloorGamePlan] 联网搜索失败，仅使用LLM生成:', err);
-    }
-
-    const memoryFacts = await fetchMemoryFacts(
-      getAccountId(),
-      `${childProfile.name}参与游戏的历史记录、对哪些游戏类型有正向反应以及需要避免的活动`,
-      15
-    );
-    const memorySection = formatMemoryFactsForPrompt(memoryFacts);
-
-    const prompt = buildFloorGamePlanPrompt({
+    const userPrompt = buildFloorGamePlanPrompt({
       childProfile,
       targetDimensions,
       strategy,
       parentPreferences,
       conversationHistory,
-      searchResults: searchResults || undefined,
-      specificObjects,
-      memorySection: memorySection || undefined
+      specificObjects
+      // 不再预注入 memorySection 和 searchResults，由 LLM 通过工具自主获取
     });
 
-    // 打印完整的 prompt
     console.log('='.repeat(80));
-    console.log('[Game Plan Agent] 完整 Prompt:');
-    console.log('='.repeat(80));
-    console.log('System Prompt:');
-    console.log(CONVERSATIONAL_SYSTEM_PROMPT);
+    console.log('[Game Plan Agent] System Prompt:');
+    console.log(REACT_GAME_PLAN_SYSTEM_PROMPT);
     console.log('-'.repeat(80));
-    console.log('User Prompt:');
-    console.log(prompt);
+    console.log('[Game Plan Agent] User Prompt:');
+    console.log(userPrompt);
     console.log('='.repeat(80));
 
-    const response = await qwenStreamClient.chat(
-      [
-        { role: 'system', content: CONVERSATIONAL_SYSTEM_PROMPT },
-        { role: 'user', content: prompt }
-      ],
-      {
-        temperature: 0.8,
-        max_tokens: 3000,
-        response_format: {
-          type: 'json_schema',
-          json_schema: GameImplementationPlanSchema
-        },
-        extra_body: {
-          enable_search: true  // 启用 LLM 联网搜索，获取最新游戏信息
-        }
-      }
+    const finalResponse = await runReActLoop(
+      REACT_GAME_PLAN_SYSTEM_PROMPT,
+      userPrompt,
+      ReActGamePlanTools,
+      buildGamePlanHandlers(getAccountId()),
+      onProgress
     );
 
-    // 打印完整的响应
     console.log('='.repeat(80));
-    console.log('[Game Plan Agent] 完整响应:');
-    console.log('='.repeat(80));
-    console.log(response);
+    console.log('[Game Plan Agent] 最终响应:');
+    console.log(finalResponse);
     console.log('='.repeat(80));
 
-    // console.log('[generateFloorGamePlan] Raw LLM response:', response);
-    const cleanedPlanResponse = cleanLLMResponse(response);
+    const cleanedPlanResponse = cleanLLMResponse(finalResponse);
     const data = JSON.parse(cleanedPlanResponse);
 
     console.log('[generateFloorGamePlan] 游戏计划生成完成:', data.gameTitle || '(未知)');
