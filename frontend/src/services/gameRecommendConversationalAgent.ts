@@ -21,7 +21,7 @@ import {
 } from '../types';
 import { DimensionMetrics } from './historicalDataHelper';
 import { fetchMemoryFacts, formatMemoryFactsForPrompt } from './memoryService';
-import { bochaSearchService } from './bochaSearchService';
+import { knowledgeService } from './knowledgeService';
 import { getAccountId } from './accountService';
 import {
   REACT_INTEREST_ANALYSIS_SYSTEM_PROMPT,
@@ -183,16 +183,16 @@ function buildGamePlanHandlers(accountId: string) {
     fetchKnowledge: async (args: Record<string, string>) => {
       const query = args.query || '';
       console.log('[ReAct/fetchKnowledge] 搜索:', query);
-      // TODO: 未来版本将并行查询本地 RAG 知识库（已验证 DIR/Floortime 案例库）
-      // 实现方案：
-      //   const [webResult, ragResult] = await Promise.allSettled([
-      //     bochaSearchService.searchAndFormat(query, 5),
-      //     ragService.search(query, 5)  // 待实现
-      //   ]);
-      // 将两个结果合并，按相关度排序后返回给 LLM。
-      // 当前版本仅使用 Bocha 网络搜索。
-      const result = await bochaSearchService.searchAndFormat(query, 5);
-      return result || '（暂无相关搜索结果）';
+      
+      // 并行调用联网搜索 + RAG 知识库（搜索足够多的结果供 LLM 使用）
+      const result = await knowledgeService.search(query, {
+        useWeb: true,
+        useRAG: true,
+        webCount: 5,
+        ragCount: 5
+      });
+      
+      return result.combined || '（暂无相关搜索结果）';
     }
   };
 }
