@@ -99,9 +99,46 @@ python-dotenv
 
 ### 4. 启动服务
 
+#### 方式一：一键启动（推荐）
+
+**Windows:**
+```bash
+cd backend/
+start_services.bat
+```
+
+**Linux/Mac:**
+```bash
+cd backend/
+./start_services.sh
+```
+
+一键启动脚本会自动：
+- 检查并启动 Neo4j 容器
+- 启动记忆服务（端口 8000）
+- 启动 Realtime 视频通话服务（端口 8766）
+
+**停止服务：**
+```bash
+# Windows
+stop_services.bat
+
+# Linux/Mac
+./stop_services.sh
+```
+
+#### 方式二：手动启动
+
+**启动记忆服务：**
 ```bash
 cd backend/
 uvicorn memory_service:app --port 8000 --reload
+```
+
+**启动 Realtime 服务（可选）：**
+```bash
+cd backend/
+python qwen_realtime_websocket.py
 ```
 
 服务就绪后访问 `http://localhost:8000/healthcheck` 确认状态。
