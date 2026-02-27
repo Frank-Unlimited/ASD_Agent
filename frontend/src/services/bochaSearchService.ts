@@ -152,7 +152,8 @@ class BochaSearchService {
     return results
       .map((result, index) => {
         const summary = result.summary || result.snippet;
-        return `${index + 1}. ${result.name}\n   ${summary}\n   来源: ${result.siteName} (${result.url})`;
+        // 保持完整摘要供 LLM 使用
+        return `${index + 1}. ${result.name}\n   ${summary}\n   来源: ${result.siteName}`;
       })
       .join('\n\n');
   }

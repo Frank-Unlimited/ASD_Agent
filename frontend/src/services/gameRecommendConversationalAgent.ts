@@ -184,7 +184,7 @@ function buildGamePlanHandlers(accountId: string) {
       const query = args.query || '';
       console.log('[ReAct/fetchKnowledge] 搜索:', query);
       
-      // 并行调用联网搜索 + RAG 知识库
+      // 并行调用联网搜索 + RAG 知识库（搜索足够多的结果供 LLM 使用）
       const result = await knowledgeService.search(query, {
         useWeb: true,
         useRAG: true,

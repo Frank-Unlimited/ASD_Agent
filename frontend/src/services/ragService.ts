@@ -107,6 +107,7 @@ class AlibabaRAGService {
       .map((node, index) => {
         const docName = node.metadata?.doc_name || node.metadata?.title || '未知文档';
         const score = ((node.score || 0) * 100).toFixed(1);
+        // 保持完整文本供 LLM 使用
         return `${index + 1}. [相关度: ${score}%] ${node.text}\n   来源: ${docName}`;
       })
       .join('\n\n');

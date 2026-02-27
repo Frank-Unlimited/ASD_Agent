@@ -1097,13 +1097,40 @@ const PageAIChat = ({
                         if (msg.id !== tempMsgId) return msg;
                         let updatedText = msg.text;
                         if (event.type === 'tool_call') {
-                          const icon = event.toolName === 'fetchMemory' ? '🔧' : '🌐';
-                          const label = event.toolName === 'fetchMemory' ? '查询记忆' : '联网搜索';
+                          const icon = event.toolName === 'fetchMemory' ? '🔧' : '🔍';
+                          const label = event.toolName === 'fetchMemory' ? '查询记忆' : '知识检索';
                           updatedText += `\n\n${icon} **${label}**：${event.query}`;
                         } else if (event.type === 'tool_result') {
                           const raw = event.result.replace(/（暂无.*?）/, '').trim();
                           if (raw) {
-                            const preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                            let preview = raw;
+                            
+                            // 智能截断：分别限制专业知识库和网络资源
+                            if (raw.includes('📚 **专业知识库**') || raw.includes('🌐 **网络资源**')) {
+                              const parts: string[] = [];
+                              
+                              // 提取并截断专业知识库（150字）
+                              const ragMatch = raw.match(/📚 \*\*专业知识库\*\*：\n([\s\S]*?)(?=🌐 \*\*网络资源\*\*|$)/);
+                              if (ragMatch && ragMatch[1]) {
+                                const ragContent = ragMatch[1].trim();
+                                const ragPreview = ragContent.length > 150 ? ragContent.substring(0, 150) + '…' : ragContent;
+                                parts.push('📚 **专业知识库**：\n' + ragPreview);
+                              }
+                              
+                              // 提取并截断网络资源（150字）
+                              const webMatch = raw.match(/🌐 \*\*网络资源\*\*：\n([\s\S]*?)$/);
+                              if (webMatch && webMatch[1]) {
+                                const webContent = webMatch[1].trim();
+                                const webPreview = webContent.length > 150 ? webContent.substring(0, 150) + '…' : webContent;
+                                parts.push('🌐 **网络资源**：\n' + webPreview);
+                              }
+                              
+                              preview = parts.join('\n\n');
+                            } else {
+                              // 其他结果保持280字限制
+                              preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                            }
+                            
                             updatedText += '\n' + preview.split('\n').map((l: string) => `> ${l}`).join('\n');
                           } else {
                             updatedText += '\n> （暂无相关记录）';
@@ -1261,13 +1288,40 @@ const PageAIChat = ({
                         if (msg.id !== tempMsgId) return msg;
                         let updatedText = msg.text;
                         if (event.type === 'tool_call') {
-                          const icon = event.toolName === 'fetchMemory' ? '🔧' : '🌐';
-                          const label = event.toolName === 'fetchMemory' ? '查询记忆' : '联网搜索';
+                          const icon = event.toolName === 'fetchMemory' ? '🔧' : '🔍';
+                          const label = event.toolName === 'fetchMemory' ? '查询记忆' : '知识检索';
                           updatedText += `\n\n${icon} **${label}**：${event.query}`;
                         } else if (event.type === 'tool_result') {
                           const raw = event.result.replace(/（暂无.*?）/, '').trim();
                           if (raw) {
-                            const preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                            let preview = raw;
+                            
+                            // 智能截断：分别限制专业知识库和网络资源
+                            if (raw.includes('📚 **专业知识库**') || raw.includes('🌐 **网络资源**')) {
+                              const parts: string[] = [];
+                              
+                              // 提取并截断专业知识库（150字）
+                              const ragMatch = raw.match(/📚 \*\*专业知识库\*\*：\n([\s\S]*?)(?=🌐 \*\*网络资源\*\*|$)/);
+                              if (ragMatch && ragMatch[1]) {
+                                const ragContent = ragMatch[1].trim();
+                                const ragPreview = ragContent.length > 150 ? ragContent.substring(0, 150) + '…' : ragContent;
+                                parts.push('📚 **专业知识库**：\n' + ragPreview);
+                              }
+                              
+                              // 提取并截断网络资源（150字）
+                              const webMatch = raw.match(/🌐 \*\*网络资源\*\*：\n([\s\S]*?)$/);
+                              if (webMatch && webMatch[1]) {
+                                const webContent = webMatch[1].trim();
+                                const webPreview = webContent.length > 150 ? webContent.substring(0, 150) + '…' : webContent;
+                                parts.push('🌐 **网络资源**：\n' + webPreview);
+                              }
+                              
+                              preview = parts.join('\n\n');
+                            } else {
+                              // 其他结果保持280字限制
+                              preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                            }
+                            
                             updatedText += '\n' + preview.split('\n').map((l: string) => `> ${l}`).join('\n');
                           } else {
                             updatedText += '\n> （暂无相关记录）';

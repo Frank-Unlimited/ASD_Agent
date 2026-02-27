@@ -54,19 +54,23 @@ class KnowledgeService {
    * 合并结果：RAG 优先（权威性），联网搜索补充（时效性）
    */
   private mergeResults(web: string, rag: string): string {
+    console.log('[Knowledge] 合并结果 - Web长度:', web.length, 'RAG长度:', rag.length);
+    
     const parts: string[] = [];
 
     // RAG 结果优先（专业知识库）
     if (rag) {
-      parts.push('【专业知识库】\n' + rag);
+      parts.push('📚 **专业知识库**：\n' + rag);
     }
 
     // 联网搜索补充（网络资源）
     if (web) {
-      parts.push('【网络资源】\n' + web);
+      parts.push('🌐 **网络资源**：\n' + web);
     }
 
-    return parts.join('\n\n') || '（暂无相关搜索结果）';
+    const result = parts.join('\n\n') || '（暂无相关搜索结果）';
+    console.log('[Knowledge] 合并后总长度:', result.length);
+    return result;
   }
 }
 
