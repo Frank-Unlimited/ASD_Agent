@@ -1,7 +1,7 @@
 ﻿﻿import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { sendQwenMessage } from './services/qwenService';
+import { sendQwenMessage, extractBehaviors, inferInterests } from './services/qwenService';
 import { clearAllCache } from './utils/clearCache'; // 导入清空缓存功能
 import { generateComprehensiveAssessment } from './services/assessmentAgent';
 import { collectHistoricalData } from './services/historicalDataHelper';
@@ -3340,16 +3340,26 @@ const PageGames = ({
       // 从 storage 获取完整的 FloorGame 数据
       const floorGame = internalActiveGame?.id ? floorGameStorageService.getGameById(internalActiveGame.id) : null;
 
-      // 并行调用：评估 + 复盘 (现在包含真实家长反馈和视频摘要)
-      const evaluationPromise = api.analyzeSession(logsToAnalyze);
-      const reviewPromise = floorGame ? reviewFloorGame({
+      // Stage 1: 通用提取器 (Behavior Extractor)
+      const evidences = await extractBehaviors(logsToAnalyze, videoSummary || '', userFeedback || '');
+
+      // Stage 2: 专家会诊层并行调用 (Parallel Inference)
+      const evaluationPromise = api.analyzeSession(logsToAnalyze); // 原有综合评分逻辑（为了兼容老卡片，内部也可部分剥离）
+      const interestPromise = inferInterests(evidences); // 兴趣画像专家
+      const reviewPromise = floorGame ? reviewFloorGame({            // DIR 专业复盘专家
         game: { ...floorGame, status: 'completed', dtend: new Date().toISOString() },
-        chatHistory: chatHistoryText,
-        videoSummary: videoSummary || '',
+        evidences,
         parentFeedback: userFeedback || chatHistoryText
       }).catch(e => { console.error('[GameReview] 复盘失败:', e); return null; }) : Promise.resolve(null);
 
-      const [result, reviewResult] = await Promise.all([evaluationPromise, reviewPromise]);
+      const [result, interestUpdates, reviewResult] = await Promise.all([
+        evaluationPromise,
+        interestPromise,
+        reviewPromise
+      ]);
+
+      // 将真实的兴趣画像分析覆盖原有的分析结果
+      result.interestAnalysis = interestUpdates;
 
       setEvaluation(result);
       if (reviewResult) {

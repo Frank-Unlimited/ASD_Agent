@@ -123,6 +123,42 @@ export interface BehaviorAnalysis {
   id?: string; // 唯一标识
 }
 
+// --- Universal Pipeline Types ---
+
+// 原子行为证据片段（流水线第一阶段输出）
+export type EvidenceSource = 'LOG' | 'VIDEO' | 'PARENT';
+
+export interface EvidenceSnippet {
+  behavior: string;              // 行为描述（如："孩子主动抓取蓝色积木并堆叠了3层"）
+  context: string;               // 发生背景（如："自由搭建环节，家长在旁观察"）
+  timestamp?: string;            // 行为发生时间
+  source: EvidenceSource;        // 来源：日志 / 视频摘要 / 家长反馈
+  relatedDimensions?: InterestDimensionType[];  // 可能关联的兴趣维度（提取器预判）
+}
+
+// 记忆检索返回的历史事实（来自 Graphiti Memory Service）
+export interface HistoricalFact {
+  text: string;                  // 事实内容（graphiti 提炼句 或 pending 原文）
+  valid_at: string | null;       // 事实生效时间
+  invalid_at: string | null;     // 事实失效时间（null = 当前有效）
+  pending: boolean;              // true = 尚未被 graphiti 提取完毕
+}
+
+// 全量分析结果集（流水线最终输出）
+export interface UnifiedAnalysisResult {
+  sessionId: string;             // 关联会话的唯一标识
+  evidences: EvidenceSnippet[];  // 提取到的原子行为证据
+  dirReview?: GameReviewResult;  // DIR 专家复盘（仅游戏场景）
+  interestUpdates: BehaviorAnalysis[];  // 兴趣画像增量
+  historicalFacts?: HistoricalFact[];   // 本次分析参考的历史事实
+  parentCoaching?: {             // 家长技巧点评（仅游戏场景）
+    score: number;               // 记录质量分 0-100
+    suggestion: string;          // 针对家长的建议
+  };
+  sourceType: 'GAME' | 'CHAT' | 'REPORT';  // 输入源类型（决定路由）
+  timestamp: string;             // 分析完成时间
+}
+
 // --- New Types for Ability/Radar Analysis ---
 
 export type AbilityDimensionType =

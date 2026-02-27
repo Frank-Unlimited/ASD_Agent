@@ -232,7 +232,7 @@ const GameSummaryPage: React.FC<GameSummaryPageProps> = ({
                         </span>
                         <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">+1 记录</span>
                     </h3>
-                    <div className="h-40 w-full">
+                    <div style={{ width: '100%', height: 160 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={trendData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />

@@ -8,10 +8,11 @@ import {
   GameRecommendationSchema,
   SessionEvaluationSchema,
   BehaviorAnalysisListSchema,
+  BehaviorExtractionSchema,
   ProfileUpdateSchema,
   ChatTools
 } from './qwenSchemas';
-import { ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate, Game } from '../types';
+import { ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate, Game, EvidenceSnippet } from '../types';
 import { floorGameStorageService } from './floorGameStorage';
 import { CHAT_SYSTEM_PROMPT } from '../prompts';
 
@@ -254,7 +255,19 @@ ${logContent}
     console.log(evalResponse);
     console.log('='.repeat(80));
 
-    const evalData = JSON.parse(evalResponse);
+    let evalData = JSON.parse(evalResponse);
+
+    // 防御性解析：如果返回的是数组（比如包含了 tool call 对象）
+    if (Array.isArray(evalData) && evalData.length > 0) {
+      if (evalData[0].arguments) {
+        // 取出 tool call 的 arguments
+        evalData = typeof evalData[0].arguments === 'string'
+          ? JSON.parse(evalData[0].arguments)
+          : evalData[0].arguments;
+      } else {
+        evalData = evalData[0];
+      }
+    }
 
     return {
       score: evalData.score || 70,
@@ -351,47 +364,115 @@ ${ABILITY_DIMENSIONS_DEF}
 };
 
 /**
- * Helper: 提取兴趣（结构化输出）
+ * Helper: 保持向后兼容的旧版接口
  */
 export const analyzeInterests = async (textInput: string): Promise<BehaviorAnalysis[]> => {
+  // 构造模拟的 Evidence，然后通过 inferInterests 处理
+  const dummyEvidences: EvidenceSnippet[] = [{
+    behavior: textInput.substring(0, 100), // 简化截断
+    context: 'Old Interface Call',
+    source: 'LOG',
+  }];
+  return inferInterests(dummyEvidences);
+};
+
+/**
+ * Universal Pipeline Stage 1: Behavior Extractor
+ * 从多模态输入中提取结构化的原子行为证据
+ */
+export const extractBehaviors = async (
+  logs: LogEntry[],
+  videoSummary: string,
+  parentFeedback: string
+): Promise<EvidenceSnippet[]> => {
   try {
     const prompt = `
-任务：提取行为并映射到八大兴趣维度。
-${INTEREST_DIMENSIONS_DEF}
+任务：从以下提供的跨场景互动记录中，提取孩子展现出的具体、可观察的行为片段。
 
-文本： "${textInput}"
+[输入数据]
+1. 互动日志 (Log):
+${logs.map(l => `[${new Date(l.timestamp).toLocaleTimeString()}] ${l.type === 'emoji' ? '【动作】' : '【语音】'}: ${l.content}`).join('\n')}
 
-重要说明：
-1. 为每个兴趣维度指定准确的关联度（weight，0.1-1.0）：
-   - 1.0 = 强关联：行为直接体现该维度
-   - 0.7 = 中等关联：行为部分体现该维度
-   - 0.4 = 弱关联：行为间接涉及该维度
-2. 为每个兴趣维度指定准确的强度（intensity，-1.0 到 1.0）：
-   - +1.0 = 非常喜欢，+0.5 = 喜欢，0.0 = 中性，-0.5 = 不喜欢，-1.0 = 非常讨厌
-3. 不要给所有维度设置相同的 weight 和 intensity，要根据行为的实际特征区分主次
-4. 在 reasoning 中解释为什么这个行为与该维度相关，以及孩子的情绪倾向
+2. 视频观察摘要 (Video):
+${videoSummary || "无视频摘要"}
 
-请严格按照 JSON Schema 返回结果。
+3. 家长口头反馈 (Parent):
+${parentFeedback || "无家长反馈"}
+
+提取要求：
+1. 每条证据必须是具体的、客观的行为事实，避免主观评价或推测。
+2. 详细描述行为的内容（behavior）以及发生的背景（context）。
+3. 准确标注来源（source：LOG, VIDEO, 或 PARENT）。必须严格使用大写。
+4. （预判）该行为可能关联的兴趣维度，如果是社交行为也可以标注。
+
+请严格按照 JSON 格式返回结果，并符合指定的 Schema 结构。
 `;
 
-    // 打印完整的 prompt
-    console.log('='.repeat(80));
-    console.log('[Interest Analysis Helper] 完整 Prompt:');
-    console.log('='.repeat(80));
-    console.log('System Prompt:');
-    console.log(SYSTEM_INSTRUCTION_BASE);
-    console.log('-'.repeat(80));
-    console.log('User Prompt:');
-    console.log(prompt);
-    console.log('='.repeat(80));
+    console.log('[Universal Pipeline - Extractor] 开始提取事实证据...');
 
     const response = await qwenStreamClient.chat(
       [
-        { role: 'system', content: SYSTEM_INSTRUCTION_BASE },
+        { role: 'system', content: '你是一个专业的行为分析提取器，擅长从复杂的互动记录中提炼出纯净的、无主观评价的核心行为事实（Evidence），就像医疗化验单一样精准。请必须使用 JSON 格式返回。' },
         { role: 'user', content: prompt }
       ],
       {
-        temperature: 0.7,
+        temperature: 0.1, // 低温度，保证客观提取不发散
+        max_tokens: 2000,
+        response_format: {
+          type: 'json_schema',
+          json_schema: BehaviorExtractionSchema
+        }
+      }
+    );
+
+    const data = JSON.parse(response);
+    const extractedList = data.evidences || data.evidence_list || data.evidence || [];
+    console.log(`[Universal Pipeline - Extractor] 成功提取 ${extractedList.length} 条证据`);
+    return extractedList;
+  } catch (e) {
+    console.error('Behavior Extraction Failed:', e);
+    return [];
+  }
+};
+
+/**
+ * Universal Pipeline Stage 2: Interest Inferencer
+ * 基于提取出的事实证据，推断兴趣维度的变化
+ */
+export const inferInterests = async (evidences: EvidenceSnippet[]): Promise<BehaviorAnalysis[]> => {
+  try {
+    if (evidences.length === 0) return [];
+
+    const prompt = `
+任务：基于以下提取出的事实证据（Evidence），映射并推断孩子在八大兴趣维度上的倾向。
+${INTEREST_DIMENSIONS_DEF}
+
+提供的证据列表：
+${evidences.map((e, index) => `
+证据 #${index + 1}:
+- 行为: ${e.behavior}
+- 背景: ${e.context}
+- 来源: ${e.source}
+- 潜在相关维度: ${e.relatedDimensions?.join(', ') || '未指定'}
+`).join('\n')}
+
+重要说明：
+1. 为每个相关的兴趣维度指定准确的关联度（weight，0.1-1.0）。
+2. 为每个兴趣维度指定准确的强度（intensity，-1.0 到 1.0）。正值代表喜欢/主动，负值代表讨厌/回避。
+3. 在 reasoning 中，必须明确引用输入的“证据 #编号”来解释你的推断逻辑。例如：“基于证据 #1，孩子在看到积木时主动抓取，强度为正...”。
+
+请严格按照 JSON 格式返回推断结果，并符合指定的 Schema 结构。
+`;
+
+    console.log('[Universal Pipeline - Inferencer] 开始基于证据推演兴趣...');
+
+    const response = await qwenStreamClient.chat(
+      [
+        { role: 'system', content: SYSTEM_INSTRUCTION_BASE + '\n请务必以内置的 JSON 格式返回。' },
+        { role: 'user', content: prompt }
+      ],
+      {
+        temperature: 0.5,
         max_tokens: 1500,
         response_format: {
           type: 'json_schema',
@@ -400,17 +481,24 @@ ${INTEREST_DIMENSIONS_DEF}
       }
     );
 
-    // 打印完整的响应
-    console.log('='.repeat(80));
-    console.log('[Interest Analysis Helper] 完整响应:');
-    console.log('='.repeat(80));
-    console.log(response);
-    console.log('='.repeat(80));
-
     const data = JSON.parse(response);
-    return data.analyses || [];
+
+    // 安全注入来源信息
+    const analyses: BehaviorAnalysis[] = data.analyses || data.analysis || data.interests || data.behavior_analysis_list || [];
+    const sourceMap: { [key: string]: 'GAME' | 'REPORT' | 'CHAT' } = {
+      'LOG': 'CHAT',
+      'VIDEO': 'GAME',
+      'PARENT': 'GAME'
+    };
+
+    return analyses.map(a => ({
+      ...a,
+      // 尝试从推理内容中找出对应的证据来源（这是一个简化的 fallback，准确的方案应该是 schema 修改，这里由于 schema 限制暂时写死。
+      // 由于 inferInterests 在 Pipeline 中可能由各种输入源调用，真实的来源会在 App.tsx 里被覆盖，所以这里先给个默认值。
+      source: 'CHAT'
+    }));
   } catch (e) {
-    console.error('Interest Analysis Failed:', e);
+    console.error('Interest Inference Failed:', e);
     return [];
   }
 };

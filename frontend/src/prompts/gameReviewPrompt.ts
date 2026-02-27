@@ -3,7 +3,7 @@
  * 用于游戏结束后的 AI 专业复盘分析
  */
 
-import { ChildProfile, FloorGame } from '../types';
+import { ChildProfile, FloorGame, EvidenceSnippet } from '../types';
 
 export const GAME_REVIEW_SYSTEM_PROMPT = `
 你是一位资深的 DIR/Floortime（地板时光）疗法专家和儿童发展评估师，专注于自闭症谱系障碍（ASD）儿童的干预和评估。
@@ -37,12 +37,11 @@ export const GAME_REVIEW_SYSTEM_PROMPT = `
 export function buildGameReviewPrompt(params: {
   childProfile: ChildProfile;
   game: FloorGame;
-  chatHistory: string;
-  videoSummary?: string;
+  evidences: EvidenceSnippet[];
   parentFeedback: string;
   memorySection?: string;
 }): string {
-  const { childProfile, game, chatHistory, videoSummary, parentFeedback, memorySection } = params;
+  const { childProfile, game, evidences, parentFeedback, memorySection } = params;
 
   const age = calculateAge(childProfile.birthDate);
   const gameDuration = calculateDuration(game.dtstart, game.dtend);
@@ -80,24 +79,18 @@ ${stepsText}
   }
 
   prompt += `
-【游戏中互动记录】
-${chatHistory || '无互动记录'}
+【本次游戏的结构化行为证据（Evidences）】
+${evidences.length > 0
+      ? evidences.map((e, index) => `${index + 1}. [${e.source}] 行为: ${e.behavior} (背景: ${e.context})`).join('\n')
+      : '暂无结构化的行为证据'}
 `;
-
-  if (videoSummary) {
-    prompt += `
-【视频观察总结】
-${videoSummary}
-`;
-  }
 
   prompt += `
 【家长反馈】
 ${parentFeedback || '家长未提供额外反馈'}
 
 【输出要求】
-请基于以上信息，从 DIR/Floortime 专业视角进行复盘，生成：
-
+请基于以上信息，特别是将“本次游戏的结构化行为证据”与“历史互动记忆”进行对比，从 DIR/Floortime 专业视角进行具有发展纵深感的复盘，生成：
 1. reviewSummary：游戏过程总结与复盘（200-400字）
    - 回顾本次游戏的整体过程
    - 分析孩子的参与度、情绪状态、互动质量

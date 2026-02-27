@@ -128,6 +128,55 @@ export const BehaviorAnalysisListSchema = {
   }
 };
 
+// --- Universal Pipeline: Behavior Extraction Schema ---
+
+export const BehaviorExtractionSchema = {
+  name: 'behavior_extraction',
+  description: '从互动记录中提取原子行为证据片段',
+  schema: {
+    type: 'object',
+    properties: {
+      evidences: {
+        type: 'array',
+        description: '提取到的行为证据列表。每条证据应该是一个独立的、可观察的行为事实，不包含推测或评价',
+        items: {
+          type: 'object',
+          properties: {
+            behavior: {
+              type: 'string',
+              description: '行为描述：简洁客观地描述孩子做了什么（20-50字）。例如："孩子主动抓取蓝色积木并尝试堆叠了3层"'
+            },
+            context: {
+              type: 'string',
+              description: '发生背景：行为发生时的环境或活动阶段（10-30字）。例如："自由搭建环节，家长在旁观察"'
+            },
+            source: {
+              type: 'string',
+              enum: ['LOG', 'VIDEO', 'PARENT'],
+              description: '证据来源：LOG=聊天/互动日志，VIDEO=视频摘要观察，PARENT=家长口头反馈'
+            },
+            relatedDimensions: {
+              type: 'array',
+              description: '该行为可能关联的兴趣维度（预判，供下游专家参考）',
+              items: {
+                type: 'string',
+                enum: ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social']
+              }
+            }
+          },
+          required: ['behavior', 'context', 'source', 'relatedDimensions'],
+          additionalProperties: false
+        },
+        minItems: 1,
+        maxItems: 15
+      }
+    },
+    required: ['evidences'],
+    additionalProperties: false
+  }
+};
+
+
 export const ProfileUpdateSchema = {
   name: 'profile_update',
   description: '档案更新',

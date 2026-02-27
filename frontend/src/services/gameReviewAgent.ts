@@ -5,22 +5,22 @@
 
 import { qwenStreamClient } from './qwenStreamClient';
 import { GameReviewSchema } from './qwenSchemas';
-import { FloorGame, GameReviewResult, ChildProfile } from '../types';
+import { FloorGame, GameReviewResult, ChildProfile, EvidenceSnippet } from '../types';
 import { floorGameStorageService } from './floorGameStorage';
 import { GAME_REVIEW_SYSTEM_PROMPT, buildGameReviewPrompt } from '../prompts/gameReviewPrompt';
 import { fetchMemoryFacts, formatMemoryFactsForPrompt } from './memoryService';
 import { getAccountId } from './accountService';
 
 /**
- * 对一次地板游戏进行复盘分析
+ * 专家会诊层 (Specialist Agent): DIR/Floortime 游戏复盘专家
+ * 结合历史事实(Facts)与当场提取的证据(Evidences)，给出专业点评
  */
 export async function reviewFloorGame(params: {
   game: FloorGame;
-  chatHistory: string;
-  videoSummary?: string;
+  evidences: EvidenceSnippet[];
   parentFeedback: string;
 }): Promise<GameReviewResult> {
-  const { game, chatHistory, videoSummary, parentFeedback } = params;
+  const { game, evidences, parentFeedback } = params;
 
   console.log('[GameReview] 开始复盘，游戏:', game.gameTitle);
 
@@ -47,8 +47,7 @@ export async function reviewFloorGame(params: {
   const userPrompt = buildGameReviewPrompt({
     childProfile,
     game,
-    chatHistory,
-    videoSummary,
+    evidences,
     parentFeedback,
     memorySection: memorySection || undefined
   });
