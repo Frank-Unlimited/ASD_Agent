@@ -116,6 +116,7 @@ cd backend/
 一键启动脚本会自动：
 - 检查并启动 Neo4j 容器
 - 启动记忆服务（端口 8000）
+- 启动 RAG 知识库服务（端口 8001）
 - 启动 Realtime 视频通话服务（端口 8766）
 
 **停止服务：**
@@ -135,13 +136,21 @@ cd backend/
 uvicorn memory_service:app --port 8000 --reload
 ```
 
+**启动 RAG 知识库服务：**
+```bash
+cd backend/
+uvicorn rag_service:app --port 8001 --reload
+```
+
 **启动 Realtime 服务（可选）：**
 ```bash
 cd backend/
 python qwen_realtime_websocket.py
 ```
 
-服务就绪后访问 `http://localhost:8000/healthcheck` 确认状态。
+服务就绪后访问：
+- 记忆服务：`http://localhost:8000/healthcheck`
+- RAG 服务：`http://localhost:8001/healthcheck`
 
 ---
 

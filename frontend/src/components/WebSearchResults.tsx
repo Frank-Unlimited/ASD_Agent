@@ -4,14 +4,32 @@ import { WebSearchResult } from '../types';
 
 interface WebSearchResultsProps {
   results: WebSearchResult[];
+  query?: string; // 查询关键词
 }
 
-export const WebSearchResults: React.FC<WebSearchResultsProps> = ({ results }) => {
+/**
+ * 提取查询关键词中的关键词标签
+ * 例如："DIR/Floortime 视觉感统游戏设计 2岁儿童 彩色积木"
+ * 提取为：["DIR/Floortime", "视觉感统游戏设计", "2岁儿童", "彩色积木"]
+ */
+function extractKeywords(query: string): string[] {
+  if (!query) return [];
+  
+  // 按空格分割，过滤空字符串
+  const keywords = query.split(/\s+/).filter(k => k.length > 0);
+  
+  // 限制显示前5个关键词
+  return keywords.slice(0, 5);
+}
+
+export const WebSearchResults: React.FC<WebSearchResultsProps> = ({ results, query }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!results || results.length === 0) {
     return null;
   }
+
+  const keywords = extractKeywords(query || '');
 
   return (
     <div className="web-search-results">
@@ -20,7 +38,16 @@ export const WebSearchResults: React.FC<WebSearchResultsProps> = ({ results }) =
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <span className="search-toggle-text">
-          🔍 参考来源 ({results.length})
+          🔍 联网检索：
+          {keywords.length > 0 ? (
+            <span className="keywords-container">
+              {keywords.map((keyword, idx) => (
+                <span key={idx} className="keyword-tag">【{keyword}】</span>
+              ))}
+            </span>
+          ) : (
+            ` 参考来源 (${results.length})`
+          )}
         </span>
         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
@@ -76,6 +103,25 @@ export const WebSearchResults: React.FC<WebSearchResultsProps> = ({ results }) =
 
         .search-toggle-text {
           font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-wrap: wrap;
+        }
+
+        .keywords-container {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          flex-wrap: wrap;
+        }
+
+        .keyword-tag {
+          display: inline-block;
+          font-size: 12px;
+          font-weight: 500;
+          color: #4f46e5;
+          white-space: nowrap;
         }
 
         .search-results-list {

@@ -99,6 +99,8 @@ import AIVideoCall from './components/AIVideoCall';
 import { AIAssistantPanel } from './components/AIAssistantPanel';
 import FeedbackSurvey from './components/FeedbackSurvey';
 import { WebSearchResults } from './components/WebSearchResults';
+import { MemoryResults } from './components/MemoryResults';
+import { RAGResults } from './components/RAGResults';
 import defaultAvatar from './img/cute_dog.jpg';
 
 // ---------------------------------------------------------------------------
@@ -1039,43 +1041,43 @@ const PageAIChat = ({
                 (async () => {
                   try {
                     console.log('[Tool Call] 兴趣分析...', args);
-                    console.log('[Tool Call] 当前 tempMsgId:', tempMsgId);
 
-                    // 使用函数式更新，避免闭包问题
-                    setMessages(prev => {
-                      console.log('[Tool Call] 开始更新消息，当前消息数:', prev.length);
-                      const targetMsg = prev.find(m => m.id === tempMsgId);
-                      console.log('[Tool Call] 找到目标消息:', !!targetMsg, '当前文本长度:', targetMsg?.text.length);
-
-                      return prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text;
-                          updatedText += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
-                            tool: 'analyze_interest',
-                            status: 'running',
-                            params: args
-                          })}:::TOOL_CALL_END:::\n`;
-                          updatedText += `🔍 正在分析${currentChildProfile?.name || '孩子'}的兴趣维度...`;
-                          console.log('[Tool Call] 更新后文本长度:', updatedText.length);
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      });
-                    });
+                    // 添加工具调用卡片标记
+                    fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                      tool: 'analyze_interest',
+                      status: 'running',
+                      params: args
+                    })}:::TOOL_CALL_END:::\n`;
+                    
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === tempMsgId
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
 
                     const { analyzeInterestDimensions } = await import('./services/gameRecommendConversationalAgent');
                     const { calculateDimensionMetrics } = await import('./services/historicalDataHelper');
 
                     if (!currentChildProfile) {
+                      // 更新工具调用状态为失败
+                      fullResponse = fullResponse.replace(
+                        /:::TOOL_CALL_START:::.*?"tool":"analyze_interest".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                        (match) => {
+                          const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                          toolData.status = 'error';
+                          toolData.error = '需要先完善孩子的档案信息';
+                          return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                        }
+                      );
+                      fullResponse += `\n\n需要先完善孩子的档案信息才能推荐游戏哦。`;
                       setMessages(prev =>
-                        prev.map(msg => {
-                          if (msg.id === tempMsgId) {
-                            let updatedText = msg.text.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
-                            updatedText += `\n\n需要先完善孩子的档案信息才能推荐游戏哦。`;
-                            return { ...msg, text: updatedText };
-                          }
-                          return msg;
-                        })
+                        prev.map(msg =>
+                          msg.id === tempMsgId
+                            ? { ...msg, text: fullResponse }
+                            : msg
+                        )
                       );
                       setLoading(false);
                       return;
@@ -1092,53 +1094,52 @@ const PageAIChat = ({
                     };
                     sessionStorage.setItem('interest_analysis_context', JSON.stringify(interestAnalysisContext));
 
-                    // ReAct 进度回调：实时将思维链（工具调用/结果）追加到消息
+                    // ReAct 进度回调：为每个工具调用创建独立的消息气泡（只处理 fetchMemory）
                     const onReActProgress = (event: import('./services/gameRecommendConversationalAgent').ReActProgressEvent) => {
-                      setMessages(prev => prev.map(msg => {
-                        if (msg.id !== tempMsgId) return msg;
-                        let updatedText = msg.text;
-                        if (event.type === 'tool_call') {
-                          const icon = event.toolName === 'fetchMemory' ? '🔧' : '🔍';
-                          const label = event.toolName === 'fetchMemory' ? '查询记忆' : '知识检索';
-                          updatedText += `\n\n${icon} **${label}**：${event.query}`;
-                        } else if (event.type === 'tool_result') {
-                          const raw = event.result.replace(/（暂无.*?）/, '').trim();
-                          if (raw) {
-                            let preview = raw;
-                            
-                            // 智能截断：分别限制专业知识库和网络资源
-                            if (raw.includes('📚 **专业知识库**') || raw.includes('🌐 **网络资源**')) {
-                              const parts: string[] = [];
+                      if (event.type === 'tool_call' && event.toolName === 'fetchMemory') {
+                        // 创建工具调用消息（空文本，只保存查询关键词，由 MemoryResults 组件显示）
+                        const toolCallMsg: ChatMessage = {
+                          id: `${tempMsgId}_tool_${Date.now()}`,
+                          role: 'model',
+                          text: '',  // 空文本，避免重复显示
+                          timestamp: new Date(),
+                          searchQuery: event.query // 保存查询关键词
+                        };
+                        setMessages(prev => [...prev, toolCallMsg]);
+                      } else if (event.type === 'tool_result' && event.toolName === 'fetchMemory') {
+                        // 更新最后一条消息
+                        setMessages(prev => {
+                          const lastMsg = prev[prev.length - 1];
+                          if (!lastMsg || lastMsg.role !== 'model') return prev;
+                          
+                          return prev.map((msg, idx) => {
+                            if (idx === prev.length - 1) {
+                              let updatedMsg = { ...msg };
                               
-                              // 提取并截断专业知识库（150字）
-                              const ragMatch = raw.match(/📚 \*\*专业知识库\*\*：\n([\s\S]*?)(?=🌐 \*\*网络资源\*\*|$)/);
-                              if (ragMatch && ragMatch[1]) {
-                                const ragContent = ragMatch[1].trim();
-                                const ragPreview = ragContent.length > 150 ? ragContent.substring(0, 150) + '…' : ragContent;
-                                parts.push('📚 **专业知识库**：\n' + ragPreview);
+                              // 如果有记忆结果，添加记忆结果列表
+                              if (event.memoryResults && event.memoryResults.length > 0) {
+                                updatedMsg.memoryResults = event.memoryResults;
+                              } else {
+                                // 如果没有记忆结果，显示文本结果
+                                const raw = event.result.replace(/（暂无.*?）/, '').trim();
+                                let resultText = '';
+                                
+                                if (raw) {
+                                  const preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                                  resultText = preview.split('\n').map((l: string) => `> ${l}`).join('\n');
+                                } else {
+                                  resultText = '> （暂无相关记录）';
+                                }
+                                
+                                updatedMsg.text = resultText;
                               }
                               
-                              // 提取并截断网络资源（150字）
-                              const webMatch = raw.match(/🌐 \*\*网络资源\*\*：\n([\s\S]*?)$/);
-                              if (webMatch && webMatch[1]) {
-                                const webContent = webMatch[1].trim();
-                                const webPreview = webContent.length > 150 ? webContent.substring(0, 150) + '…' : webContent;
-                                parts.push('🌐 **网络资源**：\n' + webPreview);
-                              }
-                              
-                              preview = parts.join('\n\n');
-                            } else {
-                              // 其他结果保持280字限制
-                              preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                              return updatedMsg;
                             }
-                            
-                            updatedText += '\n' + preview.split('\n').map((l: string) => `> ${l}`).join('\n');
-                          } else {
-                            updatedText += '\n> （暂无相关记录）';
-                          }
-                        }
-                        return { ...msg, text: updatedText };
-                      }));
+                            return msg;
+                          });
+                        });
+                      }
                     };
 
                     const result = await analyzeInterestDimensions(
@@ -1151,69 +1152,56 @@ const PageAIChat = ({
                     // 保存结果到 sessionStorage
                     sessionStorage.setItem('interest_analysis_result', JSON.stringify(result));
 
-                    // 构建分析结果文本
+                    // 更新工具调用状态为成功
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"analyze_interest".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'success';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+
+                    // 构建分析结果文本（简化版，只保留标题和总结，详细内容在卡片中）
                     let analysisText = `\n\n📊 **${currentChildProfile.name}的兴趣维度分析**\n\n`;
                     analysisText += `${result.summary}\n\n`;
-
-                    // 展示维度分类
-                    const dimLabel = (d: string) => getDimensionConfig(d).label;
-                    if (result.leverageDimensions.length > 0) {
-                      analysisText += `✅ **可利用的维度**（孩子已有兴趣）：${result.leverageDimensions.map(dimLabel).join('、')}\n`;
-                    }
-                    if (result.exploreDimensions.length > 0) {
-                      analysisText += `🔍 **可探索的维度**（有潜力发展）：${result.exploreDimensions.map(dimLabel).join('、')}\n`;
-                    }
-                    if (result.avoidDimensions.length > 0) {
-                      analysisText += `⚠️ **暂时避免的维度**：${result.avoidDimensions.map(dimLabel).join('、')}\n`;
-                    }
-
-                    // 展示干预建议
-                    analysisText += `\n💡 **干预建议**：\n`;
-                    result.interventionSuggestions.forEach((s, idx) => {
-                      const strategyLabel = s.strategy === 'leverage' ? '利用兴趣' : '探索拓展';
-                      analysisText += `\n${idx + 1}. **${getDimensionConfig(s.targetDimension).label}**（${strategyLabel}）\n`;
-                      analysisText += `   ${s.suggestion}\n`;
-                      analysisText += `   📌 ${s.rationale}\n`;
-                    });
-
-                    analysisText += `\n您想从哪些维度入手？可以告诉我想用的策略（利用已有兴趣/探索新维度/混合）。`;
+                    analysisText += `详细的维度分类和干预建议请查看下方分析卡片。您想从哪些维度入手？`;
                     analysisText += `\n\n:::INTEREST_ANALYSIS:${JSON.stringify(result)}:::`;
 
-                    // 更新消息：移除 loading 文本，添加分析结果
-                    setMessages(prev =>
-                      prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text;
-                          // 更新工具调用状态
-                          updatedText = updatedText.replace(
-                            /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
-                            (match) => {
-                              const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
-                              toolData.status = 'success';
-                              return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
-                            }
-                          );
-                          updatedText = updatedText.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
-                          updatedText += analysisText;
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      })
-                    );
+                    fullResponse += analysisText;
+                    
+                    // 将主消息移到最后（在所有搜索结果气泡之后）
+                    setMessages(prev => {
+                      const mainMsg = prev.find(msg => msg.id === tempMsgId);
+                      if (!mainMsg) return prev;
+                      
+                      const otherMsgs = prev.filter(msg => msg.id !== tempMsgId);
+                      return [...otherMsgs, { ...mainMsg, text: fullResponse }];
+                    });
 
                     // 工具调用完成，关闭 loading
                     setLoading(false);
                   } catch (error) {
                     console.error('[Tool Call] 兴趣分析失败:', error);
+                    
+                    // 更新工具调用状态为失败
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"analyze_interest".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'error';
+                        toolData.error = error instanceof Error ? error.message : '未知错误';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+                    fullResponse += `\n\n兴趣分析时出现错误，请稍后重试。`;
+                    
                     setMessages(prev =>
-                      prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
-                          updatedText += `\n\n兴趣分析时出现错误，请稍后重试。`;
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      })
+                      prev.map(msg =>
+                        msg.id === tempMsgId
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
                     );
                     setLoading(false);
                   }
@@ -1226,35 +1214,41 @@ const PageAIChat = ({
                   try {
                     console.log('[Tool Call] 生成地板游戏计划...', args);
 
-                    // 使用函数式更新，避免闭包问题
+                    // 添加工具调用卡片标记
+                    fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                      tool: 'plan_floor_game',
+                      status: 'running',
+                      params: args
+                    })}:::TOOL_CALL_END:::\n`;
+                    
                     setMessages(prev =>
-                      prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text;
-                          updatedText += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
-                            tool: 'plan_floor_game',
-                            status: 'running',
-                            params: args
-                          })}:::TOOL_CALL_END:::\n`;
-                          updatedText += `\n✨ 正在设计游戏方案...`;
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      })
+                      prev.map(msg =>
+                        msg.id === tempMsgId
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
                     );
 
                     // 从 sessionStorage 读取上下文
                     const contextStr = sessionStorage.getItem('interest_analysis_context');
                     if (!contextStr || !currentChildProfile) {
+                      // 更新工具调用状态为失败
+                      fullResponse = fullResponse.replace(
+                        /:::TOOL_CALL_START:::.*?"tool":"plan_floor_game".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                        (match) => {
+                          const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                          toolData.status = 'error';
+                          toolData.error = '需要先进行兴趣分析';
+                          return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                        }
+                      );
+                      fullResponse += `\n\n请先进行兴趣分析后再生成游戏方案。`;
                       setMessages(prev =>
-                        prev.map(msg => {
-                          if (msg.id === tempMsgId) {
-                            let updatedText = msg.text.replace('✨ 正在设计游戏方案...', '');
-                            updatedText += `\n\n请先进行兴趣分析后再生成游戏方案。`;
-                            return { ...msg, text: updatedText };
-                          }
-                          return msg;
-                        })
+                        prev.map(msg =>
+                          msg.id === tempMsgId
+                            ? { ...msg, text: fullResponse }
+                            : msg
+                        )
                       );
                       setLoading(false);
                       return;
@@ -1283,63 +1277,67 @@ const PageAIChat = ({
 
                     const { generateFloorGamePlan } = await import('./services/gameRecommendConversationalAgent');
 
-                    // 收集所有搜索结果
-                    let allSearchResults: import('./types').WebSearchResult[] = [];
-
-                    // ReAct 进度回调：实时将思维链（工具调用/结果）追加到消息
+                    // ReAct 进度回调：为每个工具调用创建独立的消息气泡
                     const onReActProgress = (event: import('./services/gameRecommendConversationalAgent').ReActProgressEvent) => {
-                      setMessages(prev => prev.map(msg => {
-                        if (msg.id !== tempMsgId) return msg;
-                        let updatedText = msg.text;
-                        if (event.type === 'tool_call') {
-                          const icon = event.toolName === 'fetchMemory' ? '🔧' : '🔍';
-                          const label = event.toolName === 'fetchMemory' ? '查询记忆' : '知识检索';
-                          updatedText += `\n\n${icon} **${label}**：${event.query}`;
-                        } else if (event.type === 'tool_result') {
-                          // 收集搜索结果
-                          if (event.searchResults && event.searchResults.length > 0) {
-                            console.log('[App] 收到搜索结果:', event.searchResults.length, '个');
-                            allSearchResults = [...allSearchResults, ...event.searchResults];
-                            console.log('[App] 累计搜索结果:', allSearchResults.length, '个');
-                          }
+                      if (event.type === 'tool_call') {
+                        // 创建工具调用消息（空文本，只保存查询关键词，由组件显示）
+                        const toolCallMsg: ChatMessage = {
+                          id: `${tempMsgId}_tool_${Date.now()}`,
+                          role: 'model',
+                          text: '',  // 空文本，避免重复显示
+                          timestamp: new Date(),
+                          searchQuery: event.query // 保存查询关键词
+                        };
+                        setMessages(prev => [...prev, toolCallMsg]);
+                      } else if (event.type === 'tool_result') {
+                        // 更新最后一条消息
+                        setMessages(prev => {
+                          const lastMsg = prev[prev.length - 1];
+                          if (!lastMsg || lastMsg.role !== 'model') return prev;
                           
-                          const raw = event.result.replace(/（暂无.*?）/, '').trim();
-                          if (raw) {
-                            let preview = raw;
-                            
-                            // 智能截断：分别限制专业知识库和网络资源
-                            if (raw.includes('📚 **专业知识库**') || raw.includes('🌐 **网络资源**')) {
-                              const parts: string[] = [];
+                          return prev.map((msg, idx) => {
+                            if (idx === prev.length - 1) {
+                              let updatedMsg = { ...msg };
                               
-                              // 提取并截断专业知识库（150字）
-                              const ragMatch = raw.match(/📚 \*\*专业知识库\*\*：\n([\s\S]*?)(?=🌐 \*\*网络资源\*\*|$)/);
-                              if (ragMatch && ragMatch[1]) {
-                                const ragContent = ragMatch[1].trim();
-                                const ragPreview = ragContent.length > 150 ? ragContent.substring(0, 150) + '…' : ragContent;
-                                parts.push('📚 **专业知识库**：\n' + ragPreview);
+                              // 如果有搜索结果（fetchKnowledge），添加搜索结果列表
+                              if (event.searchResults && event.searchResults.length > 0) {
+                                updatedMsg.searchResults = event.searchResults;
                               }
                               
-                              // 提取并截断网络资源（150字）
-                              const webMatch = raw.match(/🌐 \*\*网络资源\*\*：\n([\s\S]*?)$/);
-                              if (webMatch && webMatch[1]) {
-                                const webContent = webMatch[1].trim();
-                                const webPreview = webContent.length > 150 ? webContent.substring(0, 150) + '…' : webContent;
-                                parts.push('🌐 **网络资源**：\n' + webPreview);
+                              // 如果有RAG结果（fetchKnowledge），添加RAG结果列表
+                              if (event.ragResults && event.ragResults.length > 0) {
+                                updatedMsg.ragResults = event.ragResults;
                               }
                               
-                              preview = parts.join('\n\n');
-                            } else {
-                              // 其他结果保持280字限制
-                              preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                              // 如果有记忆结果（fetchMemory），添加记忆结果列表
+                              if (event.memoryResults && event.memoryResults.length > 0) {
+                                updatedMsg.memoryResults = event.memoryResults;
+                              }
+                              
+                              // 如果既没有搜索结果也没有记忆结果也没有RAG结果，显示文本结果
+                              if ((!event.searchResults || event.searchResults.length === 0) && 
+                                  (!event.memoryResults || event.memoryResults.length === 0) &&
+                                  (!event.ragResults || event.ragResults.length === 0)) {
+                                const raw = event.result.replace(/（暂无.*?）/, '').trim();
+                                let resultText = '';
+                                
+                                if (raw) {
+                                  // 限制280字
+                                  const preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                                  resultText = preview.split('\n').map((l: string) => `> ${l}`).join('\n');
+                                } else {
+                                  resultText = '> （暂无相关记录）';
+                                }
+                                
+                                updatedMsg.text = resultText;
+                              }
+                              
+                              return updatedMsg;
                             }
-                            
-                            updatedText += '\n' + preview.split('\n').map((l: string) => `> ${l}`).join('\n');
-                          } else {
-                            updatedText += '\n> （暂无相关记录）';
-                          }
-                        }
-                        return { ...msg, text: updatedText };
-                      }));
+                            return msg;
+                          });
+                        });
+                      }
                     };
 
                     const plan = await generateFloorGamePlan(
@@ -1352,22 +1350,13 @@ const PageAIChat = ({
                       onReActProgress
                     );
 
-                    // 构建游戏方案文本
+                    // 构建游戏方案文本（只保留分析总结，详细内容在游戏卡片中）
                     let planText = '';
                     if (plan._analysis) {
-                      planText += `\n\n💡 ${plan._analysis}\n`;
+                      planText += `💡 ${plan._analysis}\n\n`;
                     }
-
-                    planText += `\n太棒了！我为${currentChildProfile.name}设计了"${plan.gameTitle}"：\n\n`;
-                    planText += `📝 **游戏概要**\n${plan.summary}\n\n`;
-                    planText += `🎯 **游戏目标**\n${plan.goal}\n\n`;
-                    planText += `📋 **游戏步骤**\n`;
-                    plan.steps.forEach((step) => {
-                      planText += `\n**${step.stepTitle}**\n`;
-                      planText += `${step.instruction}\n`;
-                    });
-
-                    planText += `\n如果您觉得这个方案合适，我们就可以开始游戏了！\n\n`;
+                    
+                    planText += `太棒了！我为${currentChildProfile.name}设计了"${plan.gameTitle}"，详细内容请查看下方游戏卡片。\n\n`;
 
                     // 构建 FloorGame 对象并持久化
                     const floorGame: FloorGame = {
@@ -1422,51 +1411,52 @@ const PageAIChat = ({
 
                     planText += `:::GAME_IMPLEMENTATION_PLAN:${JSON.stringify({ game: gameForCard, plan })}:::`;
 
-                    console.log('[App] 游戏方案生成完成，准备附加搜索结果:', allSearchResults.length, '个');
+                    console.log('[App] 游戏方案生成完成');
 
-                    // 更新消息：移除 loading 文本，添加游戏方案，附加搜索结果
-                    setMessages(prev =>
-                      prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text;
-                          // 更新工具调用状态
-                          updatedText = updatedText.replace(
-                            /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
-                            (match) => {
-                              const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
-                              toolData.status = 'success';
-                              return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
-                            }
-                          );
-                          updatedText = updatedText.replace('✨ 正在设计游戏方案...', '');
-                          updatedText += planText;
-                          
-                          const finalSearchResults = allSearchResults.length > 0 ? allSearchResults : undefined;
-                          console.log('[App] 最终消息附加搜索结果:', finalSearchResults?.length || 0, '个');
-                          
-                          return { 
-                            ...msg, 
-                            text: updatedText,
-                            searchResults: finalSearchResults
-                          };
-                        }
-                        return msg;
-                      })
+                    // 更新工具调用状态为成功
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"plan_floor_game".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'success';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
                     );
+                    
+                    fullResponse += planText;
+                    
+                    // 将主消息移到最后（在所有搜索结果气泡之后）
+                    setMessages(prev => {
+                      const mainMsg = prev.find(msg => msg.id === tempMsgId);
+                      if (!mainMsg) return prev;
+                      
+                      const otherMsgs = prev.filter(msg => msg.id !== tempMsgId);
+                      return [...otherMsgs, { ...mainMsg, text: fullResponse }];
+                    });
 
                     // 工具调用完成，关闭 loading
                     setLoading(false);
                   } catch (error) {
                     console.error('[Tool Call] 生成游戏计划失败:', error);
+                    
+                    // 更新工具调用状态为失败
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"plan_floor_game".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'error';
+                        toolData.error = error instanceof Error ? error.message : '未知错误';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+                    fullResponse += `\n\n生成游戏方案时出现错误，请稍后重试。`;
+                    
                     setMessages(prev =>
-                      prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text.replace('✨ 正在设计游戏方案...', '');
-                          updatedText += `\n\n生成游戏方案时出现错误，请稍后重试。`;
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      })
+                      prev.map(msg =>
+                        msg.id === tempMsgId
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
                     );
                     setLoading(false);
                   }
@@ -2031,16 +2021,36 @@ const PageAIChat = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-5 pb-32">
         {messages.map((msg) => {
           const { cleanText, card } = parseMessageContent(msg.text);
+          const hasContent = cleanText.trim().length > 0;
+          const hasResults = (msg.searchResults && msg.searchResults.length > 0) || (msg.memoryResults && msg.memoryResults.length > 0);
+          
           return (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              <div className={`max-w-[88%] p-4 rounded-2xl shadow-sm leading-relaxed text-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
-                {msg.role === 'user' ? cleanText : <ReactMarkdown components={{ strong: ({ node, ...props }) => <span className="font-bold text-gray-900" {...props} /> }}>{cleanText}</ReactMarkdown>}
-              </div>
+              {/* 只在有内容时显示消息气泡 */}
+              {hasContent && (
+                <div className={`max-w-[88%] p-4 rounded-2xl shadow-sm leading-relaxed text-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
+                  {msg.role === 'user' ? cleanText : <ReactMarkdown components={{ strong: ({ node, ...props }) => <span className="font-bold text-gray-900" {...props} /> }}>{cleanText}</ReactMarkdown>}
+                </div>
+              )}
               
               {/* Web搜索结果展示 */}
               {msg.searchResults && msg.searchResults.length > 0 && (
-                <div className="mt-2 max-w-[88%] w-full">
-                  <WebSearchResults results={msg.searchResults} />
+                <div className={`${hasContent ? 'mt-2' : ''} max-w-[88%] w-full`}>
+                  <WebSearchResults results={msg.searchResults} query={msg.searchQuery} />
+                </div>
+              )}
+              
+              {/* RAG知识库结果展示 */}
+              {msg.ragResults && msg.ragResults.length > 0 && (
+                <div className={`${hasContent || (msg.searchResults && msg.searchResults.length > 0) ? 'mt-2' : ''} max-w-[88%] w-full`}>
+                  <RAGResults results={msg.ragResults} query={msg.searchQuery} />
+                </div>
+              )}
+              
+              {/* 记忆搜索结果展示 */}
+              {msg.memoryResults && msg.memoryResults.length > 0 && (
+                <div className={`${hasContent || (msg.searchResults && msg.searchResults.length > 0) || (msg.ragResults && msg.ragResults.length > 0) ? 'mt-2' : ''} max-w-[88%] w-full`}>
+                  <MemoryResults results={msg.memoryResults} query={msg.searchQuery} />
                 </div>
               )}
               

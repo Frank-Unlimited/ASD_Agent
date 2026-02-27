@@ -5,13 +5,14 @@
 
 import { bochaSearchService, BochaSearchResult } from './bochaSearchService';
 import { ragService } from './ragService';
-import { WebSearchResult } from '../types';
+import { WebSearchResult, RAGResult } from '../types';
 
 export interface KnowledgeSearchResult {
   web: string;       // 联网搜索结果（文本）
   rag: string;       // RAG 结果
   combined: string;  // 合并后的结果
   webResults?: WebSearchResult[];  // 联网搜索结果（结构化）
+  ragResults?: RAGResult[];  // RAG 结果（结构化）
 }
 
 class KnowledgeService {
@@ -38,12 +39,12 @@ class KnowledgeService {
         ? bochaSearchService.search(query, { count: options?.webCount || 5, summary: true })
         : Promise.resolve([]),
       useRAG
-        ? ragService.searchAndFormat(query, options?.ragCount || 5)
-        : Promise.resolve(''),
+        ? ragService.search(query, { topK: options?.ragCount || 5 })
+        : Promise.resolve([]),
     ]);
 
     const webSearchResults = webResult.status === 'fulfilled' ? webResult.value : [];
-    const rag = ragResult.status === 'fulfilled' ? ragResult.value : '';
+    const ragNodes = ragResult.status === 'fulfilled' ? ragResult.value : [];
 
     // 格式化web搜索结果为文本
     const webText = webSearchResults.length > 0
@@ -51,6 +52,17 @@ class KnowledgeService {
           .map((result, index) => {
             const summary = result.summary || result.snippet;
             return `${index + 1}. ${result.name}\n   ${summary}\n   来源: ${result.siteName}`;
+          })
+          .join('\n\n')
+      : '';
+
+    // 格式化RAG结果为文本
+    const ragText = ragNodes.length > 0
+      ? ragNodes
+          .map((node, index) => {
+            const docName = node.metadata?.doc_name || node.metadata?.title || '未知文档';
+            const score = ((node.score || 0) * 100).toFixed(1);
+            return `${index + 1}. [相关度: ${score}%] ${node.text}\n   来源: ${docName}`;
           })
           .join('\n\n')
       : '';
@@ -63,11 +75,20 @@ class KnowledgeService {
       siteName: result.siteName
     }));
 
+    // 转换为RAGResult格式
+    const ragResults: RAGResult[] = ragNodes.map(node => ({
+      text: node.text,
+      score: node.score,
+      docName: node.metadata?.doc_name || node.metadata?.title || '未知文档',
+      metadata: node.metadata
+    }));
+
     return {
       web: webText,
-      rag,
-      combined: this.mergeResults(webText, rag),
-      webResults
+      rag: ragText,
+      combined: this.mergeResults(webText, ragText),
+      webResults,
+      ragResults
     };
   }
 

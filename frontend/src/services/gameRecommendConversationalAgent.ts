@@ -38,7 +38,7 @@ const MAX_REACT_ITERATIONS = 5;
  */
 export type ReActProgressEvent =
   | { type: 'tool_call'; toolName: 'fetchMemory' | 'fetchKnowledge'; query: string }
-  | { type: 'tool_result'; toolName: 'fetchMemory' | 'fetchKnowledge'; result: string; searchResults?: WebSearchResult[] };
+  | { type: 'tool_result'; toolName: 'fetchMemory' | 'fetchKnowledge'; result: string; searchResults?: WebSearchResult[]; memoryResults?: any[]; ragResults?: any[] };
 
 export type OnReActProgress = (event: ReActProgressEvent) => void;
 
@@ -70,7 +70,7 @@ async function runReActLoop(
   systemPrompt: string,
   userPrompt: string,
   tools: ToolDefinition[],
-  toolHandlers: Record<string, (args: Record<string, string>) => Promise<string | { text: string; searchResults?: WebSearchResult[] }>>,
+  toolHandlers: Record<string, (args: Record<string, string>) => Promise<string | { text: string; searchResults?: WebSearchResult[]; memoryResults?: any[]; ragResults?: any[] }>>,
   onProgress?: OnReActProgress
 ): Promise<string> {
   const messages: QwenMessage[] = [
@@ -121,27 +121,44 @@ async function runReActLoop(
           console.error(`[ReAct] 未知工具: ${toolName}`);
         } else {
           const handlerResult = await handler(args);
-          // 如果是 fetchKnowledge，返回值可能包含搜索结果
+          let memoryResults: any[] | undefined;
+          let ragResults: any[] | undefined;
+          
+          // 如果返回对象，提取 text 和结果数据
           if (handlerResult && typeof handlerResult === 'object' && 'text' in handlerResult) {
             toolResult = handlerResult.text;
             searchResults = handlerResult.searchResults;
-            console.log(`[ReAct] fetchKnowledge 返回 ${searchResults?.length || 0} 个搜索结果`);
+            memoryResults = (handlerResult as any).memoryResults;
+            ragResults = (handlerResult as any).ragResults;
+            console.log(`[ReAct] ${toolName} 返回 ${searchResults?.length || 0} 个搜索结果, ${memoryResults?.length || 0} 个记忆结果, ${ragResults?.length || 0} 个RAG结果`);
+            
+            // 通知 UI：工具返回结果
+            onProgress?.({
+              type: 'tool_result',
+              toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
+              result: toolResult,
+              searchResults,
+              memoryResults,
+              ragResults
+            });
           } else if (typeof handlerResult === 'string') {
             toolResult = handlerResult;
+            // 通知 UI：工具返回结果
+            onProgress?.({
+              type: 'tool_result',
+              toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
+              result: toolResult
+            });
           } else {
             toolResult = '';
+            onProgress?.({
+              type: 'tool_result',
+              toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
+              result: toolResult
+            });
           }
           console.log(`[ReAct] 工具 ${toolName} 返回 ${toolResult.length} 字符`);
         }
-
-        // 通知 UI：工具返回结果
-        onProgress?.({
-          type: 'tool_result',
-          toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
-          result: toolResult,
-          searchResults
-        });
-        console.log(`[ReAct] 通知 UI，searchResults:`, searchResults?.length || 0);
       } catch (err) {
         // 工具执行失败不终止循环，将错误信息回传给 LLM 继续推理
         toolResult = `[工具执行失败] ${err instanceof Error ? err.message : String(err)}`;
@@ -177,7 +194,12 @@ function buildInterestAnalysisHandlers(accountId: string) {
       const query = args.query || '';
       console.log('[ReAct/fetchMemory] 查询:', query);
       const facts = await fetchMemoryFacts(accountId, query, 15);
-      return formatMemoryFactsForPrompt(facts) || '（暂无相关历史记忆）';
+      
+      // 返回包含文本和记忆结果的对象
+      return {
+        text: formatMemoryFactsForPrompt(facts) || '（暂无相关历史记忆）',
+        memoryResults: facts
+      };
     }
   };
 }
@@ -192,7 +214,12 @@ function buildGamePlanHandlers(accountId: string) {
       const query = args.query || '';
       console.log('[ReAct/fetchMemory] 查询:', query);
       const facts = await fetchMemoryFacts(accountId, query, 15);
-      return formatMemoryFactsForPrompt(facts) || '（暂无相关历史记忆）';
+      
+      // 返回包含文本和记忆结果的对象
+      return {
+        text: formatMemoryFactsForPrompt(facts) || '（暂无相关历史记忆）',
+        memoryResults: facts
+      };
     },
     fetchKnowledge: async (args: Record<string, string>) => {
       const query = args.query || '';
@@ -209,7 +236,8 @@ function buildGamePlanHandlers(accountId: string) {
       // 返回包含文本和搜索结果的对象
       return {
         text: result.combined || '（暂无相关搜索结果）',
-        searchResults: result.webResults || []
+        searchResults: result.webResults || [],
+        ragResults: result.ragResults || []
       };
     }
   };

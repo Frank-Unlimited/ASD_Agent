@@ -82,6 +82,22 @@ export interface WebSearchResult {
   siteName: string;       // 网站名称
 }
 
+// 记忆搜索结果项
+export interface MemoryResult {
+  text: string;
+  valid_at: string | null;
+  invalid_at: string | null;
+  pending: boolean;
+}
+
+// RAG 知识库搜索结果项
+export interface RAGResult {
+  text: string;
+  score: number;
+  docName: string;
+  metadata: Record<string, any>;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
@@ -89,6 +105,9 @@ export interface ChatMessage {
   timestamp: Date;
   options?: string[]; // New: Suggested replies/chips for this message
   searchResults?: WebSearchResult[]; // Web搜索结果（可选）
+  memoryResults?: MemoryResult[]; // 记忆搜索结果（可选）
+  ragResults?: RAGResult[]; // RAG知识库搜索结果（可选）
+  searchQuery?: string; // 搜索查询关键词（可选）
 }
 
 export interface LogEntry {
