@@ -22,7 +22,8 @@ class ChatStorageService {
       // 转换 timestamp 为 Date 对象
       return messages.map((msg: any) => ({
         ...msg,
-        timestamp: new Date(msg.timestamp)
+        timestamp: new Date(msg.timestamp),
+        searchResults: msg.searchResults || undefined  // 保留搜索结果
       }));
     } catch (error) {
       console.error('Failed to load chat history:', error);
@@ -83,11 +84,22 @@ class ChatStorageService {
    * 获取默认欢迎消息
    */
   getDefaultMessages(): ChatMessage[] {
+    const greetings = [
+      "嗨，很高兴见到你！我是你的地板时光伙伴 🌟\n\n我看了孩子最近的情况，咱们今天想聊点什么？",
+      "你好呀！我已经准备好了 ✨\n\n看了孩子的档案，感觉今天可以有不少收获。想从哪里开始？",
+      "欢迎回来！👋\n\n我刚温习了孩子的成长记录，有什么想一起探讨的吗？",
+      "Hi！地板时光助手在线 🎯\n\n孩子的档案我都看过了，今天想重点关注哪方面呢？",
+      "你来啦！很开心能陪伴你们 💫\n\n我已经了解了孩子的最新状态，咱们聊聊接下来的计划？"
+    ];
+
+    // 随机选择一条欢迎语
+    const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+
     return [
       {
         id: '1',
         role: 'model',
-        text: "**你好！我是地板时光助手。** 👋 \n\n我已读取了孩子的最新档案。今天我们重点关注什么？",
+        text: randomGreeting,
         timestamp: new Date()
       }
     ];

@@ -74,12 +74,21 @@ export interface CalendarEvent {
   time?: string;
 }
 
+// Web搜索结果项
+export interface WebSearchResult {
+  name: string;           // 标题
+  url: string;            // URL
+  snippet: string;        // 简短描述
+  siteName: string;       // 网站名称
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
   text: string;
   timestamp: Date;
   options?: string[]; // New: Suggested replies/chips for this message
+  searchResults?: WebSearchResult[]; // Web搜索结果（可选）
 }
 
 export interface LogEntry {

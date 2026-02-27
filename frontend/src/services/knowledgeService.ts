@@ -3,13 +3,15 @@
  * 并行调用联网搜索 + RAG 知识库，合并结果
  */
 
-import { bochaSearchService } from './bochaSearchService';
+import { bochaSearchService, BochaSearchResult } from './bochaSearchService';
 import { ragService } from './ragService';
+import { WebSearchResult } from '../types';
 
 export interface KnowledgeSearchResult {
-  web: string;       // 联网搜索结果
+  web: string;       // 联网搜索结果（文本）
   rag: string;       // RAG 结果
   combined: string;  // 合并后的结果
+  webResults?: WebSearchResult[];  // 联网搜索结果（结构化）
 }
 
 class KnowledgeService {
@@ -33,20 +35,39 @@ class KnowledgeService {
     // 并行调用
     const [webResult, ragResult] = await Promise.allSettled([
       useWeb
-        ? bochaSearchService.searchAndFormat(query, options?.webCount || 5)
-        : Promise.resolve(''),
+        ? bochaSearchService.search(query, { count: options?.webCount || 5, summary: true })
+        : Promise.resolve([]),
       useRAG
         ? ragService.searchAndFormat(query, options?.ragCount || 5)
         : Promise.resolve(''),
     ]);
 
-    const web = webResult.status === 'fulfilled' ? webResult.value : '';
+    const webSearchResults = webResult.status === 'fulfilled' ? webResult.value : [];
     const rag = ragResult.status === 'fulfilled' ? ragResult.value : '';
 
+    // 格式化web搜索结果为文本
+    const webText = webSearchResults.length > 0
+      ? webSearchResults
+          .map((result, index) => {
+            const summary = result.summary || result.snippet;
+            return `${index + 1}. ${result.name}\n   ${summary}\n   来源: ${result.siteName}`;
+          })
+          .join('\n\n')
+      : '';
+
+    // 转换为WebSearchResult格式
+    const webResults: WebSearchResult[] = webSearchResults.map(result => ({
+      name: result.name,
+      url: result.url,
+      snippet: result.snippet,
+      siteName: result.siteName
+    }));
+
     return {
-      web,
+      web: webText,
       rag,
-      combined: this.mergeResults(web, rag),
+      combined: this.mergeResults(webText, rag),
+      webResults
     };
   }
 

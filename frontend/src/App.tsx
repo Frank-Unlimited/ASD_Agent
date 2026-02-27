@@ -98,6 +98,7 @@ import { GameStepCard } from './components/GameStepCard';
 import AIVideoCall from './components/AIVideoCall';
 import { AIAssistantPanel } from './components/AIAssistantPanel';
 import FeedbackSurvey from './components/FeedbackSurvey';
+import { WebSearchResults } from './components/WebSearchResults';
 import defaultAvatar from './img/cute_dog.jpg';
 
 // ---------------------------------------------------------------------------
@@ -1282,6 +1283,9 @@ const PageAIChat = ({
 
                     const { generateFloorGamePlan } = await import('./services/gameRecommendConversationalAgent');
 
+                    // 收集所有搜索结果
+                    let allSearchResults: import('./types').WebSearchResult[] = [];
+
                     // ReAct 进度回调：实时将思维链（工具调用/结果）追加到消息
                     const onReActProgress = (event: import('./services/gameRecommendConversationalAgent').ReActProgressEvent) => {
                       setMessages(prev => prev.map(msg => {
@@ -1292,6 +1296,13 @@ const PageAIChat = ({
                           const label = event.toolName === 'fetchMemory' ? '查询记忆' : '知识检索';
                           updatedText += `\n\n${icon} **${label}**：${event.query}`;
                         } else if (event.type === 'tool_result') {
+                          // 收集搜索结果
+                          if (event.searchResults && event.searchResults.length > 0) {
+                            console.log('[App] 收到搜索结果:', event.searchResults.length, '个');
+                            allSearchResults = [...allSearchResults, ...event.searchResults];
+                            console.log('[App] 累计搜索结果:', allSearchResults.length, '个');
+                          }
+                          
                           const raw = event.result.replace(/（暂无.*?）/, '').trim();
                           if (raw) {
                             let preview = raw;
@@ -1411,7 +1422,9 @@ const PageAIChat = ({
 
                     planText += `:::GAME_IMPLEMENTATION_PLAN:${JSON.stringify({ game: gameForCard, plan })}:::`;
 
-                    // 更新消息：移除 loading 文本，添加游戏方案
+                    console.log('[App] 游戏方案生成完成，准备附加搜索结果:', allSearchResults.length, '个');
+
+                    // 更新消息：移除 loading 文本，添加游戏方案，附加搜索结果
                     setMessages(prev =>
                       prev.map(msg => {
                         if (msg.id === tempMsgId) {
@@ -1427,7 +1440,15 @@ const PageAIChat = ({
                           );
                           updatedText = updatedText.replace('✨ 正在设计游戏方案...', '');
                           updatedText += planText;
-                          return { ...msg, text: updatedText };
+                          
+                          const finalSearchResults = allSearchResults.length > 0 ? allSearchResults : undefined;
+                          console.log('[App] 最终消息附加搜索结果:', finalSearchResults?.length || 0, '个');
+                          
+                          return { 
+                            ...msg, 
+                            text: updatedText,
+                            searchResults: finalSearchResults
+                          };
                         }
                         return msg;
                       })
@@ -2015,6 +2036,14 @@ const PageAIChat = ({
               <div className={`max-w-[88%] p-4 rounded-2xl shadow-sm leading-relaxed text-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
                 {msg.role === 'user' ? cleanText : <ReactMarkdown components={{ strong: ({ node, ...props }) => <span className="font-bold text-gray-900" {...props} /> }}>{cleanText}</ReactMarkdown>}
               </div>
+              
+              {/* Web搜索结果展示 */}
+              {msg.searchResults && msg.searchResults.length > 0 && (
+                <div className="mt-2 max-w-[88%] w-full">
+                  <WebSearchResults results={msg.searchResults} />
+                </div>
+              )}
+              
               {msg.options && (
                 <div className="mt-3 flex flex-wrap gap-2 animate-in fade-in max-w-[90%]">
                   {msg.options.map((opt, idx) => (
