@@ -29,13 +29,13 @@ export default defineConfig(({ mode }) => {
           '/api/memory': {
             target: 'http://localhost:8000',
             changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api\/memory/, ''),
+            // 不重写路径，保持 /api/memory 前缀
           },
           // 代理 RAG 知识库服务（端口 8001）
           '/api/rag': {
             target: 'http://localhost:8001',
             changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api\/rag/, ''),
+            // 不重写路径，保持 /api/rag 前缀
           },
         },
       },
