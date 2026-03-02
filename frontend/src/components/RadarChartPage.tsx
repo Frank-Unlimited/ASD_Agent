@@ -111,50 +111,50 @@ export const PageRadar = () => {
   };
   
   return (
-    <div className="h-full overflow-y-auto bg-background p-4 pb-20">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 pb-20">
       {/* 标题 */}
-      <div className="mb-4">
-        <h2 className="text-xl font-bold text-gray-800 flex items-center">
-          <TrendingUp className="w-6 h-6 mr-2 text-primary" />
+      <div className="mb-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
+        <h2 className="text-xl font-bold flex items-center">
+          <TrendingUp className="w-6 h-6 mr-2" />
           兴趣维度时间轴
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-indigo-100 mt-1">
           拖动时间轴查看兴趣维度的演变过程
         </p>
       </div>
       
       {/* 图表类型选择 */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
+      <div className="bg-gradient-to-br from-white to-indigo-50 rounded-xl p-4 shadow-lg border-2 border-indigo-100 mb-4">
         <label className="block text-sm font-bold text-gray-700 mb-2">
           显示类型
         </label>
         <div className="flex gap-2">
           <button
             onClick={() => setChartType('weight')}
-            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${
+            className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-bold transition-all transform hover:scale-105 ${
               chartType === 'weight'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
+                : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 border-2 border-gray-200'
             }`}
           >
             关联度
           </button>
           <button
             onClick={() => setChartType('intensity')}
-            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${
+            className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-bold transition-all transform hover:scale-105 ${
               chartType === 'intensity'
-                ? 'bg-green-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg'
+                : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-green-100 border-2 border-gray-200'
             }`}
           >
             强度
           </button>
           <button
             onClick={() => setChartType('both')}
-            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${
+            className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-bold transition-all transform hover:scale-105 ${
               chartType === 'both'
-                ? 'bg-purple-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg'
+                : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 border-2 border-gray-200'
             }`}
           >
             两者
@@ -164,7 +164,7 @@ export const PageRadar = () => {
       
       {/* 时间轴控制 */}
       {timelineData.length > 0 ? (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
+        <div className="bg-gradient-to-br from-white to-purple-50 rounded-xl p-4 shadow-lg border-2 border-purple-100 mb-4">
           {/* 当前日期和数据摘要 */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
@@ -216,7 +216,7 @@ export const PageRadar = () => {
             <button
               onClick={handleReset}
               disabled={currentIndex === 0}
-              className="flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:border-gray-300 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RotateCcw className="w-4 h-4 mr-1" />
               重置
@@ -224,7 +224,7 @@ export const PageRadar = () => {
             <button
               onClick={togglePlay}
               disabled={timelineData.length <= 1}
-              className="flex-1 flex items-center justify-center px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 flex items-center justify-center px-4 py-2.5 bg-gradient-to-r from-primary to-green-600 text-white rounded-lg font-bold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPlaying ? (
                 <>
@@ -250,7 +250,7 @@ export const PageRadar = () => {
       
       {/* 雷达图 */}
       {currentData.totalBehaviors > 0 ? (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div className="bg-gradient-to-br from-white to-indigo-50 rounded-xl p-4 shadow-lg border-2 border-indigo-100">
           <ResponsiveContainer width="100%" height={400}>
             <RadarChart data={chartData}>
               <PolarGrid stroke="#e5e7eb" />

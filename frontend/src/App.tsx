@@ -400,7 +400,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
   const canSubmit = step === 1 || (step === 2 && (inputMode === 'none' || childDiagnosis));
 
   return (
-    <div className="h-full overflow-y-auto bg-gradient-to-br from-green-50 to-blue-50 p-6 flex items-center justify-center">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-green-50 to-blue-50 p-6 flex items-start justify-center pt-24">
       <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-8">
         {/* 标题 - 简化版 */}
         <div className="text-center mb-8">
@@ -448,14 +448,14 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
               </div>
             </div>
 
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">出生日期 *</label>
               <input
                 type="date"
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition relative z-10"
               />
             </div>
 
@@ -511,7 +511,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
             {/* 上传报告模式 */}
             {inputMode === 'report' && (
               <div className="space-y-4 animate-in fade-in">
-                {!reportFile && (
+                {(!reportFile || isAnalyzing) && (
                   <>
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold text-gray-800">上传医疗报告</h4>
@@ -539,14 +539,20 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
 
                     <div
                       onClick={() => !isAnalyzing && fileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isAnalyzing ? 'border-gray-300 bg-gray-50 cursor-not-allowed' : 'border-gray-300 hover:border-primary hover:bg-primary/5 cursor-pointer'
+                      className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isAnalyzing ? 'border-primary bg-primary/5 cursor-not-allowed' : 'border-gray-300 hover:border-primary hover:bg-primary/5 cursor-pointer'
                         }`}
                     >
                       {isAnalyzing ? (
-                        <div className="flex flex-col items-center">
-                          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
-                          <p className="text-gray-600 font-medium">AI 正在分析报告...</p>
-                          <p className="text-xs text-gray-400 mt-1">正在提取文字并生成画像</p>
+                        <div className="flex flex-col items-center py-4">
+                          <div className="relative mb-4">
+                            <div className="w-16 h-16 border-4 border-primary/30 rounded-full"></div>
+                            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                          </div>
+                          <p className="text-primary font-bold text-lg mb-2">AI 正在分析报告...</p>
+                          <p className="text-sm text-gray-600 mb-1">📄 正在提取文字内容</p>
+                          <p className="text-sm text-gray-600 mb-1">✨ 正在生成报告摘要</p>
+                          <p className="text-sm text-gray-600">👤 正在生成孩子画像</p>
+                          <p className="text-xs text-gray-400 mt-3">这可能需要 10-30 秒，请耐心等待</p>
                         </div>
                       ) : (
                         <div>
@@ -1971,7 +1977,7 @@ const PageAIChat = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background relative">
+    <div className="flex flex-col h-full bg-gradient-to-br from-green-50 via-white to-blue-50 relative">
       {/* 未识别到文字的提示 Toast */}
       {showNoSpeechToast && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-in fade-in">
@@ -2012,13 +2018,13 @@ const PageAIChat = ({
           const { cleanText, card } = parseMessageContent(msg.text);
           return (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              <div className={`max-w-[88%] p-4 rounded-2xl shadow-sm leading-relaxed text-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
+              <div className={`max-w-[88%] p-4 rounded-2xl shadow-md leading-relaxed text-sm transition-all hover:shadow-lg ${msg.role === 'user' ? 'bg-gradient-to-r from-primary to-secondary text-white rounded-br-none' : 'bg-white/90 backdrop-blur-sm text-gray-800 rounded-bl-none border-l-4 border-gradient-to-b from-blue-500 to-purple-500'}`}>
                 {msg.role === 'user' ? cleanText : <ReactMarkdown components={{ strong: ({ node, ...props }) => <span className="font-bold text-gray-900" {...props} /> }}>{cleanText}</ReactMarkdown>}
               </div>
               {msg.options && (
                 <div className="mt-3 flex flex-wrap gap-2 animate-in fade-in max-w-[90%]">
                   {msg.options.map((opt, idx) => (
-                    <button key={idx} onClick={() => handleSend(opt)} className="bg-white border border-primary/20 text-primary text-xs font-bold px-3 py-2 rounded-full shadow-sm hover:bg-green-50 active:scale-95 transition">{opt}</button>
+                    <button key={idx} onClick={() => handleSend(opt)} className="bg-white border-2 border-primary/30 text-primary text-xs font-bold px-4 py-2 rounded-full shadow-md hover:bg-gradient-to-r hover:from-primary hover:to-secondary hover:text-white hover:border-transparent hover:shadow-lg hover:scale-105 active:scale-95 transition-all">{opt}</button>
                   ))}
                 </div>
               )}
@@ -2062,19 +2068,19 @@ const PageAIChat = ({
 
               {/* Card Rendering */}
               {card && card.type === 'GAME' && (
-                <div className="mt-2 max-w-[85%] bg-white p-3 rounded-xl border-l-4 border-secondary shadow-md animate-in fade-in">
-                  <div className="flex items-center space-x-2 mb-2"><Sparkles className="w-4 h-4 text-secondary" /><span className="text-xs font-bold text-secondary uppercase">推荐游戏 (基于分析)</span></div>
+                <div className="mt-2 max-w-[85%] bg-gradient-to-br from-yellow-50 to-orange-50 p-4 rounded-xl border-l-4 border-secondary shadow-lg hover:shadow-xl transition-all animate-in fade-in">
+                  <div className="flex items-center space-x-2 mb-2"><Sparkles className="w-5 h-5 text-secondary animate-pulse" /><span className="text-xs font-bold text-secondary uppercase">✨ 推荐游戏</span></div>
                   <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
-                  <button onClick={() => startCheckInFlow(card)} className="w-full bg-secondary text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-blue-600 transition"><Play className="w-4 h-4 mr-2" /> 开始游戏</button>
+                  <button onClick={() => startCheckInFlow(card)} className="w-full bg-gradient-to-r from-secondary to-blue-600 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center hover:shadow-lg transform hover:scale-105 transition-all"><Play className="w-4 h-4 mr-2" /> 开始游戏</button>
                 </div>
               )}
               {card && card.type === 'NAV' && (
-                <div className="mt-2 max-w-[85%] bg-white p-3 rounded-xl border-l-4 border-primary shadow-md animate-in fade-in">
-                  <div className="flex items-center space-x-2 mb-2"><ArrowUpRight className="w-4 h-4 text-primary" /><span className="text-xs font-bold text-primary uppercase">建议操作</span></div>
+                <div className="mt-2 max-w-[85%] bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-xl border-l-4 border-primary shadow-lg hover:shadow-xl transition-all animate-in fade-in">
+                  <div className="flex items-center space-x-2 mb-2"><ArrowUpRight className="w-5 h-5 text-primary" /><span className="text-xs font-bold text-primary uppercase">💡 建议操作</span></div>
                   <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
-                  <button onClick={() => navigateTo(card.page === 'CALENDAR' ? Page.CALENDAR : Page.PROFILE)} className="w-full bg-primary/10 text-primary py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-primary/20 transition">前往查看</button>
+                  <button onClick={() => navigateTo(card.page === 'CALENDAR' ? Page.CALENDAR : Page.PROFILE)} className="w-full bg-gradient-to-r from-primary to-green-600 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center hover:shadow-lg transform hover:scale-105 transition-all">前往查看</button>
                 </div>
               )}
               {card && card.type === 'BEHAVIOR' && (
@@ -2364,14 +2370,14 @@ const PageAIChat = ({
         <div className="pointer-events-auto flex space-x-2 overflow-x-auto no-scrollbar py-2">
           <button
             onClick={() => handleSend("根据孩子最近的情况，推荐一个适合今天的地板游戏")}
-            className="bg-white/90 backdrop-blur shadow-sm px-4 py-2 rounded-full text-xs font-bold text-secondary border border-blue-100 flex items-center hover:bg-white hover:shadow-md transition active:scale-95 whitespace-nowrap"
+            className="bg-gradient-to-r from-blue-50 to-purple-50 backdrop-blur shadow-md px-4 py-2 rounded-full text-xs font-bold text-secondary border-2 border-blue-200 flex items-center hover:from-blue-100 hover:to-purple-100 hover:shadow-lg hover:scale-105 transition-all active:scale-95 whitespace-nowrap"
           >
             <Sparkles className="w-3 h-3 mr-1.5" />
             推荐今日互动
           </button>
           <button
             onClick={() => handleSend("请根据孩子最近的情况，生成一份综合评估报告")}
-            className="bg-white/90 backdrop-blur shadow-sm px-4 py-2 rounded-full text-xs font-bold text-primary border border-green-100 flex items-center hover:bg-white hover:shadow-md transition active:scale-95 whitespace-nowrap"
+            className="bg-gradient-to-r from-green-50 to-teal-50 backdrop-blur shadow-md px-4 py-2 rounded-full text-xs font-bold text-primary border-2 border-green-200 flex items-center hover:from-green-100 hover:to-teal-100 hover:shadow-lg hover:scale-105 transition-all active:scale-95 whitespace-nowrap"
           >
             <Activity className="w-3 h-3 mr-1.5" />
             生成评估报告
@@ -2379,7 +2385,7 @@ const PageAIChat = ({
         </div>
       </div>
 
-      <div className="bg-white p-4 border-t border-gray-100 relative">
+      <div className="bg-white/80 backdrop-blur-lg p-4 border-t border-gray-200/50 shadow-lg relative">
         {/* 文件预览区 */}
         {previewUrl && (
           <div className="absolute top-0 left-0 right-0 -translate-y-full px-4 py-2 bg-white/80 backdrop-blur-sm border-t border-gray-100 flex items-center animate-in slide-in-from-bottom">
@@ -2415,7 +2421,7 @@ const PageAIChat = ({
               <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-primary transition active:scale-90" title="上传文件/图片/视频"><Paperclip className="w-5 h-5" /></button>
               <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()} placeholder="输入消息..." className="flex-1 bg-transparent outline-none text-gray-700 placeholder-gray-400 ml-2" />
               <button onClick={toggleVoiceMode} className="p-2 mr-1 transition rounded-full text-gray-500 hover:text-primary"><Mic className="w-5 h-5" /></button>
-              <button onClick={() => handleSend()} className="p-2 bg-primary rounded-full text-white ml-1 hover:bg-green-600 transition shadow-md"><ArrowRight className="w-4 h-4" /></button>
+              <button onClick={() => handleSend()} className="p-2 bg-gradient-to-r from-primary to-green-600 rounded-full text-white ml-1 hover:shadow-lg transform hover:scale-110 transition-all shadow-md"><ArrowRight className="w-4 h-4" /></button>
             </>
           ) : (
             // 语音输入模式
@@ -2650,7 +2656,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
   );
 
   return (
-    <div className="p-4 space-y-4 h-full overflow-y-auto bg-background">
+    <div className="p-4 space-y-4 h-full overflow-y-auto bg-gradient-to-br from-teal-50 via-white to-cyan-50">
       {/* 统计卡片 */}
       <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
         <div className="flex items-center justify-between mb-3">
@@ -2685,9 +2691,9 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
               <button
                 key={dim}
                 onClick={() => setFilterDimension(dim)}
-                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${filterDimension === dim
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                className={`text-xs px-3 py-2 rounded-full font-bold transition-all transform hover:scale-105 ${filterDimension === dim
+                  ? 'bg-gradient-to-r from-primary to-teal-600 text-white shadow-lg'
+                  : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 border-2 border-gray-200'
                   }`}
               >
                 {dim === '全部' ? dim : getDimensionConfig(dim as InterestDimensionType).label}
@@ -2704,9 +2710,9 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
               <button
                 key={source}
                 onClick={() => setFilterSource(source)}
-                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${filterSource === source
-                  ? 'bg-secondary text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                className={`text-xs px-3 py-2 rounded-full font-bold transition-all transform hover:scale-105 ${filterSource === source
+                  ? 'bg-gradient-to-r from-secondary to-blue-600 text-white shadow-lg'
+                  : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 border-2 border-gray-200'
                   }`}
               >
                 {source === '全部' ? '全部' :
@@ -3047,14 +3053,14 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
 
   // 档案主页
   return (
-    <div className="p-4 space-y-6 h-full overflow-y-auto bg-background">
+    <div className="p-4 space-y-6 h-full overflow-y-auto bg-gradient-to-br from-blue-50/30 via-white to-purple-50/30">
       {/* 头像和基本信息 */}
-      <div className="flex flex-col items-center space-y-4 bg-white p-6 rounded-2xl shadow-sm">
+      <div className="flex flex-col items-center space-y-4 bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
         {/* 头像容器 - 添加编辑功能 */}
         <div className="relative group">
           <img
             src={childProfile?.avatar || defaultAvatar}
-            className="w-24 h-24 rounded-full border-4 border-white shadow-lg"
+            className="w-24 h-24 rounded-full border-4 border-white shadow-lg ring-2 ring-blue-100"
             alt={childProfile?.name || '孩子'}
           />
           {/* 编辑按钮 */}
@@ -3089,7 +3095,7 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
         />
 
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800">{childProfile?.name || '未设置'}, {age}岁</h2>
+          <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">{childProfile?.name || '未设置'}, {age}岁</h2>
           <p className="text-sm text-gray-500 mt-1">
             {childProfile?.gender === 'male' ? '男孩' : childProfile?.gender === 'female' ? '女孩' : ''}
           </p>
@@ -3529,10 +3535,10 @@ const PageGames = ({
     });
 
     return (
-      <div className="h-full bg-background p-4 overflow-y-auto">
+      <div className="h-full bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4 overflow-y-auto">
         <div className="sticky top-0 bg-background z-10 pb-2 -mx-4 px-4 pt-2">
           <div className="relative mb-3"><Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" /><input value={searchText} onChange={(e) => setSearchText(e.target.value)} className="w-full bg-white pl-10 pr-4 py-3 rounded-xl shadow-sm outline-none border border-transparent focus:border-primary/30 transition" placeholder="搜索游戏（如：积木）" /></div>
-          <div className="flex space-x-2 overflow-x-auto pb-2 no-scrollbar">{FILTERS.map(f => (<button key={f} onClick={() => setActiveFilter(f)} className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition border ${activeFilter === f ? 'bg-primary text-white border-primary shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>{f}</button>))}</div>
+          <div className="flex space-x-2 overflow-x-auto pb-2 no-scrollbar">{FILTERS.map(f => (<button key={f} onClick={() => setActiveFilter(f)} className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all border-2 transform hover:scale-105 ${activeFilter === f ? 'bg-gradient-to-r from-primary to-green-600 text-white border-transparent shadow-lg' : 'bg-white text-gray-600 border-gray-200 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:border-gray-300'}`}>{f}</button>))}</div>
         </div>
         <h3 className="font-bold text-gray-700 mb-3 flex items-center justify-between mt-2"><span>推荐游戏库</span><span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{filteredGames.length} 个结果</span></h3>
         <div className="space-y-4 pb-20">
@@ -3547,7 +3553,7 @@ const PageGames = ({
                   setInternalActiveGame(game);
                   setGameState(GameState.PREVIEW);
                 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30 overflow-hidden"
+                className="bg-gradient-to-br from-white to-blue-50 rounded-2xl shadow-lg border-2 border-blue-100 active:scale-98 transition-all transform cursor-pointer group hover:border-indigo-400 hover:shadow-xl overflow-hidden"
               >
                 {coverImages.get(game.id) && (
                   <div className="w-full h-32 overflow-hidden">
