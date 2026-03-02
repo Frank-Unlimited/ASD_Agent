@@ -111,7 +111,11 @@ const MEMORY_SERVICE_URL = import.meta.env.VITE_MEMORY_SERVICE_URL || '/api/memo
 
 /** 向 graphiti 写入记忆 (fire-and-forget，静默忽略失败) */
 function writeMemory(content: string, referenceTime: string): void {
-  fetch(`${MEMORY_SERVICE_URL}/write`, {
+  const url = `${MEMORY_SERVICE_URL}/write`;
+  console.log('[writeMemory] 请求 URL:', url);
+  console.log('[writeMemory] MEMORY_SERVICE_URL:', MEMORY_SERVICE_URL);
+  
+  fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -119,7 +123,16 @@ function writeMemory(content: string, referenceTime: string): void {
       content,
       reference_time: referenceTime,
     }),
-  }).catch(() => { /* 静默忽略，不阻塞主流程 */ });
+  })
+  .then(res => {
+    console.log('[writeMemory] 响应状态:', res.status);
+    if (!res.ok) {
+      console.error('[writeMemory] 写入失败:', res.status, res.statusText);
+    }
+  })
+  .catch(err => {
+    console.error('[writeMemory] 请求失败:', err);
+  });
 }
 
 /** intensity (-1~1) → 中文情绪标签 */
