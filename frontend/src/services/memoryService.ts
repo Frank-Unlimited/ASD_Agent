@@ -28,27 +28,29 @@ export async function fetchMemoryFacts(
 ): Promise<MemoryFact[]> {
   try {
     const url = `${MEMORY_SERVICE_URL}/search`;
-    console.log('[fetchMemoryFacts] 请求 URL:', url);
-    console.log('[fetchMemoryFacts] 查询参数:', { groupId, query, numResults });
     
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ group_id: groupId, query, num_results: numResults }),
-      signal: AbortSignal.timeout(15000), // 增加超时时间到 15 秒，适应手机网络
-    });
+    // 使用 AbortController 实现超时（兼容旧版浏览器）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     
-    console.log('[fetchMemoryFacts] 响应状态:', res.status);
-    
-    if (!res.ok) {
-      console.error('[fetchMemoryFacts] 搜索失败:', res.status, res.statusText);
-      return [];
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: groupId, query, num_results: numResults }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!res.ok) return [];
+      
+      const data = await res.json();
+      return (data.facts ?? []) as MemoryFact[];
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      throw fetchError;
     }
-    
-    const data = await res.json();
-    console.log('[fetchMemoryFacts] 返回结果数量:', data.facts?.length || 0);
-    
-    return (data.facts ?? []) as MemoryFact[];
   } catch (error) {
     console.error('[fetchMemoryFacts] 请求失败:', error);
     return [];

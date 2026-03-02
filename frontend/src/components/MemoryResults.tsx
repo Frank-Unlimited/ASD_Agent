@@ -79,12 +79,6 @@ export const MemoryResults: React.FC<MemoryResultsProps> = ({ results, query }) 
               <div className="no-results">
                 <div className="no-results-icon">🔍</div>
                 <div className="no-results-text">暂无相关记录</div>
-                <div className="debug-info">
-                  <div className="debug-label">调试信息：</div>
-                  <div className="debug-item">查询关键词: {query || '(空)'}</div>
-                  <div className="debug-item">用户 ID: {localStorage.getItem('asd_user_account_id') || '(未设置)'}</div>
-                  <div className="debug-item">结果数量: 0</div>
-                </div>
               </div>
             </div>
           ) : (
@@ -308,27 +302,6 @@ export const MemoryResults: React.FC<MemoryResultsProps> = ({ results, query }) 
           font-size: 14px;
           color: #6b7280;
           margin-bottom: 16px;
-        }
-
-        .debug-info {
-          background: #f9fafb;
-          border: 1px solid #e5e7eb;
-          border-radius: 6px;
-          padding: 12px;
-          text-align: left;
-          font-size: 12px;
-        }
-
-        .debug-label {
-          font-weight: 600;
-          color: #374151;
-          margin-bottom: 8px;
-        }
-
-        .debug-item {
-          color: #6b7280;
-          padding: 4px 0;
-          font-family: 'Courier New', monospace;
         }
       `}</style>
     </div>
