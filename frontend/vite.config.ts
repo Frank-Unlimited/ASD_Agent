@@ -10,11 +10,32 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        allowedHosts: [
+          '7869c576.r33.cpolar.top',
+          '.cpolar.top', // 允许所有 cpolar.top 子域名
+        ],
+        hmr: {
+          protocol: 'wss', // 使用安全的 WebSocket 协议（HTTPS 页面必须用 wss）
+          host: '7869c576.r33.cpolar.top',
+          clientPort: 443, // cpolar 使用 HTTPS，所以 WebSocket 也走 443 端口
+        },
         proxy: {
           '/dashscope-api': {
             target: 'https://dashscope.aliyuncs.com',
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/dashscope-api/, ''),
+          },
+          // 代理记忆服务（端口 8000）
+          '/api/memory': {
+            target: 'http://localhost:8000',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api\/memory/, ''),
+          },
+          // 代理 RAG 知识库服务（端口 8001）
+          '/api/rag': {
+            target: 'http://localhost:8001',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api\/rag/, ''),
           },
         },
       },

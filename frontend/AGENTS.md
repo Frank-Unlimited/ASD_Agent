@@ -250,6 +250,259 @@ frontend/src/
 
 ## Recent Updates
 
+### 2026-02-27: RAG 知识库集成与并行检索架构
+
+**背景**：游戏推荐和干预指导需要专业的 DIR/Floortime 理论支持，但联网搜索结果质量参差不齐，缺乏权威性和系统性。
+
+**问题分析**：
+1. 联网搜索（博查AI）虽然覆盖面广，但内容质量不稳定，需要 LLM 二次筛选
+2. 专业知识（DIR 理论、游戏方案、案例库）分散在多个文档中，无法快速检索
+3. 单一知识来源无法同时满足"权威性"和"时效性"需求
+
+**解决方案**：引入阿里云百炼 RAG 知识库，与联网搜索并行调用，形成"专业知识库 + 网络资源"的双轨检索架构。
+
+**技术实施**：
+
+#### 1. 后端 RAG 服务 (backend/rag_service.py)
+
+**架构设计**：
+```
+前端 knowledgeService
+    ├─ 博查联网搜索 (直接调用) ────┐
+    │                             │
+    └─ RAG 检索 (HTTP 请求) ──────┤─ 并行异步
+        │                         │
+        ▼                         │
+    后端 rag_service.py           │
+        │                         │
+        └─ 阿里云 Retrieve API ───┘
+```
+
+**核心功能**：
+- 独立的 FastAPI 服务，运行在端口 8001
+- 使用阿里云百炼 SDK (`alibabacloud-bailian20231229`) 调用 Retrieve API
+- 支持向量检索 (DenseSimilarityTopK) 和关键词检索 (SparseSimilarityTopK)
+- 支持重排序 (Reranking) 提升结果相关度（当前因 SDK 参数问题暂时关闭）
+- 健康检查接口 (`/healthcheck`) 和调试接口 (`/api/rag/info`)
+
+**API 端点**：
+- `POST /api/rag/search`：检索知识库，返回文本切片列表
+- `GET /healthcheck`：服务状态检查
+- `GET /api/rag/info`：配置信息查看
+
+**请求参数**：
+```typescript
+{
+  query: string;              // 查询文本
+  index_id?: string;          // 知识库 ID（可选，默认使用环境变量）
+  top_k: number;              // 返回结果数量（默认 5）
+  enable_reranking: boolean;  // 是否启用重排序（默认 false）
+  dense_similarity_top_k: number;   // 向量检索 Top K（默认 50）
+  sparse_similarity_top_k: number;  // 关键词检索 Top K（默认 50）
+}
+```
+
+**响应格式**：
+```typescript
+{
+  nodes: Array<{
+    text: string;           // 文本切片内容
+    score: number;          // 相关度分数 (0-1)
+    metadata: {
+      doc_name: string;     // 文档名称
+      title: string;        // 标题
+      doc_id: string;       // 文档 ID
+      page_number: number[];// 页码
+      // ... 其他元数据
+    }
+  }>;
+  success: boolean;
+  message?: string;
+  request_id?: string;
+}
+```
+
+**环境变量配置**：
+```env
+# 阿里云百炼 RAG 知识库配置
+ALIBABA_CLOUD_ACCESS_KEY_ID=your-access-key-id
+ALIBABA_CLOUD_ACCESS_KEY_SECRET=your-access-key-secret
+ALIBABA_WORKSPACE_ID=your-workspace-id
+ALIBABA_INDEX_ID=your-index-id
+```
+
+**知识库内容**（6 大模块）：
+1. **地板游戏方案库**：按兴趣维度分类的结构化游戏设计模板，含目标、材料、步骤、变体
+2. **DIR/Floortime 理论与实践指南**：FEDCI 功能性情绪发展阶段理论、跟随孩子引领原则、情感互动策略
+3. **行为观察与分析指南**：8 大兴趣维度识别标准、情感倾向判定规则、发展阶段映射
+4. **能力评估标准**：各维度能力基线、进步指标、退步预警信号
+5. **家长指导话术与策略**：不同场景的引导语模板、常见误区纠正、情绪调节技巧
+6. **案例库**：真实干预案例的匿名化记录，含初始状态、干预过程、效果评估、经验总结
+
+#### 2. 前端 RAG 客户端 (frontend/src/services/ragService.ts)
+
+**核心功能**：
+- HTTP 客户端，调用后端 RAG 服务
+- 支持健康检查 (`isConfigured()`)
+- 支持格式化输出 (`searchAndFormat()`)
+
+**使用示例**：
+```typescript
+import { ragService } from './ragService';
+
+// 检索知识库
+const nodes = await ragService.search('DIR Floortime 理论', { topK: 5 });
+
+// 格式化为文本摘要
+const formatted = await ragService.searchAndFormat('地板游戏方案', 5);
+// 输出：
+// 1. [相关度: 89.5%] 地板时光（DIR/Floor time）——6个通用碎片...
+//    来源: 孤独症的综合治疗
+```
+
+#### 3. 统一知识检索服务 (frontend/src/services/knowledgeService.ts)
+
+**核心功能**：并行调用联网搜索 + RAG 知识库，合并结果。
+
+**架构设计**：
+```typescript
+knowledgeService.search(query)
+    ├─ bochaSearchService.searchAndFormat(query, 5)  // 联网搜索
+    └─ ragService.searchAndFormat(query, 5)          // RAG 检索
+         ↓
+    Promise.allSettled() 并行执行
+         ↓
+    合并结果：RAG 优先（权威性），联网搜索补充（时效性）
+```
+
+**结果合并策略**：
+```
+【专业知识库】
+1. [相关度: 89.5%] DIR 理论核心内容...
+   来源: 孤独症的综合治疗
+
+【网络资源】
+1. DIR/Floortime 最新研究进展...
+   来源: 知乎 🔗 查看原文
+```
+
+**使用示例**：
+```typescript
+import { knowledgeService } from './knowledgeService';
+
+const result = await knowledgeService.search('DIR Floortime 理论', {
+  useWeb: true,   // 是否使用联网搜索
+  useRAG: true,   // 是否使用 RAG
+  webCount: 5,    // 联网搜索结果数
+  ragCount: 5     // RAG 结果数
+});
+
+console.log(result.combined);  // 合并后的结果
+```
+
+#### 4. 游戏推荐 Agent 集成 (gameRecommendConversationalAgent.ts)
+
+**核心改动**：将 `fetchKnowledge` 工具从单一联网搜索升级为并行检索。
+
+**修改前**：
+```typescript
+fetchKnowledge: async (args) => {
+  const result = await bochaSearchService.searchAndFormat(query, 5);
+  return result || '（暂无相关搜索结果）';
+}
+```
+
+**修改后**：
+```typescript
+fetchKnowledge: async (args) => {
+  const result = await knowledgeService.search(query, {
+    useWeb: true,
+    useRAG: true,
+    webCount: 5,
+    ragCount: 5
+  });
+  return result.combined || '（暂无相关搜索结果）';
+}
+```
+
+**ReAct 循环流程**：
+```
+LLM 思考：我需要什么信息？
+    ↓
+tool_call: fetchKnowledge("DIR Floortime 游戏方案")
+    ↓
+并行调用：RAG 检索 + 联网搜索
+    ↓
+返回合并结果给 LLM
+    ↓
+LLM 基于专业知识 + 网络资源生成游戏方案
+```
+
+#### 5. 测试页面 (frontend/test-rag-api.html)
+
+**核心功能**：
+- 服务状态监控（RAG 服务、SDK 状态、客户端状态）
+- RAG 知识库检索测试
+- 并行检索测试（RAG + 博查搜索）
+- 原始响应查看（JSON 格式）
+- 快速查询按钮（DIR 理论、游戏方案、兴趣维度等）
+
+**UI 特点**：
+- 渐变紫色主题，响应式设计
+- 卡片式布局，实时状态反馈
+- 分别展示 RAG 和网络搜索结果
+- 显示相关度分数和文档来源
+
+**使用方式**：
+1. 确保 RAG 服务运行在 `http://localhost:8001`
+2. 打开 `frontend/test-rag-api.html`
+3. 点击"🌐 并行检索 (RAG + 网络)"按钮
+4. 查看专业知识库和网络资源的检索结果
+
+#### 6. 技术栈与依赖
+
+**后端依赖**：
+```txt
+alibabacloud-bailian20231229>=2.8.1
+alibabacloud-tea-openapi>=0.4.15
+alibabacloud-credentials>=0.3.0
+```
+
+**前端依赖**：无额外依赖（使用原生 fetch API）
+
+**启动命令**：
+```bash
+# 后端 RAG 服务
+cd backend
+uvicorn rag_service:app --port 8001 --reload
+
+# 前端（已有）
+cd frontend
+npm run dev
+```
+
+**文件变更**：
+- 新增：`backend/rag_service.py` (RAG 服务)
+- 新增：`frontend/src/services/ragService.ts` (RAG 客户端)
+- 新增：`frontend/src/services/knowledgeService.ts` (统一检索入口)
+- 新增：`frontend/test-rag-api.html` (测试页面)
+- 修改：`frontend/src/services/gameRecommendConversationalAgent.ts` (集成 RAG)
+- 修改：`backend/requirements.txt` (添加 SDK 依赖)
+- 修改：`backend/.env.example` (添加 RAG 配置)
+
+**核心价值**：
+1. **权威性提升**：专业知识库提供经过验证的 DIR/Floortime 理论和实践指南
+2. **时效性保障**：联网搜索补充最新的研究进展和社区经验
+3. **检索效率**：并行调用减少等待时间，提升用户体验
+4. **降级保护**：任一服务不可用时，另一服务仍可正常工作
+5. **可扩展性**：统一的 `knowledgeService` 接口，便于后续添加更多知识源
+
+**已知问题**：
+- 阿里云 SDK 的 `RetrieveRequestRerank` 参数设置存在问题，暂时关闭重排序功能
+- 后续可通过升级 SDK 或使用 HTTP 直接调用解决
+
+---
+
 ### 2026-02-23: 联网搜索服务迁移（Google → 博查AI）
 
 **背景**：原 Google Custom Search API 在国内需要梯子且需绑定信用卡启用计费，虽有免费额度但访问受限，影响联网游戏搜索功能的可用性和稳定性。

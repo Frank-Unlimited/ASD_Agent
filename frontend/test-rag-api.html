@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG 知识库检索测试</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .header p {
+      font-size: 1.1em;
+      opacity: 0.9;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .input-group input,
+    .input-group select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+
+    .input-group input:focus,
+    .input-group select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+    }
+
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .status {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+
+    .status.loading {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .results {
+      margin-top: 20px;
+    }
+
+    .result-item {
+      background: #f8f9fa;
+      border-left: 4px solid #667eea;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .result-score {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .result-source {
+      color: #666;
+      font-size: 14px;
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    .result-text {
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2em;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 0.9em;
+      opacity: 0.9;
+    }
+
+    pre {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .quick-queries {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .quick-query-btn {
+      padding: 8px 16px;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .quick-query-btn:hover {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
+    .section-title {
+      font-size: 1.3em;
+      margin-bottom: 15px;
+      color: #333;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔍 RAG 知识库检索测试</h1>
+      <p>测试阿里云百炼知识库检索功能</p>
+    </div>
+
+    <!-- 健康检查 -->
+    <div class="card">
+      <h2 class="section-title">服务状态</h2>
+      <div class="stats" id="stats">
+        <div class="stat-card">
+          <div class="stat-value" id="statusValue">-</div>
+          <div class="stat-label">服务状态</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="sdkValue">-</div>
+          <div class="stat-label">SDK 状态</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="clientValue">-</div>
+          <div class="stat-label">客户端状态</div>
+        </div>
+      </div>
+      <button class="btn-secondary" onclick="checkHealth()">🔄 刷新状态</button>
+    </div>
+
+    <!-- RAG 检索 -->
+    <div class="card">
+      <h2 class="section-title">RAG 知识库检索</h2>
+      
+      <div class="input-group">
+        <label for="ragQuery">查询内容</label>
+        <input type="text" id="ragQuery" placeholder="例如：DIR Floortime 理论" value="DIR Floortime 地板时光理论">
+      </div>
+
+      <div class="quick-queries">
+        <span style="color: #666; margin-right: 10px;">快速查询：</span>
+        <button class="quick-query-btn" onclick="setQuery('DIR Floortime 理论')">DIR 理论</button>
+        <button class="quick-query-btn" onclick="setQuery('地板游戏方案')">游戏方案</button>
+        <button class="quick-query-btn" onclick="setQuery('兴趣维度分析')">兴趣维度</button>
+        <button class="quick-query-btn" onclick="setQuery('行为观察指南')">行为观察</button>
+        <button class="quick-query-btn" onclick="setQuery('家长指导策略')">家长指导</button>
+      </div>
+
+      <div class="input-group">
+        <label for="topK">返回结果数量</label>
+        <select id="topK">
+          <option value="3">3 条</option>
+          <option value="5" selected>5 条</option>
+          <option value="10">10 条</option>
+        </select>
+      </div>
+
+      <div class="button-group">
+        <button class="btn-primary" onclick="searchRAG()" id="ragBtn">🔍 检索 RAG</button>
+        <button class="btn-success" onclick="searchKnowledge()" id="knowledgeBtn">🌐 并行检索 (RAG + 网络)</button>
+      </div>
+
+      <div id="ragStatus"></div>
+      <div id="ragResults"></div>
+    </div>
+
+    <!-- 原始响应 -->
+    <div class="card" id="rawResponseCard" style="display: none;">
+      <h2 class="section-title">原始响应数据</h2>
+      <pre id="rawResponse"></pre>
+    </div>
+  </div>
+
+  <script>
+    const RAG_API_BASE = 'http://localhost:8001';
+    const BOCHA_API_KEY = 'YOUR_BOCHA_API_KEY'; // 请替换为你的博查 API Key
+    const BOCHA_API_BASE = 'https://api.bocha.cn/v1';
+
+    // 博查搜索
+    async function searchBocha(query, count = 5) {
+      try {
+        const response = await fetch(`${BOCHA_API_BASE}/web-search`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${BOCHA_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: query,
+            freshness: 'noLimit',
+            summary: true,
+            count: count,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`博查搜索 API 错误: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.code !== 200) {
+          throw new Error(`博查搜索失败: ${data.msg || '未知错误'}`);
+        }
+
+        return data.data?.webPages?.value || [];
+      } catch (error) {
+        console.error('博查搜索失败:', error);
+        return [];
+      }
+    }
+
+    // 健康检查
+    async function checkHealth() {
+      try {
+        const response = await fetch(`${RAG_API_BASE}/healthcheck`);
+        const data = await response.json();
+        
+        document.getElementById('statusValue').textContent = data.status === 'healthy' ? '✅ 正常' : '❌ 异常';
+        document.getElementById('sdkValue').textContent = data.sdk_available ? '✅ 可用' : '❌ 不可用';
+        document.getElementById('clientValue').textContent = data.client_ready ? '✅ 就绪' : '❌ 未就绪';
+      } catch (error) {
+        document.getElementById('statusValue').textContent = '❌ 错误';
+        document.getElementById('sdkValue').textContent = '-';
+        document.getElementById('clientValue').textContent = '-';
+        console.error('健康检查失败:', error);
+      }
+    }
+
+    // 设置查询
+    function setQuery(query) {
+      document.getElementById('ragQuery').value = query;
+    }
+
+    // 显示状态
+    function showStatus(elementId, message, type) {
+      const statusEl = document.getElementById(elementId);
+      statusEl.className = `status ${type}`;
+      statusEl.textContent = message;
+      statusEl.style.display = 'block';
+    }
+
+    // 隐藏状态
+    function hideStatus(elementId) {
+      document.getElementById(elementId).style.display = 'none';
+    }
+
+    // RAG 检索
+    async function searchRAG() {
+      const query = document.getElementById('ragQuery').value.trim();
+      const topK = parseInt(document.getElementById('topK').value);
+      
+      if (!query) {
+        alert('请输入查询内容');
+        return;
+      }
+
+      const btn = document.getElementById('ragBtn');
+      btn.disabled = true;
+      btn.textContent = '🔄 检索中...';
+
+      showStatus('ragStatus', '正在检索 RAG 知识库...', 'loading');
+      document.getElementById('ragResults').innerHTML = '';
+      document.getElementById('rawResponseCard').style.display = 'none';
+
+      try {
+        const startTime = Date.now();
+        const response = await fetch(`${RAG_API_BASE}/api/rag/search`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: query,
+            top_k: topK,
+            enable_reranking: false,
+          }),
+        });
+
+        const data = await response.json();
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+        // 显示原始响应
+        document.getElementById('rawResponse').textContent = JSON.stringify(data, null, 2);
+        document.getElementById('rawResponseCard').style.display = 'block';
+
+        if (!data.success) {
+          showStatus('ragStatus', `❌ 检索失败: ${data.message}`, 'error');
+          return;
+        }
+
+        showStatus('ragStatus', `✅ 检索成功！找到 ${data.nodes.length} 条结果，耗时 ${duration} 秒`, 'success');
+
+        // 显示结果
+        displayResults('ragResults', data.nodes);
+
+      } catch (error) {
+        showStatus('ragStatus', `❌ 请求失败: ${error.message}`, 'error');
+        console.error('RAG 检索失败:', error);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔍 检索 RAG';
+      }
+    }
+
+    // 并行检索 (RAG + 网络)
+    async function searchKnowledge() {
+      const query = document.getElementById('ragQuery').value.trim();
+      
+      if (!query) {
+        alert('请输入查询内容');
+        return;
+      }
+
+      const btn = document.getElementById('knowledgeBtn');
+      btn.disabled = true;
+      btn.textContent = '🔄 检索中...';
+
+      showStatus('ragStatus', '正在并行检索 RAG 知识库 + 网络资源...', 'loading');
+      document.getElementById('ragResults').innerHTML = '';
+      document.getElementById('rawResponseCard').style.display = 'none';
+
+      try {
+        const startTime = Date.now();
+        
+        // 真实的并行调用：RAG + 博查搜索
+        const [ragResult, webResult] = await Promise.allSettled([
+          fetch(`${RAG_API_BASE}/api/rag/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: query,
+              top_k: 5,
+              enable_reranking: false,
+            }),
+          }).then(r => r.json()),
+          
+          searchBocha(query, 5)
+        ]);
+
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+        const ragData = ragResult.status === 'fulfilled' ? ragResult.value : null;
+        const webData = webResult.status === 'fulfilled' ? webResult.value : [];
+
+        // 显示原始响应
+        document.getElementById('rawResponse').textContent = JSON.stringify({
+          rag: ragData,
+          web: webData,
+        }, null, 2);
+        document.getElementById('rawResponseCard').style.display = 'block';
+
+        const ragCount = ragData?.success ? ragData.nodes.length : 0;
+        const webCount = Array.isArray(webData) ? webData.length : 0;
+
+        showStatus('ragStatus', `✅ 并行检索成功！RAG: ${ragCount} 条，网络: ${webCount} 条，耗时 ${duration} 秒`, 'success');
+        
+        let html = '';
+
+        // 显示 RAG 结果
+        if (ragData && ragData.success && ragData.nodes.length > 0) {
+          html += '<h3 style="margin-top: 20px; color: #667eea;">【专业知识库 - RAG】</h3>';
+          html += '<div class="results">';
+          ragData.nodes.forEach((node, index) => {
+            html += formatRAGResultItem(node, index);
+          });
+          html += '</div>';
+        }
+
+        // 显示网络搜索结果
+        if (webData && webData.length > 0) {
+          html += '<h3 style="margin-top: 30px; color: #11998e;">【网络资源 - 博查搜索】</h3>';
+          html += '<div class="results">';
+          webData.forEach((result, index) => {
+            html += formatWebResultItem(result, index);
+          });
+          html += '</div>';
+        }
+
+        if (!html) {
+          html = '<p style="color: #666; text-align: center; padding: 20px;">未找到相关结果</p>';
+        }
+
+        document.getElementById('ragResults').innerHTML = html;
+
+      } catch (error) {
+        showStatus('ragStatus', `❌ 请求失败: ${error.message}`, 'error');
+        console.error('并行检索失败:', error);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🌐 并行检索 (RAG + 网络)';
+      }
+    }
+
+    // 格式化 RAG 结果项
+    function formatRAGResultItem(node, index) {
+      const score = ((node.score || 0) * 100).toFixed(1);
+      const docName = node.metadata?.doc_name || node.metadata?.title || '未知文档';
+      
+      return `
+        <div class="result-item">
+          <div class="result-header">
+            <strong>${index + 1}. ${docName}</strong>
+            <span class="result-score">相关度: ${score}%</span>
+          </div>
+          <div class="result-text">${node.text}</div>
+          <div class="result-source">来源: ${docName}</div>
+        </div>
+      `;
+    }
+
+    // 格式化网络搜索结果项
+    function formatWebResultItem(result, index) {
+      const summary = result.summary || result.snippet || '无摘要';
+      const siteName = result.siteName || '未知网站';
+      
+      return `
+        <div class="result-item" style="border-left-color: #11998e;">
+          <div class="result-header">
+            <strong>${index + 1}. ${result.name}</strong>
+            <span class="result-score" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">网络资源</span>
+          </div>
+          <div class="result-text">${summary}</div>
+          <div class="result-source">
+            来源: ${siteName} 
+            <a href="${result.url}" target="_blank" style="color: #11998e; text-decoration: none; margin-left: 10px;">🔗 查看原文</a>
+          </div>
+        </div>
+      `;
+    }
+
+    // 显示结果
+    function displayResults(elementId, nodes) {
+      const resultsEl = document.getElementById(elementId);
+      
+      if (nodes.length === 0) {
+        resultsEl.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">未找到相关结果</p>';
+        return;
+      }
+
+      let html = '<div class="results">';
+      nodes.forEach((node, index) => {
+        html += formatRAGResultItem(node, index);
+      });
+      html += '</div>';
+
+      resultsEl.innerHTML = html;
+    }
+
+    // 页面加载时检查健康状态
+    window.onload = function() {
+      checkHealth();
+    };
+  </script>
+</body>
+</html>

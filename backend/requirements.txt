@@ -24,6 +24,11 @@ anthropic>=0.34.0
 graphiti-core[neo4j]>=0.3.0
 neo4j>=5.26.0
 
+# 阿里云百炼 RAG
+alibabacloud-bailian20231229>=2.8.1
+alibabacloud-tea-openapi>=0.4.15
+alibabacloud-credentials>=0.3.0
+
 # 工具库
 pydantic>=2.9.0
 pydantic-settings>=2.5.0

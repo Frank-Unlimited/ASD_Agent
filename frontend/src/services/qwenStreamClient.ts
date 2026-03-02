@@ -3,7 +3,7 @@
  * 支持 SSE 流式输出和 Function Calling
  */
 
-interface QwenMessage {
+export interface QwenMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
   tool_calls?: ToolCall[];
@@ -11,7 +11,7 @@ interface QwenMessage {
   name?: string;
 }
 
-interface ToolCall {
+export interface ToolCall {
   id: string;
   type: 'function';
   function: {
@@ -19,6 +19,23 @@ interface ToolCall {
     arguments: string;
   };
 }
+
+export interface ToolDefinition {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: 'object';
+      properties: Record<string, unknown>;
+      required?: string[];
+    };
+  };
+}
+
+export type ChatWithToolsResult =
+  | { type: 'content'; content: string }
+  | { type: 'tool_calls'; toolCalls: ToolCall[] };
 
 interface QwenStreamRequest {
   model: string;
@@ -317,6 +334,76 @@ class QwenStreamClient {
       console.error('Qwen chat error:', error);
       throw error;
     }
+  }
+
+  /**
+   * 非流式调用，支持工具调用（用于 ReAct 循环）
+   * 注意：不传 response_format，DashScope 不支持 tools + json_schema 并存
+   */
+  async chatWithTools(
+    messages: QwenMessage[],
+    tools: ToolDefinition[],
+    options?: {
+      temperature?: number;
+      max_tokens?: number;
+      tool_choice?: 'auto' | 'none';
+    }
+  ): Promise<ChatWithToolsResult> {
+    const requestBody = {
+      model: this.model,
+      messages,
+      tools,
+      tool_choice: options?.tool_choice ?? 'auto',
+      stream: false,
+      temperature: options?.temperature,
+      max_tokens: options?.max_tokens
+    };
+
+    console.log('[Qwen chatWithTools] Request:', {
+      messagesCount: messages.length,
+      toolCount: tools.length,
+      tool_choice: requestBody.tool_choice
+    });
+
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Qwen API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const message = data.choices?.[0]?.message;
+
+    console.log('[Qwen chatWithTools] Response:', {
+      finish_reason: data.choices?.[0]?.finish_reason,
+      hasToolCalls: !!message?.tool_calls?.length,
+      contentLength: message?.content?.length ?? 0
+    });
+
+    if (!message) {
+      throw new Error('chatWithTools: no message in response');
+    }
+
+    if (message.tool_calls?.length > 0) {
+      return { type: 'tool_calls', toolCalls: message.tool_calls as ToolCall[] };
+    }
+
+    const content = message.content;
+    if (typeof content === 'string' && content.length > 0) {
+      return { type: 'content', content };
+    }
+
+    throw new Error(
+      `chatWithTools: unexpected empty response (finish_reason=${data.choices?.[0]?.finish_reason})`
+    );
   }
 }
 

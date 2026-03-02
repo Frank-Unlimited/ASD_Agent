@@ -47,12 +47,13 @@ ${childContext ? `【儿童情况】\n${childContext}\n` : ''}
 /**
  * 联网搜索游戏（使用博查AI搜索 + LLM 解析）
  * 真正从互联网搜索适合的地板游戏
+ * @returns { games: Game[], searchResults: WebSearchResult[] }
  */
 export const searchGamesOnline = async (
   query: string,
   childContext: string = '',
   topK: number = 5
-): Promise<Game[]> => {
+): Promise<{ games: Game[], searchResults: any[] }> => {
   try {
     console.log('🌐 开始联网搜索游戏...');
 
@@ -60,17 +61,36 @@ export const searchGamesOnline = async (
     const searchQuery = buildSearchQuery(query);
     console.log('🔍 搜索关键词:', searchQuery);
 
-    const searchResults = await bochaSearchService.searchAndFormat(searchQuery, 10);
+    const rawSearchResults = await bochaSearchService.search(searchQuery, { 
+      count: 10,
+      summary: true 
+    });
 
-    if (!searchResults) {
+    if (!rawSearchResults || rawSearchResults.length === 0) {
       console.warn('⚠️  博查搜索无结果');
-      return [];
+      return { games: [], searchResults: [] };
     }
 
     console.log('✅ 博查搜索返回结果');
 
+    // 格式化搜索结果用于展示
+    const searchResults = rawSearchResults.map(result => ({
+      name: result.name,
+      url: result.url,
+      snippet: result.snippet,
+      siteName: result.siteName
+    }));
+
+    // 格式化搜索结果用于LLM解析
+    const searchResultsText = rawSearchResults
+      .map((result, index) => {
+        const summary = result.summary || result.snippet;
+        return `${index + 1}. ${result.name}\n   ${summary}\n   来源: ${result.siteName}`;
+      })
+      .join('\n\n');
+
     // 使用 LLM 解析搜索结果并结构化
-    const parsePrompt = buildParsePrompt(searchResults, query, childContext);
+    const parsePrompt = buildParsePrompt(searchResultsText, query, childContext);
 
     // 打印完整的 prompt
     console.log('='.repeat(80));
@@ -113,10 +133,13 @@ export const searchGamesOnline = async (
 
     console.log(`✅ 解析到 ${games.length} 个游戏`);
 
-    return games.slice(0, topK);
+    return { 
+      games: games.slice(0, topK),
+      searchResults: searchResults.slice(0, 10)
+    };
   } catch (error) {
     console.error('❌ 联网搜索出错:', error);
-    return [];
+    return { games: [], searchResults: [] };
   }
 };
 

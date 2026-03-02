@@ -99,17 +99,20 @@ import AIVideoCall from './components/AIVideoCall';
 import { AIAssistantPanel } from './components/AIAssistantPanel';
 import FeedbackSurvey from './components/FeedbackSurvey';
 import GameSummaryPage from './components/GameSummaryPage';
+import { WebSearchResults } from './components/WebSearchResults';
+import { MemoryResults } from './components/MemoryResults';
+import { RAGResults } from './components/RAGResults';
 import defaultAvatar from './img/cute_dog.jpg';
 
 // ---------------------------------------------------------------------------
 // Graphiti 记忆层辅助函数
 // ---------------------------------------------------------------------------
 
-const MEMORY_SERVICE_URL = 'http://localhost:8000';
+const MEMORY_SERVICE_URL = import.meta.env.VITE_MEMORY_SERVICE_URL || '/api/memory';
 
 /** 向 graphiti 写入记忆 (fire-and-forget，静默忽略失败) */
 function writeMemory(content: string, referenceTime: string): void {
-  fetch(`${MEMORY_SERVICE_URL}/api/memory/write`, {
+  fetch(`${MEMORY_SERVICE_URL}/write`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -401,7 +404,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
   const canSubmit = step === 1 || (step === 2 && (inputMode === 'none' || childDiagnosis));
 
   return (
-    <div className="h-full overflow-y-auto bg-gradient-to-br from-green-50 to-blue-50 p-6 flex items-center justify-center">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-green-50 to-blue-50 p-6 flex items-start justify-center pt-24">
       <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-8">
         {/* 标题 - 简化版 */}
         <div className="text-center mb-8">
@@ -449,14 +452,14 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
               </div>
             </div>
 
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">出生日期 *</label>
               <input
                 type="date"
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition relative z-10"
               />
             </div>
 
@@ -512,7 +515,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
             {/* 上传报告模式 */}
             {inputMode === 'report' && (
               <div className="space-y-4 animate-in fade-in">
-                {!reportFile && (
+                {(!reportFile || isAnalyzing) && (
                   <>
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold text-gray-800">上传医疗报告</h4>
@@ -540,14 +543,20 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
 
                     <div
                       onClick={() => !isAnalyzing && fileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isAnalyzing ? 'border-gray-300 bg-gray-50 cursor-not-allowed' : 'border-gray-300 hover:border-primary hover:bg-primary/5 cursor-pointer'
+                      className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isAnalyzing ? 'border-primary bg-primary/5 cursor-not-allowed' : 'border-gray-300 hover:border-primary hover:bg-primary/5 cursor-pointer'
                         }`}
                     >
                       {isAnalyzing ? (
-                        <div className="flex flex-col items-center">
-                          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
-                          <p className="text-gray-600 font-medium">AI 正在分析报告...</p>
-                          <p className="text-xs text-gray-400 mt-1">正在提取文字并生成画像</p>
+                        <div className="flex flex-col items-center py-4">
+                          <div className="relative mb-4">
+                            <div className="w-16 h-16 border-4 border-primary/30 rounded-full"></div>
+                            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                          </div>
+                          <p className="text-primary font-bold text-lg mb-2">AI 正在分析报告...</p>
+                          <p className="text-sm text-gray-600 mb-1">📄 正在提取文字内容</p>
+                          <p className="text-sm text-gray-600 mb-1">✨ 正在生成报告摘要</p>
+                          <p className="text-sm text-gray-600">👤 正在生成孩子画像</p>
+                          <p className="text-xs text-gray-400 mt-3">这可能需要 10-30 秒，请耐心等待</p>
                         </div>
                       ) : (
                         <div>
@@ -1039,43 +1048,43 @@ const PageAIChat = ({
                 (async () => {
                   try {
                     console.log('[Tool Call] 兴趣分析...', args);
-                    console.log('[Tool Call] 当前 tempMsgId:', tempMsgId);
 
-                    // 使用函数式更新，避免闭包问题
-                    setMessages(prev => {
-                      console.log('[Tool Call] 开始更新消息，当前消息数:', prev.length);
-                      const targetMsg = prev.find(m => m.id === tempMsgId);
-                      console.log('[Tool Call] 找到目标消息:', !!targetMsg, '当前文本长度:', targetMsg?.text.length);
+                    // 添加工具调用卡片标记
+                    fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                      tool: 'analyze_interest',
+                      status: 'running',
+                      params: args
+                    })}:::TOOL_CALL_END:::\n`;
 
-                      return prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text;
-                          updatedText += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
-                            tool: 'analyze_interest',
-                            status: 'running',
-                            params: args
-                          })}:::TOOL_CALL_END:::\n`;
-                          updatedText += `🔍 正在分析${currentChildProfile?.name || '孩子'}的兴趣维度...`;
-                          console.log('[Tool Call] 更新后文本长度:', updatedText.length);
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      });
-                    });
+                    setMessages(prev =>
+                      prev.map(msg =>
+                        msg.id === tempMsgId
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
+                    );
 
                     const { analyzeInterestDimensions } = await import('./services/gameRecommendConversationalAgent');
                     const { calculateDimensionMetrics } = await import('./services/historicalDataHelper');
 
                     if (!currentChildProfile) {
+                      // 更新工具调用状态为失败
+                      fullResponse = fullResponse.replace(
+                        /:::TOOL_CALL_START:::.*?"tool":"analyze_interest".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                        (match) => {
+                          const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                          toolData.status = 'error';
+                          toolData.error = '需要先完善孩子的档案信息';
+                          return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                        }
+                      );
+                      fullResponse += `\n\n需要先完善孩子的档案信息才能推荐游戏哦。`;
                       setMessages(prev =>
-                        prev.map(msg => {
-                          if (msg.id === tempMsgId) {
-                            let updatedText = msg.text.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
-                            updatedText += `\n\n需要先完善孩子的档案信息才能推荐游戏哦。`;
-                            return { ...msg, text: updatedText };
-                          }
-                          return msg;
-                        })
+                        prev.map(msg =>
+                          msg.id === tempMsgId
+                            ? { ...msg, text: fullResponse }
+                            : msg
+                        )
                       );
                       setLoading(false);
                       return;
@@ -1092,78 +1101,114 @@ const PageAIChat = ({
                     };
                     sessionStorage.setItem('interest_analysis_context', JSON.stringify(interestAnalysisContext));
 
+                    // ReAct 进度回调：为每个工具调用创建独立的消息气泡（只处理 fetchMemory）
+                    const onReActProgress = (event: import('./services/gameRecommendConversationalAgent').ReActProgressEvent) => {
+                      if (event.type === 'tool_call' && event.toolName === 'fetchMemory') {
+                        // 创建工具调用消息（空文本，只保存查询关键词，由 MemoryResults 组件显示）
+                        const toolCallMsg: ChatMessage = {
+                          id: `${tempMsgId}_tool_${Date.now()}`,
+                          role: 'model',
+                          text: '',  // 空文本，避免重复显示
+                          timestamp: new Date(),
+                          searchQuery: event.query // 保存查询关键词
+                        };
+                        setMessages(prev => [...prev, toolCallMsg]);
+                      } else if (event.type === 'tool_result' && event.toolName === 'fetchMemory') {
+                        // 更新最后一条消息
+                        setMessages(prev => {
+                          const lastMsg = prev[prev.length - 1];
+                          if (!lastMsg || lastMsg.role !== 'model') return prev;
+
+                          return prev.map((msg, idx) => {
+                            if (idx === prev.length - 1) {
+                              let updatedMsg = { ...msg };
+
+                              // 如果有记忆结果，添加记忆结果列表
+                              if (event.memoryResults && event.memoryResults.length > 0) {
+                                updatedMsg.memoryResults = event.memoryResults;
+                              } else {
+                                // 如果没有记忆结果，显示文本结果
+                                const raw = event.result.replace(/（暂无.*?）/, '').trim();
+                                let resultText = '';
+
+                                if (raw) {
+                                  const preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                                  resultText = preview.split('\n').map((l: string) => `> ${l}`).join('\n');
+                                } else {
+                                  resultText = '> （暂无相关记录）';
+                                }
+
+                                updatedMsg.text = resultText;
+                              }
+
+                              return updatedMsg;
+                            }
+                            return msg;
+                          });
+                        });
+                      }
+                    };
+
                     const result = await analyzeInterestDimensions(
                       currentChildProfile,
                       dimensionMetrics,
-                      args.parentContext || ''
+                      args.parentContext || '',
+                      onReActProgress
                     );
 
                     // 保存结果到 sessionStorage
                     sessionStorage.setItem('interest_analysis_result', JSON.stringify(result));
 
-                    // 构建分析结果文本
+                    // 更新工具调用状态为成功
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"analyze_interest".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'success';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+
+                    // 构建分析结果文本（简化版，只保留标题和总结，详细内容在卡片中）
                     let analysisText = `\n\n📊 **${currentChildProfile.name}的兴趣维度分析**\n\n`;
                     analysisText += `${result.summary}\n\n`;
-
-                    // 展示维度分类
-                    const dimLabel = (d: string) => getDimensionConfig(d).label;
-                    if (result.leverageDimensions.length > 0) {
-                      analysisText += `✅ **可利用的维度**（孩子已有兴趣）：${result.leverageDimensions.map(dimLabel).join('、')}\n`;
-                    }
-                    if (result.exploreDimensions.length > 0) {
-                      analysisText += `🔍 **可探索的维度**（有潜力发展）：${result.exploreDimensions.map(dimLabel).join('、')}\n`;
-                    }
-                    if (result.avoidDimensions.length > 0) {
-                      analysisText += `⚠️ **暂时避免的维度**：${result.avoidDimensions.map(dimLabel).join('、')}\n`;
-                    }
-
-                    // 展示干预建议
-                    analysisText += `\n💡 **干预建议**：\n`;
-                    result.interventionSuggestions.forEach((s, idx) => {
-                      const strategyLabel = s.strategy === 'leverage' ? '利用兴趣' : '探索拓展';
-                      analysisText += `\n${idx + 1}. **${getDimensionConfig(s.targetDimension).label}**（${strategyLabel}）\n`;
-                      analysisText += `   ${s.suggestion}\n`;
-                      analysisText += `   📌 ${s.rationale}\n`;
-                    });
-
-                    analysisText += `\n您想从哪些维度入手？可以告诉我想用的策略（利用已有兴趣/探索新维度/混合）。`;
+                    analysisText += `详细的维度分类和干预建议请查看下方分析卡片。您想从哪些维度入手？`;
                     analysisText += `\n\n:::INTEREST_ANALYSIS:${JSON.stringify(result)}:::`;
 
-                    // 更新消息：移除 loading 文本，添加分析结果
-                    setMessages(prev =>
-                      prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text;
-                          // 更新工具调用状态
-                          updatedText = updatedText.replace(
-                            /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
-                            (match) => {
-                              const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
-                              toolData.status = 'success';
-                              return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
-                            }
-                          );
-                          updatedText = updatedText.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
-                          updatedText += analysisText;
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      })
-                    );
+                    fullResponse += analysisText;
+
+                    // 将主消息移到最后（在所有搜索结果气泡之后）
+                    setMessages(prev => {
+                      const mainMsg = prev.find(msg => msg.id === tempMsgId);
+                      if (!mainMsg) return prev;
+
+                      const otherMsgs = prev.filter(msg => msg.id !== tempMsgId);
+                      return [...otherMsgs, { ...mainMsg, text: fullResponse }];
+                    });
 
                     // 工具调用完成，关闭 loading
                     setLoading(false);
                   } catch (error) {
                     console.error('[Tool Call] 兴趣分析失败:', error);
+
+                    // 更新工具调用状态为失败
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"analyze_interest".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'error';
+                        toolData.error = error instanceof Error ? error.message : '未知错误';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+                    fullResponse += `\n\n兴趣分析时出现错误，请稍后重试。`;
+
                     setMessages(prev =>
-                      prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text.replace(/🔍 正在分析.*?兴趣维度\.\.\./, '');
-                          updatedText += `\n\n兴趣分析时出现错误，请稍后重试。`;
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      })
+                      prev.map(msg =>
+                        msg.id === tempMsgId
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
                     );
                     setLoading(false);
                   }
@@ -1176,35 +1221,41 @@ const PageAIChat = ({
                   try {
                     console.log('[Tool Call] 生成地板游戏计划...', args);
 
-                    // 使用函数式更新，避免闭包问题
+                    // 添加工具调用卡片标记
+                    fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
+                      tool: 'plan_floor_game',
+                      status: 'running',
+                      params: args
+                    })}:::TOOL_CALL_END:::\n`;
+
                     setMessages(prev =>
-                      prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text;
-                          updatedText += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
-                            tool: 'plan_floor_game',
-                            status: 'running',
-                            params: args
-                          })}:::TOOL_CALL_END:::\n`;
-                          updatedText += `\n✨ 正在设计游戏方案...`;
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      })
+                      prev.map(msg =>
+                        msg.id === tempMsgId
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
                     );
 
                     // 从 sessionStorage 读取上下文
                     const contextStr = sessionStorage.getItem('interest_analysis_context');
                     if (!contextStr || !currentChildProfile) {
+                      // 更新工具调用状态为失败
+                      fullResponse = fullResponse.replace(
+                        /:::TOOL_CALL_START:::.*?"tool":"plan_floor_game".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                        (match) => {
+                          const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                          toolData.status = 'error';
+                          toolData.error = '需要先进行兴趣分析';
+                          return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                        }
+                      );
+                      fullResponse += `\n\n请先进行兴趣分析后再生成游戏方案。`;
                       setMessages(prev =>
-                        prev.map(msg => {
-                          if (msg.id === tempMsgId) {
-                            let updatedText = msg.text.replace('✨ 正在设计游戏方案...', '');
-                            updatedText += `\n\n请先进行兴趣分析后再生成游戏方案。`;
-                            return { ...msg, text: updatedText };
-                          }
-                          return msg;
-                        })
+                        prev.map(msg =>
+                          msg.id === tempMsgId
+                            ? { ...msg, text: fullResponse }
+                            : msg
+                        )
                       );
                       setLoading(false);
                       return;
@@ -1233,31 +1284,86 @@ const PageAIChat = ({
 
                     const { generateFloorGamePlan } = await import('./services/gameRecommendConversationalAgent');
 
+                    // ReAct 进度回调：为每个工具调用创建独立的消息气泡
+                    const onReActProgress = (event: import('./services/gameRecommendConversationalAgent').ReActProgressEvent) => {
+                      if (event.type === 'tool_call') {
+                        // 创建工具调用消息（空文本，只保存查询关键词，由组件显示）
+                        const toolCallMsg: ChatMessage = {
+                          id: `${tempMsgId}_tool_${Date.now()}`,
+                          role: 'model',
+                          text: '',  // 空文本，避免重复显示
+                          timestamp: new Date(),
+                          searchQuery: event.query // 保存查询关键词
+                        };
+                        setMessages(prev => [...prev, toolCallMsg]);
+                      } else if (event.type === 'tool_result') {
+                        // 更新最后一条消息
+                        setMessages(prev => {
+                          const lastMsg = prev[prev.length - 1];
+                          if (!lastMsg || lastMsg.role !== 'model') return prev;
+
+                          return prev.map((msg, idx) => {
+                            if (idx === prev.length - 1) {
+                              let updatedMsg = { ...msg };
+
+                              // 如果有搜索结果（fetchKnowledge），添加搜索结果列表
+                              if (event.searchResults && event.searchResults.length > 0) {
+                                updatedMsg.searchResults = event.searchResults;
+                              }
+
+                              // 如果有RAG结果（fetchKnowledge），添加RAG结果列表
+                              if (event.ragResults && event.ragResults.length > 0) {
+                                updatedMsg.ragResults = event.ragResults;
+                              }
+
+                              // 如果有记忆结果（fetchMemory），添加记忆结果列表
+                              if (event.memoryResults && event.memoryResults.length > 0) {
+                                updatedMsg.memoryResults = event.memoryResults;
+                              }
+
+                              // 如果既没有搜索结果也没有记忆结果也没有RAG结果，显示文本结果
+                              if ((!event.searchResults || event.searchResults.length === 0) &&
+                                (!event.memoryResults || event.memoryResults.length === 0) &&
+                                (!event.ragResults || event.ragResults.length === 0)) {
+                                const raw = event.result.replace(/（暂无.*?）/, '').trim();
+                                let resultText = '';
+
+                                if (raw) {
+                                  // 限制280字
+                                  const preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
+                                  resultText = preview.split('\n').map((l: string) => `> ${l}`).join('\n');
+                                } else {
+                                  resultText = '> （暂无相关记录）';
+                                }
+
+                                updatedMsg.text = resultText;
+                              }
+
+                              return updatedMsg;
+                            }
+                            return msg;
+                          });
+                        });
+                      }
+                    };
+
                     const plan = await generateFloorGamePlan(
                       currentChildProfile,
                       args.targetDimensions,
                       args.strategy,
                       args.parentPreferences,
                       getConversationHistory(),
-                      specificObjects
+                      specificObjects,
+                      onReActProgress
                     );
 
-                    // 构建游戏方案文本
+                    // 构建游戏方案文本（只保留分析总结，详细内容在游戏卡片中）
                     let planText = '';
                     if (plan._analysis) {
-                      planText += `\n\n💡 ${plan._analysis}\n`;
+                      planText += `💡 ${plan._analysis}\n\n`;
                     }
 
-                    planText += `\n太棒了！我为${currentChildProfile.name}设计了"${plan.gameTitle}"：\n\n`;
-                    planText += `📝 **游戏概要**\n${plan.summary}\n\n`;
-                    planText += `🎯 **游戏目标**\n${plan.goal}\n\n`;
-                    planText += `📋 **游戏步骤**\n`;
-                    plan.steps.forEach((step) => {
-                      planText += `\n**${step.stepTitle}**\n`;
-                      planText += `${step.instruction}\n`;
-                    });
-
-                    planText += `\n如果您觉得这个方案合适，我们就可以开始游戏了！\n\n`;
+                    planText += `太棒了！我为${currentChildProfile.name}设计了"${plan.gameTitle}"，详细内容请查看下方游戏卡片。\n\n`;
 
                     // 构建 FloorGame 对象并持久化
                     const floorGame: FloorGame = {
@@ -1312,41 +1418,52 @@ const PageAIChat = ({
 
                     planText += `:::GAME_IMPLEMENTATION_PLAN:${JSON.stringify({ game: gameForCard, plan })}:::`;
 
-                    // 更新消息：移除 loading 文本，添加游戏方案
-                    setMessages(prev =>
-                      prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text;
-                          // 更新工具调用状态
-                          updatedText = updatedText.replace(
-                            /:::TOOL_CALL_START:::.*?"status":"running".*?:::TOOL_CALL_END:::/s,
-                            (match) => {
-                              const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
-                              toolData.status = 'success';
-                              return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
-                            }
-                          );
-                          updatedText = updatedText.replace('✨ 正在设计游戏方案...', '');
-                          updatedText += planText;
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      })
+                    console.log('[App] 游戏方案生成完成');
+
+                    // 更新工具调用状态为成功
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"plan_floor_game".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'success';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
                     );
+
+                    fullResponse += planText;
+
+                    // 将主消息移到最后（在所有搜索结果气泡之后）
+                    setMessages(prev => {
+                      const mainMsg = prev.find(msg => msg.id === tempMsgId);
+                      if (!mainMsg) return prev;
+
+                      const otherMsgs = prev.filter(msg => msg.id !== tempMsgId);
+                      return [...otherMsgs, { ...mainMsg, text: fullResponse }];
+                    });
 
                     // 工具调用完成，关闭 loading
                     setLoading(false);
                   } catch (error) {
                     console.error('[Tool Call] 生成游戏计划失败:', error);
+
+                    // 更新工具调用状态为失败
+                    fullResponse = fullResponse.replace(
+                      /:::TOOL_CALL_START:::.*?"tool":"plan_floor_game".*?"status":"running".*?:::TOOL_CALL_END:::/s,
+                      (match) => {
+                        const toolData = JSON.parse(match.replace(':::TOOL_CALL_START:::', '').replace(':::TOOL_CALL_END:::', ''));
+                        toolData.status = 'error';
+                        toolData.error = error instanceof Error ? error.message : '未知错误';
+                        return `:::TOOL_CALL_START:::${JSON.stringify(toolData)}:::TOOL_CALL_END:::`;
+                      }
+                    );
+                    fullResponse += `\n\n生成游戏方案时出现错误，请稍后重试。`;
+
                     setMessages(prev =>
-                      prev.map(msg => {
-                        if (msg.id === tempMsgId) {
-                          let updatedText = msg.text.replace('✨ 正在设计游戏方案...', '');
-                          updatedText += `\n\n生成游戏方案时出现错误，请稍后重试。`;
-                          return { ...msg, text: updatedText };
-                        }
-                        return msg;
-                      })
+                      prev.map(msg =>
+                        msg.id === tempMsgId
+                          ? { ...msg, text: fullResponse }
+                          : msg
+                      )
                     );
                     setLoading(false);
                   }
@@ -1872,7 +1989,7 @@ const PageAIChat = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background relative">
+    <div className="flex flex-col h-full bg-gradient-to-br from-green-50 via-white to-blue-50 relative">
       {/* 未识别到文字的提示 Toast */}
       {showNoSpeechToast && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-in fade-in">
@@ -1911,15 +2028,43 @@ const PageAIChat = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-5 pb-32">
         {messages.map((msg) => {
           const { cleanText, card } = parseMessageContent(msg.text);
+          const hasContent = cleanText.trim().length > 0;
+          const hasResults = (msg.searchResults && msg.searchResults.length > 0) || (msg.memoryResults && msg.memoryResults.length > 0);
+
           return (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              <div className={`max-w-[88%] p-4 rounded-2xl shadow-sm leading-relaxed text-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
-                {msg.role === 'user' ? cleanText : <ReactMarkdown components={{ strong: ({ node, ...props }) => <span className="font-bold text-gray-900" {...props} /> }}>{cleanText}</ReactMarkdown>}
-              </div>
+              {/* 只在有内容时显示消息气泡 */}
+              {hasContent && (
+                <div className={`max-w-[88%] p-4 rounded-2xl shadow-md leading-relaxed text-sm transition-all hover:shadow-lg ${msg.role === 'user' ? 'bg-gradient-to-r from-primary to-secondary text-white rounded-br-none' : 'bg-white/90 backdrop-blur-sm text-gray-800 rounded-bl-none border-l-4 border-gradient-to-b from-blue-500 to-purple-500'}`}>
+                  {msg.role === 'user' ? cleanText : <ReactMarkdown components={{ strong: ({ node, ...props }) => <span className="font-bold text-gray-900" {...props} /> }}>{cleanText}</ReactMarkdown>}
+                </div>
+              )}
+
+              {/* Web搜索结果展示 */}
+              {msg.searchResults && msg.searchResults.length > 0 && (
+                <div className={`${hasContent ? 'mt-2' : ''} max-w-[88%] w-full`}>
+                  <WebSearchResults results={msg.searchResults} query={msg.searchQuery} />
+                </div>
+              )}
+
+              {/* RAG知识库结果展示 */}
+              {msg.ragResults && msg.ragResults.length > 0 && (
+                <div className={`${hasContent || (msg.searchResults && msg.searchResults.length > 0) ? 'mt-2' : ''} max-w-[88%] w-full`}>
+                  <RAGResults results={msg.ragResults} query={msg.searchQuery} />
+                </div>
+              )}
+
+              {/* 记忆搜索结果展示 */}
+              {msg.memoryResults && msg.memoryResults.length > 0 && (
+                <div className={`${hasContent || (msg.searchResults && msg.searchResults.length > 0) || (msg.ragResults && msg.ragResults.length > 0) ? 'mt-2' : ''} max-w-[88%] w-full`}>
+                  <MemoryResults results={msg.memoryResults} query={msg.searchQuery} />
+                </div>
+              )}
+
               {msg.options && (
                 <div className="mt-3 flex flex-wrap gap-2 animate-in fade-in max-w-[90%]">
                   {msg.options.map((opt, idx) => (
-                    <button key={idx} onClick={() => handleSend(opt)} className="bg-white border border-primary/20 text-primary text-xs font-bold px-3 py-2 rounded-full shadow-sm hover:bg-green-50 active:scale-95 transition">{opt}</button>
+                    <button key={idx} onClick={() => handleSend(opt)} className="bg-white border-2 border-primary/30 text-primary text-xs font-bold px-4 py-2 rounded-full shadow-md hover:bg-gradient-to-r hover:from-primary hover:to-secondary hover:text-white hover:border-transparent hover:shadow-lg hover:scale-105 active:scale-95 transition-all">{opt}</button>
                   ))}
                 </div>
               )}
@@ -1963,19 +2108,19 @@ const PageAIChat = ({
 
               {/* Card Rendering */}
               {card && card.type === 'GAME' && (
-                <div className="mt-2 max-w-[85%] bg-white p-3 rounded-xl border-l-4 border-secondary shadow-md animate-in fade-in">
-                  <div className="flex items-center space-x-2 mb-2"><Sparkles className="w-4 h-4 text-secondary" /><span className="text-xs font-bold text-secondary uppercase">推荐游戏 (基于分析)</span></div>
+                <div className="mt-2 max-w-[85%] bg-gradient-to-br from-yellow-50 to-orange-50 p-4 rounded-xl border-l-4 border-secondary shadow-lg hover:shadow-xl transition-all animate-in fade-in">
+                  <div className="flex items-center space-x-2 mb-2"><Sparkles className="w-5 h-5 text-secondary animate-pulse" /><span className="text-xs font-bold text-secondary uppercase">✨ 推荐游戏</span></div>
                   <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
-                  <button onClick={() => startCheckInFlow(card)} className="w-full bg-secondary text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-blue-600 transition"><Play className="w-4 h-4 mr-2" /> 开始游戏</button>
+                  <button onClick={() => startCheckInFlow(card)} className="w-full bg-gradient-to-r from-secondary to-blue-600 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center hover:shadow-lg transform hover:scale-105 transition-all"><Play className="w-4 h-4 mr-2" /> 开始游戏</button>
                 </div>
               )}
               {card && card.type === 'NAV' && (
-                <div className="mt-2 max-w-[85%] bg-white p-3 rounded-xl border-l-4 border-primary shadow-md animate-in fade-in">
-                  <div className="flex items-center space-x-2 mb-2"><ArrowUpRight className="w-4 h-4 text-primary" /><span className="text-xs font-bold text-primary uppercase">建议操作</span></div>
+                <div className="mt-2 max-w-[85%] bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-xl border-l-4 border-primary shadow-lg hover:shadow-xl transition-all animate-in fade-in">
+                  <div className="flex items-center space-x-2 mb-2"><ArrowUpRight className="w-5 h-5 text-primary" /><span className="text-xs font-bold text-primary uppercase">💡 建议操作</span></div>
                   <h4 className="font-bold text-gray-800 text-lg mb-1">{card.title}</h4>
                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">{card.reason}</p>
-                  <button onClick={() => navigateTo(card.page === 'CALENDAR' ? Page.CALENDAR : Page.PROFILE)} className="w-full bg-primary/10 text-primary py-2 rounded-lg text-sm font-bold flex items-center justify-center hover:bg-primary/20 transition">前往查看</button>
+                  <button onClick={() => navigateTo(card.page === 'CALENDAR' ? Page.CALENDAR : Page.PROFILE)} className="w-full bg-gradient-to-r from-primary to-green-600 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center hover:shadow-lg transform hover:scale-105 transition-all">前往查看</button>
                 </div>
               )}
               {card && card.type === 'BEHAVIOR' && (
@@ -2265,14 +2410,14 @@ const PageAIChat = ({
         <div className="pointer-events-auto flex space-x-2 overflow-x-auto no-scrollbar py-2">
           <button
             onClick={() => handleSend("根据孩子最近的情况，推荐一个适合今天的地板游戏")}
-            className="bg-white/90 backdrop-blur shadow-sm px-4 py-2 rounded-full text-xs font-bold text-secondary border border-blue-100 flex items-center hover:bg-white hover:shadow-md transition active:scale-95 whitespace-nowrap"
+            className="bg-gradient-to-r from-blue-50 to-purple-50 backdrop-blur shadow-md px-4 py-2 rounded-full text-xs font-bold text-secondary border-2 border-blue-200 flex items-center hover:from-blue-100 hover:to-purple-100 hover:shadow-lg hover:scale-105 transition-all active:scale-95 whitespace-nowrap"
           >
             <Sparkles className="w-3 h-3 mr-1.5" />
             推荐今日互动
           </button>
           <button
             onClick={() => handleSend("请根据孩子最近的情况，生成一份综合评估报告")}
-            className="bg-white/90 backdrop-blur shadow-sm px-4 py-2 rounded-full text-xs font-bold text-primary border border-green-100 flex items-center hover:bg-white hover:shadow-md transition active:scale-95 whitespace-nowrap"
+            className="bg-gradient-to-r from-green-50 to-teal-50 backdrop-blur shadow-md px-4 py-2 rounded-full text-xs font-bold text-primary border-2 border-green-200 flex items-center hover:from-green-100 hover:to-teal-100 hover:shadow-lg hover:scale-105 transition-all active:scale-95 whitespace-nowrap"
           >
             <Activity className="w-3 h-3 mr-1.5" />
             生成评估报告
@@ -2280,7 +2425,7 @@ const PageAIChat = ({
         </div>
       </div>
 
-      <div className="bg-white p-4 border-t border-gray-100 relative">
+      <div className="bg-white/80 backdrop-blur-lg p-4 border-t border-gray-200/50 shadow-lg relative">
         {/* 文件预览区 */}
         {previewUrl && (
           <div className="absolute top-0 left-0 right-0 -translate-y-full px-4 py-2 bg-white/80 backdrop-blur-sm border-t border-gray-100 flex items-center animate-in slide-in-from-bottom">
@@ -2316,7 +2461,7 @@ const PageAIChat = ({
               <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-primary transition active:scale-90" title="上传文件/图片/视频"><Paperclip className="w-5 h-5" /></button>
               <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()} placeholder="输入消息..." className="flex-1 bg-transparent outline-none text-gray-700 placeholder-gray-400 ml-2" />
               <button onClick={toggleVoiceMode} className="p-2 mr-1 transition rounded-full text-gray-500 hover:text-primary"><Mic className="w-5 h-5" /></button>
-              <button onClick={() => handleSend()} className="p-2 bg-primary rounded-full text-white ml-1 hover:bg-green-600 transition shadow-md"><ArrowRight className="w-4 h-4" /></button>
+              <button onClick={() => handleSend()} className="p-2 bg-gradient-to-r from-primary to-green-600 rounded-full text-white ml-1 hover:shadow-lg transform hover:scale-110 transition-all shadow-md"><ArrowRight className="w-4 h-4" /></button>
             </>
           ) : (
             // 语音输入模式
@@ -2551,7 +2696,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
   );
 
   return (
-    <div className="p-4 space-y-4 h-full overflow-y-auto bg-background">
+    <div className="p-4 space-y-4 h-full overflow-y-auto bg-gradient-to-br from-teal-50 via-white to-cyan-50">
       {/* 统计卡片 */}
       <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
         <div className="flex items-center justify-between mb-3">
@@ -2586,9 +2731,9 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
               <button
                 key={dim}
                 onClick={() => setFilterDimension(dim)}
-                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${filterDimension === dim
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                className={`text-xs px-3 py-2 rounded-full font-bold transition-all transform hover:scale-105 ${filterDimension === dim
+                  ? 'bg-gradient-to-r from-primary to-teal-600 text-white shadow-lg'
+                  : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 border-2 border-gray-200'
                   }`}
               >
                 {dim === '全部' ? dim : getDimensionConfig(dim as InterestDimensionType).label}
@@ -2605,9 +2750,9 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
               <button
                 key={source}
                 onClick={() => setFilterSource(source)}
-                className={`text-xs px-3 py-1.5 rounded-full font-bold transition ${filterSource === source
-                  ? 'bg-secondary text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                className={`text-xs px-3 py-2 rounded-full font-bold transition-all transform hover:scale-105 ${filterSource === source
+                  ? 'bg-gradient-to-r from-secondary to-blue-600 text-white shadow-lg'
+                  : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 border-2 border-gray-200'
                   }`}
               >
                 {source === '全部' ? '全部' :
@@ -2948,14 +3093,14 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
 
   // 档案主页
   return (
-    <div className="p-4 space-y-6 h-full overflow-y-auto bg-background">
+    <div className="p-4 space-y-6 h-full overflow-y-auto bg-gradient-to-br from-blue-50/30 via-white to-purple-50/30">
       {/* 头像和基本信息 */}
-      <div className="flex flex-col items-center space-y-4 bg-white p-6 rounded-2xl shadow-sm">
+      <div className="flex flex-col items-center space-y-4 bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
         {/* 头像容器 - 添加编辑功能 */}
         <div className="relative group">
           <img
             src={childProfile?.avatar || defaultAvatar}
-            className="w-24 h-24 rounded-full border-4 border-white shadow-lg"
+            className="w-24 h-24 rounded-full border-4 border-white shadow-lg ring-2 ring-blue-100"
             alt={childProfile?.name || '孩子'}
           />
           {/* 编辑按钮 */}
@@ -2990,7 +3135,7 @@ const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportRepor
         />
 
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800">{childProfile?.name || '未设置'}, {age}岁</h2>
+          <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">{childProfile?.name || '未设置'}, {age}岁</h2>
           <p className="text-sm text-gray-500 mt-1">
             {childProfile?.gender === 'male' ? '男孩' : childProfile?.gender === 'female' ? '女孩' : ''}
           </p>
@@ -3440,10 +3585,10 @@ const PageGames = ({
     });
 
     return (
-      <div className="h-full bg-background p-4 overflow-y-auto">
+      <div className="h-full bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4 overflow-y-auto">
         <div className="sticky top-0 bg-background z-10 pb-2 -mx-4 px-4 pt-2">
           <div className="relative mb-3"><Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" /><input value={searchText} onChange={(e) => setSearchText(e.target.value)} className="w-full bg-white pl-10 pr-4 py-3 rounded-xl shadow-sm outline-none border border-transparent focus:border-primary/30 transition" placeholder="搜索游戏（如：积木）" /></div>
-          <div className="flex space-x-2 overflow-x-auto pb-2 no-scrollbar">{FILTERS.map(f => (<button key={f} onClick={() => setActiveFilter(f)} className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition border ${activeFilter === f ? 'bg-primary text-white border-primary shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>{f}</button>))}</div>
+          <div className="flex space-x-2 overflow-x-auto pb-2 no-scrollbar">{FILTERS.map(f => (<button key={f} onClick={() => setActiveFilter(f)} className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all border-2 transform hover:scale-105 ${activeFilter === f ? 'bg-gradient-to-r from-primary to-green-600 text-white border-transparent shadow-lg' : 'bg-white text-gray-600 border-gray-200 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:border-gray-300'}`}>{f}</button>))}</div>
         </div>
         <h3 className="font-bold text-gray-700 mb-3 flex items-center justify-between mt-2"><span>推荐游戏库</span><span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{filteredGames.length} 个结果</span></h3>
         <div className="space-y-4 pb-20">
@@ -3458,7 +3603,7 @@ const PageGames = ({
                   setInternalActiveGame(game);
                   setGameState(GameState.PREVIEW);
                 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-98 transition transform cursor-pointer group hover:border-primary/30 overflow-hidden"
+                className="bg-gradient-to-br from-white to-blue-50 rounded-2xl shadow-lg border-2 border-blue-100 active:scale-98 transition-all transform cursor-pointer group hover:border-indigo-400 hover:shadow-xl overflow-hidden"
               >
                 {coverImages.get(game.id) && (
                   <div className="w-full h-32 overflow-hidden">
