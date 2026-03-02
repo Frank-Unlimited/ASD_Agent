@@ -7,7 +7,7 @@
  *   pending=true   FIFO 队列中尚未写入 graphiti 的原始观察文本（full episode content）
  */
 
-const MEMORY_SERVICE_URL = 'http://localhost:8000';
+const MEMORY_SERVICE_URL = import.meta.env.VITE_MEMORY_SERVICE_URL || 'http://localhost:8000';
 
 export interface MemoryFact {
   text: string;
@@ -27,7 +27,7 @@ export async function fetchMemoryFacts(
   numResults = 10
 ): Promise<MemoryFact[]> {
   try {
-    const res = await fetch(`${MEMORY_SERVICE_URL}/api/memory/search`, {
+    const res = await fetch(`${MEMORY_SERVICE_URL}/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ group_id: groupId, query, num_results: numResults }),

@@ -107,11 +107,11 @@ import defaultAvatar from './img/cute_dog.jpg';
 // Graphiti 记忆层辅助函数
 // ---------------------------------------------------------------------------
 
-const MEMORY_SERVICE_URL = 'http://localhost:8000';
+const MEMORY_SERVICE_URL = import.meta.env.VITE_MEMORY_SERVICE_URL || '/api/memory';
 
 /** 向 graphiti 写入记忆 (fire-and-forget，静默忽略失败) */
 function writeMemory(content: string, referenceTime: string): void {
-  fetch(`${MEMORY_SERVICE_URL}/api/memory/write`, {
+  fetch(`${MEMORY_SERVICE_URL}/write`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

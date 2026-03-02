@@ -23,7 +23,7 @@ export interface RAGSearchResponse {
 }
 
 class AlibabaRAGService {
-  private baseUrl = 'http://localhost:8001';
+  private baseUrl = import.meta.env.VITE_RAG_SERVICE_URL || 'http://localhost:8001';
 
   /**
    * 检查服务是否可用
@@ -58,7 +58,7 @@ class AlibabaRAGService {
     try {
       console.log('🔍 RAG 检索:', query);
 
-      const response = await fetch(`${this.baseUrl}/api/rag/search`, {
+      const response = await fetch(`${this.baseUrl}/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
