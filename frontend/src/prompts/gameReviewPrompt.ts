@@ -11,7 +11,8 @@ export const GAME_REVIEW_SYSTEM_PROMPT = `
 你的任务是对一次地板游戏互动进行专业复盘，重点关注：
 1. 游戏过程中孩子的表现和亲子互动质量
 2. 这类游戏对该孩子的适合程度，是否应继续、调整还是避免
-3. 未来干预的方向和改进建议
+3. 评估互动的基本质量（反馈及时性、情感连结）和多样性（探索广度）
+4. 未来干预的方向和改进建议
 
 ## 核心理论框架
 
@@ -103,6 +104,8 @@ ${parentFeedback || '家长未提供额外反馈'}
    - communicationLevel：沟通互动水平
    - skillProgress：目标能力进步
    - parentExecution：家长执行质量
+   - feedbackScore：反馈质量（关注照顾者回应的及时性、共情深度及孩子的情感反馈）
+   - explorationScore：探索广度（关注孩子尝试新玩法、探索环境及表现出好奇心的程度）
 
 3. recommendation：建议（continue/adjust/avoid）
    - 这类游戏是否适合该孩子继续进行

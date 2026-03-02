@@ -299,6 +299,8 @@ export interface GameReviewScores {
   communicationLevel: number;   // 沟通互动水平 0-100
   skillProgress: number;        // 目标能力进步 0-100
   parentExecution: number;      // 家长执行质量 0-100
+  feedbackScore: number;        // 反馈质量 (0-100)
+  explorationScore: number;     // 探索广度 (0-100)
 }
 
 export interface GameReviewResult {
@@ -306,6 +308,7 @@ export interface GameReviewResult {
   scores: GameReviewScores;     // 多维度打分
   recommendation: 'continue' | 'adjust' | 'avoid';
   nextStepSuggestion: string;   // 下一步建议（含改进方向和理由）
+  interestAnalysis?: BehaviorAnalysis[]; // 行为分析 Agent 的输出
 }
 
 export interface FloorGame {

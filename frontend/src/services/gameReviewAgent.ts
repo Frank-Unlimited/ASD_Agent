@@ -123,7 +123,9 @@ export async function reviewFloorGame(params: {
       emotionalConnection: clamp(data.scores.emotionalConnection),
       communicationLevel: clamp(data.scores.communicationLevel),
       skillProgress: clamp(data.scores.skillProgress),
-      parentExecution: clamp(data.scores.parentExecution)
+      parentExecution: clamp(data.scores.parentExecution),
+      feedbackScore: clamp(data.scores.feedbackScore || 0),
+      explorationScore: clamp(data.scores.explorationScore || 0)
     },
     recommendation: data.recommendation,
     nextStepSuggestion: data.nextStepSuggestion

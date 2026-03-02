@@ -620,9 +620,11 @@ export const GameReviewSchema = {
           emotionalConnection: { type: 'number', description: '情感连接质量', minimum: 0, maximum: 100 },
           communicationLevel: { type: 'number', description: '沟通互动水平', minimum: 0, maximum: 100 },
           skillProgress: { type: 'number', description: '目标能力进步', minimum: 0, maximum: 100 },
-          parentExecution: { type: 'number', description: '家长执行质量', minimum: 0, maximum: 100 }
+          parentExecution: { type: 'number', description: '家长执行质量', minimum: 0, maximum: 100 },
+          feedbackScore: { type: 'number', description: '反馈质量 (单次回应及时性与情感连结)', minimum: 0, maximum: 100 },
+          explorationScore: { type: 'number', description: '探索广度 (尝试新事物意愿与行为多样性)', minimum: 0, maximum: 100 }
         },
-        required: ['childEngagement', 'gameCompletion', 'emotionalConnection', 'communicationLevel', 'skillProgress', 'parentExecution'],
+        required: ['childEngagement', 'gameCompletion', 'emotionalConnection', 'communicationLevel', 'skillProgress', 'parentExecution', 'feedbackScore', 'explorationScore'],
         additionalProperties: false
       },
       recommendation: {

@@ -90,7 +90,7 @@ import { floorGameStorageService } from './services/floorGameStorage';
 import { reviewFloorGame } from './services/gameReviewAgent';
 import { chatStorageService } from './services/chatStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
-import { WEEK_DATA, INITIAL_TREND_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
+import { WEEK_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
 import { PageRadar } from './components/RadarChartPage';
 import { PageCalendar } from './components/CalendarPage';
@@ -2811,7 +2811,7 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
   );
 };
 
-const PageProfile = ({ trendData, interestProfile, abilityProfile, onImportReport, onExportReport, childProfile, calculateAge, onUpdateAvatar, accountId, onUpdateAccountId }: { trendData: any[], interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void, childProfile: ChildProfile | null, calculateAge: (birthDate: string) => number, onUpdateAvatar: (avatarUrl: string) => void, accountId: string, onUpdateAccountId: (id: string) => void }) => {
+const PageProfile = ({ interestProfile, abilityProfile, onImportReport, onExportReport, childProfile, calculateAge, onUpdateAvatar, accountId, onUpdateAccountId }: { interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void, childProfile: ChildProfile | null, calculateAge: (birthDate: string) => number, onUpdateAvatar: (avatarUrl: string) => void, accountId: string, onUpdateAccountId: (id: string) => void }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [showReportList, setShowReportList] = useState(false);
@@ -3217,8 +3217,6 @@ const PageGames = ({
   gameState,
   setGameState,
   onBack,
-  trendData,
-  onUpdateTrend,
   onProfileUpdate,
   activeGame,
   childProfile,
@@ -3230,8 +3228,6 @@ const PageGames = ({
   gameState: GameState,
   setGameState: (s: GameState) => void,
   onBack: () => void,
-  trendData: any[],
-  onUpdateTrend: (score: number) => void,
   onProfileUpdate: (u: ProfileUpdate) => void,
   activeGame?: Game,
   childProfile: ChildProfile | null,
@@ -3281,7 +3277,6 @@ const PageGames = ({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [clickedLog, setClickedLog] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [gameReview, setGameReview] = useState<GameReviewResult | null>(null);
   const [hasUpdatedTrend, setHasUpdatedTrend] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -3355,7 +3350,7 @@ const PageGames = ({
           materials: []
         };
         setInternalActiveGame(gameFromFloor);
-        setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false);
+        setCurrentStepIndex(0); setTimer(0); setLogs([]); setGameReview(null); setHasUpdatedTrend(false);
         return;
       }
 
@@ -3364,7 +3359,7 @@ const PageGames = ({
       if (game) {
         console.log('[Game Page] 从游戏库加载游戏:', game.title);
         setInternalActiveGame(game);
-        setCurrentStepIndex(0); setTimer(0); setLogs([]); setEvaluation(null); setHasUpdatedTrend(false);
+        setCurrentStepIndex(0); setTimer(0); setLogs([]); setGameReview(null); setHasUpdatedTrend(false);
       } else {
         console.warn('[Game Page] ❌ 未找到游戏:', initialGameId);
       }
@@ -3377,7 +3372,7 @@ const PageGames = ({
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [gameState]);
 
-  useEffect(() => { if (gameState === GameState.SUMMARY && !evaluation && !isAnalyzing) performAnalysis(); }, [gameState]);
+  useEffect(() => { if (gameState === GameState.SUMMARY && !gameReview && !isAnalyzing) performAnalysis(); }, [gameState]);
 
   // 加载游戏封面图（每个游戏的第一步图片）和监听实时更新
   useEffect(() => {
@@ -3450,27 +3445,23 @@ const PageGames = ({
       const evidences = await extractBehaviors(logsToAnalyze, videoSummary || '', userFeedback || '');
 
       // Stage 2: 专家会诊层并行调用 (Parallel Inference)
-      const evaluationPromise = api.analyzeSession(logsToAnalyze); // 原有综合评分逻辑（为了兼容老卡片，内部也可部分剥离）
-      const interestPromise = inferInterests(evidences); // 兴趣画像专家
+      const interestPromise = inferInterests(evidences); // 行为分析专家
       const reviewPromise = floorGame ? reviewFloorGame({            // DIR 专业复盘专家
         game: { ...floorGame, status: 'completed', dtend: new Date().toISOString() },
         evidences,
         parentFeedback: userFeedback || chatHistoryText
       }).catch(e => { console.error('[GameReview] 复盘失败:', e); return null; }) : Promise.resolve(null);
 
-      const [result, interestUpdates, reviewResult] = await Promise.all([
-        evaluationPromise,
+      const [interestUpdates, reviewResult] = await Promise.all([
         interestPromise,
         reviewPromise
       ]);
 
-      // 将真实的兴趣画像分析覆盖原有的分析结果
-      result.interestAnalysis = interestUpdates;
-
-      setEvaluation(result);
       if (reviewResult) {
+        // 将行为分析 Agent 的结果整合进复盘报告
+        reviewResult.interestAnalysis = interestUpdates;
         setGameReview(reviewResult);
-        console.log('[GameReview] 复盘完成，综合得分:', reviewResult.overallScore);
+        console.log('[GameReview] 复盘与行为分析完成，综合得分:', reviewResult.scores.childEngagement);
 
         // 写入 graphiti 记忆层（fire-and-forget）
         if (floorGame) {
@@ -3486,19 +3477,7 @@ const PageGames = ({
         }
       }
 
-      // 将评估结果写入 FloorGame 记录
-      if (internalActiveGame?.id) {
-        try {
-          floorGameStorageService.updateGame(internalActiveGame.id, {
-            evaluation: result,
-            status: 'completed',
-            dtend: new Date().toISOString()
-          });
-        } catch (e) { console.warn('Failed to save evaluation to FloorGame:', e); }
-      }
-
-      if (result.score > 0 && !hasUpdatedTrend) {
-        onUpdateTrend(result.score);
+      if (reviewResult && !hasUpdatedTrend) {
         const target = internalActiveGame?.target || "";
         let matchedDim: AbilityDimensionType | null = null;
         if (target.includes('自我调节')) matchedDim = '自我调节';
@@ -3507,14 +3486,14 @@ const PageGames = ({
 
         const abilityUpdates = matchedDim ? [{
           dimension: matchedDim,
-          scoreChange: Math.min(5, result.score / 20),
+          scoreChange: Math.min(5, reviewResult.scores.childEngagement / 20),
           reason: `游戏训练: ${internalActiveGame?.title}`
         }] : [];
 
         onProfileUpdate({
-          source: 'GAME',
-          interestUpdates: result.interestAnalysis || [],
-          abilityUpdates: abilityUpdates
+          interestUpdates: reviewResult.interestAnalysis || [],
+          abilityUpdates: abilityUpdates,
+          source: 'GAME'
         });
         setHasUpdatedTrend(true);
       }
@@ -3531,7 +3510,7 @@ const PageGames = ({
     setCurrentStepIndex(0);
     setTimer(0);
     setLogs([]);
-    setEvaluation(null);
+    setGameReview(null);
     setGameReview(null);
     setHasUpdatedTrend(false);
   };
@@ -3837,10 +3816,8 @@ const PageGames = ({
     return (
       <GameSummaryPage
         isAnalyzing={isAnalyzing}
-        evaluation={evaluation}
         gameReview={gameReview}
         activeGame={internalActiveGame}
-        trendData={trendData}
         gameReturnPage={gameReturnPage}
         onBack={onBack}
         onReturnToList={() => setGameState(GameState.LIST)}
@@ -3871,7 +3848,6 @@ export default function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [activeGameId, setActiveGameId] = useState<string | undefined>(undefined);
   const [gameMode, setGameMode] = useState<GameState>(GameState.LIST);
-  const [trendData, setTrendData] = useState(INITIAL_TREND_DATA);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false); // 退出互动确认
   const [gameReturnPage, setGameReturnPage] = useState<Page>(Page.GAMES); // 记录返回页
@@ -3965,7 +3941,6 @@ export default function App() {
     setCurrentPage(Page.GAMES);
     console.log('[App] 已设置 activeGameId:', gameId, 'gameMode:', directPlay ? 'PLAYING' : 'PREVIEW', 'currentPage: GAMES', 'returnPage:', sourcePage);
   };
-  const handleUpdateTrend = (newScore: number) => { setTrendData(prev => [...prev, { name: '本次', engagement: newScore }]); };
 
   // 计算年龄的辅助函数
   const calculateAge = (birthDate: string): number => {
@@ -4085,7 +4060,6 @@ export default function App() {
     // 重置状态
     setInterestProfile(INITIAL_INTEREST_SCORES);
     setAbilityProfile(INITIAL_ABILITY_SCORES);
-    setTrendData(INITIAL_TREND_DATA);
     setIsFirstTime(true);
 
     console.log('[Logout] 已清空所有本地数据');
@@ -4280,10 +4254,10 @@ export default function App() {
         {currentPage === Page.WELCOME && <PageWelcome onComplete={handleWelcomeComplete} />}
         {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} childProfile={childProfile} />}
         {currentPage === Page.CALENDAR && <PageCalendar navigateTo={handleNavigate} onStartGame={handleStartGame} />}
-        {currentPage === Page.PROFILE && <PageProfile trendData={trendData} interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} onUpdateAvatar={handleUpdateAvatar} accountId={accountId} onUpdateAccountId={handleUpdateAccountId} />}
+        {currentPage === Page.PROFILE && <PageProfile interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} onUpdateAvatar={handleUpdateAvatar} accountId={accountId} onUpdateAccountId={handleUpdateAccountId} />}
         {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}
         {currentPage === Page.RADAR && <PageRadar />}
-        {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => { if (gameMode === GameState.LIST) { setCurrentPage(Page.CHAT); } else { setCurrentPage(gameReturnPage); setGameMode(GameState.LIST); } }} trendData={trendData} onUpdateTrend={handleUpdateTrend} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} onGameStart={setActiveGameId} onAbort={() => setShowExitConfirm(true)} gameReturnPage={gameReturnPage} />)}
+        {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => { if (gameMode === GameState.LIST) { setCurrentPage(Page.CHAT); } else { setCurrentPage(gameReturnPage); setGameMode(GameState.LIST); } }} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} onGameStart={setActiveGameId} onAbort={() => setShowExitConfirm(true)} gameReturnPage={gameReturnPage} />)}
       </main>
     </div>
   );
