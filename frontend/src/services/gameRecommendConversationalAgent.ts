@@ -17,7 +17,8 @@ import {
   InterestAnalysisResult,
   GameImplementationPlan,
   ChildProfile,
-  InterestDimensionType
+  InterestDimensionType,
+  WebSearchResult
 } from '../types';
 import { DimensionMetrics } from './historicalDataHelper';
 import { fetchMemoryFacts, formatMemoryFactsForPrompt } from './memoryService';
@@ -37,7 +38,7 @@ const MAX_REACT_ITERATIONS = 5;
  */
 export type ReActProgressEvent =
   | { type: 'tool_call'; toolName: 'fetchMemory' | 'fetchKnowledge'; query: string }
-  | { type: 'tool_result'; toolName: 'fetchMemory' | 'fetchKnowledge'; result: string };
+  | { type: 'tool_result'; toolName: 'fetchMemory' | 'fetchKnowledge'; result: string; searchResults?: WebSearchResult[]; memoryResults?: any[]; ragResults?: any[] };
 
 export type OnReActProgress = (event: ReActProgressEvent) => void;
 
@@ -69,7 +70,7 @@ async function runReActLoop(
   systemPrompt: string,
   userPrompt: string,
   tools: ToolDefinition[],
-  toolHandlers: Record<string, (args: Record<string, string>) => Promise<string>>,
+  toolHandlers: Record<string, (args: Record<string, string>) => Promise<string | { text: string; searchResults?: WebSearchResult[]; memoryResults?: any[]; ragResults?: any[] }>>,
   onProgress?: OnReActProgress
 ): Promise<string> {
   const messages: QwenMessage[] = [
@@ -100,7 +101,8 @@ async function runReActLoop(
     // 依次执行每个工具调用，结果作为 tool 消息追加
     for (const toolCall of result.toolCalls) {
       const toolName = toolCall.function.name;
-      let toolResult: string;
+      let toolResult: string = '';
+      let searchResults: WebSearchResult[] | undefined;
 
       try {
         const args = JSON.parse(toolCall.function.arguments) as Record<string, string>;
@@ -118,16 +120,45 @@ async function runReActLoop(
           toolResult = `[错误] 未知工具：${toolName}`;
           console.error(`[ReAct] 未知工具: ${toolName}`);
         } else {
-          toolResult = await handler(args);
+          const handlerResult = await handler(args);
+          let memoryResults: any[] | undefined;
+          let ragResults: any[] | undefined;
+          
+          // 如果返回对象，提取 text 和结果数据
+          if (handlerResult && typeof handlerResult === 'object' && 'text' in handlerResult) {
+            toolResult = handlerResult.text;
+            searchResults = handlerResult.searchResults;
+            memoryResults = (handlerResult as any).memoryResults;
+            ragResults = (handlerResult as any).ragResults;
+            console.log(`[ReAct] ${toolName} 返回 ${searchResults?.length || 0} 个搜索结果, ${memoryResults?.length || 0} 个记忆结果, ${ragResults?.length || 0} 个RAG结果`);
+            
+            // 通知 UI：工具返回结果
+            onProgress?.({
+              type: 'tool_result',
+              toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
+              result: toolResult,
+              searchResults,
+              memoryResults,
+              ragResults
+            });
+          } else if (typeof handlerResult === 'string') {
+            toolResult = handlerResult;
+            // 通知 UI：工具返回结果
+            onProgress?.({
+              type: 'tool_result',
+              toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
+              result: toolResult
+            });
+          } else {
+            toolResult = '';
+            onProgress?.({
+              type: 'tool_result',
+              toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
+              result: toolResult
+            });
+          }
           console.log(`[ReAct] 工具 ${toolName} 返回 ${toolResult.length} 字符`);
         }
-
-        // 通知 UI：工具返回结果
-        onProgress?.({
-          type: 'tool_result',
-          toolName: toolName as 'fetchMemory' | 'fetchKnowledge',
-          result: toolResult
-        });
       } catch (err) {
         // 工具执行失败不终止循环，将错误信息回传给 LLM 继续推理
         toolResult = `[工具执行失败] ${err instanceof Error ? err.message : String(err)}`;
@@ -163,7 +194,12 @@ function buildInterestAnalysisHandlers(accountId: string) {
       const query = args.query || '';
       console.log('[ReAct/fetchMemory] 查询:', query);
       const facts = await fetchMemoryFacts(accountId, query, 15);
-      return formatMemoryFactsForPrompt(facts) || '（暂无相关历史记忆）';
+      
+      // 返回包含文本和记忆结果的对象
+      return {
+        text: formatMemoryFactsForPrompt(facts) || '（暂无相关历史记忆）',
+        memoryResults: facts
+      };
     }
   };
 }
@@ -178,13 +214,18 @@ function buildGamePlanHandlers(accountId: string) {
       const query = args.query || '';
       console.log('[ReAct/fetchMemory] 查询:', query);
       const facts = await fetchMemoryFacts(accountId, query, 15);
-      return formatMemoryFactsForPrompt(facts) || '（暂无相关历史记忆）';
+      
+      // 返回包含文本和记忆结果的对象
+      return {
+        text: formatMemoryFactsForPrompt(facts) || '（暂无相关历史记忆）',
+        memoryResults: facts
+      };
     },
     fetchKnowledge: async (args: Record<string, string>) => {
       const query = args.query || '';
       console.log('[ReAct/fetchKnowledge] 搜索:', query);
       
-      // 并行调用联网搜索 + RAG 知识库（搜索足够多的结果供 LLM 使用）
+      // 并行调用联网搜索 + RAG 知识库
       const result = await knowledgeService.search(query, {
         useWeb: true,
         useRAG: true,
@@ -192,7 +233,12 @@ function buildGamePlanHandlers(accountId: string) {
         ragCount: 5
       });
       
-      return result.combined || '（暂无相关搜索结果）';
+      // 返回包含文本和搜索结果的对象
+      return {
+        text: result.combined || '（暂无相关搜索结果）',
+        searchResults: result.webResults || [],
+        ragResults: result.ragResults || []
+      };
     }
   };
 }
