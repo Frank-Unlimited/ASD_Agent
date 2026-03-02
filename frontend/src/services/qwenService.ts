@@ -63,7 +63,7 @@ export const recommendGame = async (
 
     // 使用联网搜索获取候选游戏
     const { searchGamesOnline } = await import('./onlineSearchService');
-    const candidateGames = await searchGamesOnline(searchQuery, profileContext, 5);
+    const { games: candidateGames } = await searchGamesOnline(searchQuery, profileContext, 5);
 
     console.log(`[Recommend Agent] 搜索到 ${candidateGames.length} 个候选游戏`);
 
