@@ -40,16 +40,15 @@ function formatDate(dateStr: string | null): string {
 export const MemoryResults: React.FC<MemoryResultsProps> = ({ results, query }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  if (!results || results.length === 0) {
-    return null;
-  }
-
   const keywords = extractKeywords(query || '');
   
+  // 即使没有结果也显示查询信息
+  const hasResults = results && results.length > 0;
+  
   // 分类记忆
-  const pending = results.filter(r => r.pending);
-  const active = results.filter(r => !r.pending && !r.invalid_at);
-  const outdated = results.filter(r => !r.pending && r.invalid_at);
+  const pending = hasResults ? results.filter(r => r.pending) : [];
+  const active = hasResults ? results.filter(r => !r.pending && !r.invalid_at) : [];
+  const outdated = hasResults ? results.filter(r => !r.pending && r.invalid_at) : [];
 
   return (
     <div className="memory-results">
@@ -66,69 +65,87 @@ export const MemoryResults: React.FC<MemoryResultsProps> = ({ results, query }) 
               ))}
             </span>
           ) : (
-            ` 历史记录 (${results.length})`
+            ` 历史记录`
           )}
+          {hasResults && ` (${results.length})`}
         </span>
         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
 
       {isExpanded && (
         <div className="memory-results-list">
-          {/* 最新观察 */}
-          {pending.length > 0 && (
+          {!hasResults ? (
             <div className="memory-section">
-              <div className="section-header">
-                <span className="section-title">📝 最新观察 ({pending.length})</span>
-                <span className="section-subtitle">尚未提炼的原始记录</span>
-              </div>
-              {pending.map((result, index) => (
-                <div key={`pending-${index}`} className="memory-item pending">
-                  <div className="memory-date">
-                    <Clock size={12} />
-                    {formatDate(result.valid_at)}
-                  </div>
-                  <div className="memory-text">{result.text}</div>
+              <div className="no-results">
+                <div className="no-results-icon">🔍</div>
+                <div className="no-results-text">暂无相关记录</div>
+                <div className="debug-info">
+                  <div className="debug-label">调试信息：</div>
+                  <div className="debug-item">查询关键词: {query || '(空)'}</div>
+                  <div className="debug-item">用户 ID: {localStorage.getItem('asd_user_account_id') || '(未设置)'}</div>
+                  <div className="debug-item">结果数量: 0</div>
                 </div>
-              ))}
+              </div>
             </div>
-          )}
+          ) : (
+            <>
+              {/* 最新观察 */}
+              {pending.length > 0 && (
+                <div className="memory-section">
+                  <div className="section-header">
+                    <span className="section-title">📝 最新观察 ({pending.length})</span>
+                    <span className="section-subtitle">尚未提炼的原始记录</span>
+                  </div>
+                  {pending.map((result, index) => (
+                    <div key={`pending-${index}`} className="memory-item pending">
+                      <div className="memory-date">
+                        <Clock size={12} />
+                        {formatDate(result.valid_at)}
+                      </div>
+                      <div className="memory-text">{result.text}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-          {/* 当前有效事实 */}
-          {active.length > 0 && (
-            <div className="memory-section">
-              <div className="section-header">
-                <span className="section-title">✅ 当前有效事实 ({active.length})</span>
-                <span className="section-subtitle">已提炼的结构化记忆</span>
-              </div>
-              {active.map((result, index) => (
-                <div key={`active-${index}`} className="memory-item active">
-                  <div className="memory-date">
-                    <Clock size={12} />
-                    {formatDate(result.valid_at)}
+              {/* 当前有效事实 */}
+              {active.length > 0 && (
+                <div className="memory-section">
+                  <div className="section-header">
+                    <span className="section-title">✅ 当前有效事实 ({active.length})</span>
+                    <span className="section-subtitle">已提炼的结构化记忆</span>
                   </div>
-                  <div className="memory-text">{result.text}</div>
+                  {active.map((result, index) => (
+                    <div key={`active-${index}`} className="memory-item active">
+                      <div className="memory-date">
+                        <Clock size={12} />
+                        {formatDate(result.valid_at)}
+                      </div>
+                      <div className="memory-text">{result.text}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+              )}
 
-          {/* 历史事实 */}
-          {outdated.length > 0 && (
-            <div className="memory-section">
-              <div className="section-header">
-                <span className="section-title">📜 历史事实 ({outdated.length})</span>
-                <span className="section-subtitle">已被新事实覆盖</span>
-              </div>
-              {outdated.map((result, index) => (
-                <div key={`outdated-${index}`} className="memory-item outdated">
-                  <div className="memory-date">
-                    <Clock size={12} />
-                    {formatDate(result.valid_at)} → {formatDate(result.invalid_at)}
+              {/* 历史事实 */}
+              {outdated.length > 0 && (
+                <div className="memory-section">
+                  <div className="section-header">
+                    <span className="section-title">📜 历史事实 ({outdated.length})</span>
+                    <span className="section-subtitle">已被新事实覆盖</span>
                   </div>
-                  <div className="memory-text">{result.text}</div>
+                  {outdated.map((result, index) => (
+                    <div key={`outdated-${index}`} className="memory-item outdated">
+                      <div className="memory-date">
+                        <Clock size={12} />
+                        {formatDate(result.valid_at)} → {formatDate(result.invalid_at)}
+                      </div>
+                      <div className="memory-text">{result.text}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -274,6 +291,44 @@ export const MemoryResults: React.FC<MemoryResultsProps> = ({ results, query }) 
 
         .memory-results-list::-webkit-scrollbar-thumb:hover {
           background: #9ca3af;
+        }
+
+        /* 无结果样式 */
+        .no-results {
+          padding: 20px;
+          text-align: center;
+        }
+
+        .no-results-icon {
+          font-size: 32px;
+          margin-bottom: 8px;
+        }
+
+        .no-results-text {
+          font-size: 14px;
+          color: #6b7280;
+          margin-bottom: 16px;
+        }
+
+        .debug-info {
+          background: #f9fafb;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+          padding: 12px;
+          text-align: left;
+          font-size: 12px;
+        }
+
+        .debug-label {
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 8px;
+        }
+
+        .debug-item {
+          color: #6b7280;
+          padding: 4px 0;
+          font-family: 'Courier New', monospace;
         }
       `}</style>
     </div>
