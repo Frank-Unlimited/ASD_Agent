@@ -3,7 +3,7 @@
  * 用于游戏结束后的 AI 专业复盘分析
  */
 
-import { ChildProfile, FloorGame } from '../types';
+import { ChildProfile, FloorGame, EvidenceSnippet } from '../types';
 
 export const GAME_REVIEW_SYSTEM_PROMPT = `
 你是一位资深的 DIR/Floortime（地板时光）疗法专家和儿童发展评估师，专注于自闭症谱系障碍（ASD）儿童的干预和评估。
@@ -11,7 +11,8 @@ export const GAME_REVIEW_SYSTEM_PROMPT = `
 你的任务是对一次地板游戏互动进行专业复盘，重点关注：
 1. 游戏过程中孩子的表现和亲子互动质量
 2. 这类游戏对该孩子的适合程度，是否应继续、调整还是避免
-3. 未来干预的方向和改进建议
+3. 评估互动的基本质量（反馈及时性、情感连结）和多样性（探索广度）
+4. 未来干预的方向和改进建议
 
 ## 核心理论框架
 
@@ -37,12 +38,11 @@ export const GAME_REVIEW_SYSTEM_PROMPT = `
 export function buildGameReviewPrompt(params: {
   childProfile: ChildProfile;
   game: FloorGame;
-  chatHistory: string;
-  videoSummary?: string;
+  evidences: EvidenceSnippet[];
   parentFeedback: string;
   memorySection?: string;
 }): string {
-  const { childProfile, game, chatHistory, videoSummary, parentFeedback, memorySection } = params;
+  const { childProfile, game, evidences, parentFeedback, memorySection } = params;
 
   const age = calculateAge(childProfile.birthDate);
   const gameDuration = calculateDuration(game.dtstart, game.dtend);
@@ -80,24 +80,18 @@ ${stepsText}
   }
 
   prompt += `
-【游戏中互动记录】
-${chatHistory || '无互动记录'}
+【本次游戏的结构化行为证据（Evidences）】
+${evidences.length > 0
+      ? evidences.map((e, index) => `${index + 1}. [${e.source}] 行为: ${e.behavior} (背景: ${e.context})`).join('\n')
+      : '暂无结构化的行为证据'}
 `;
-
-  if (videoSummary) {
-    prompt += `
-【视频观察总结】
-${videoSummary}
-`;
-  }
 
   prompt += `
 【家长反馈】
 ${parentFeedback || '家长未提供额外反馈'}
 
 【输出要求】
-请基于以上信息，从 DIR/Floortime 专业视角进行复盘，生成：
-
+请基于以上信息，特别是将“本次游戏的结构化行为证据”与“历史互动记忆”进行对比，从 DIR/Floortime 专业视角进行具有发展纵深感的复盘，生成：
 1. reviewSummary：游戏过程总结与复盘（200-400字）
    - 回顾本次游戏的整体过程
    - 分析孩子的参与度、情绪状态、互动质量
@@ -110,6 +104,8 @@ ${parentFeedback || '家长未提供额外反馈'}
    - communicationLevel：沟通互动水平
    - skillProgress：目标能力进步
    - parentExecution：家长执行质量
+   - feedbackScore：反馈质量（关注照顾者回应的及时性、共情深度及孩子的情感反馈）
+   - explorationScore：探索广度（关注孩子尝试新玩法、探索环境及表现出好奇心的程度）
 
 3. recommendation：建议（continue/adjust/avoid）
    - 这类游戏是否适合该孩子继续进行
