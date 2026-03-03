@@ -225,34 +225,72 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
     }
   };
   /**
-   * 启动音频采集（完全复制官方 SDK 行为）
+   * 启动音频采集（使用 AudioWorklet，降级到 ScriptProcessorNode）
    */
   const startAudioCapture = async (stream: MediaStream) => {
     try {
-      // 使用 16kHz 采样率（与官方 SDK 一致）
       audioContextRef.current = new AudioContext({ sampleRate: 16000 });
       const source = audioContextRef.current.createMediaStreamSource(stream);
 
-      // 创建 ScriptProcessorNode
-      // 官方 SDK 使用 3200 个样本（6400 字节），但 ScriptProcessorNode 只支持 2 的幂次
-      // 尝试使用 4096 样本（8192 字节，更接近官方的 6400 字节）
+      const supportsAudioWorklet = 'audioWorklet' in audioContextRef.current;
+
+      if (supportsAudioWorklet) {
+        try {
+          console.log('[AI Video Call] 使用 AudioWorklet 进行音频采集');
+          
+          await audioContextRef.current.audioWorklet.addModule('/audio-processor.js');
+          
+          const workletNode = new AudioWorkletNode(
+            audioContextRef.current,
+            'audio-capture-processor'
+          );
+
+          workletNode.port.onmessage = (e) => {
+            if (e.data.type === 'speech_start') {
+              console.log('[AI Video Call] 🎤 检测到语音开始 (振幅:', e.data.amplitude?.toFixed(3), ')');
+              qwenRealtimeService.sendMessage({ type: 'speech_start' });
+            } else if (e.data.type === 'speech_end') {
+              console.log('[AI Video Call] 🔇 检测到语音结束，自动提交');
+              qwenRealtimeService.sendMessage({ type: 'speech_end' });
+              qwenRealtimeService.sendMessage({ type: 'commit' });
+            } else if (e.data.type === 'audio_data') {
+              if (qwenRealtimeService.isConnectionActive()) {
+                qwenRealtimeService.sendAudio(e.data.data);
+              }
+            }
+          };
+
+          source.connect(workletNode);
+          workletNode.connect(audioContextRef.current.destination);
+
+          audioWorkletNodeRef.current = workletNode;
+
+          console.log('[AI Video Call] AudioWorklet 音频采集已启动 - 采样率:', audioContextRef.current.sampleRate, 'Hz');
+          return;
+
+        } catch (workletError) {
+          console.warn('[AI Video Call] AudioWorklet 初始化失败，降级到 ScriptProcessor:', workletError);
+        }
+      } else {
+        console.warn('[AI Video Call] 浏览器不支持 AudioWorklet，使用 ScriptProcessor');
+      }
+
       const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
 
-      console.log('[AI Video Call] 音频采集已启动 - 采样率:', audioContextRef.current.sampleRate, 'Hz, 缓冲区:', 4096, '样本 (256ms)');
+      console.log('[AI Video Call] ScriptProcessor 音频采集已启动 - 采样率:', audioContextRef.current.sampleRate, 'Hz, 缓冲区:', 4096, '样本');
 
       let packetCount = 0;
       let isSpeaking = false;
       let silenceFrames = 0;
-      let speechFrames = 0; // 连续语音帧计数
-      const SPEECH_THRESHOLD = 0.05; // 语音检测阈值
-      const SPEECH_FRAMES_THRESHOLD = 3; // 需要连续 3 帧超过阈值才认为是语音（约 0.75 秒）
-      const SILENCE_FRAMES_THRESHOLD = 4; // 静音帧数阈值（约 1 秒）
+      let speechFrames = 0;
+      const SPEECH_THRESHOLD = 0.05;
+      const SPEECH_FRAMES_THRESHOLD = 3;
+      const SILENCE_FRAMES_THRESHOLD = 4;
 
       processor.onaudioprocess = (e) => {
         if (!isMutedRef.current && qwenRealtimeService.isConnectionActive()) {
           const inputData = e.inputBuffer.getChannelData(0);
 
-          // 检查是否有真实音频数据（不是全 0）
           let hasAudio = false;
           let maxAmplitude = 0;
           for (let i = 0; i < inputData.length; i++) {
@@ -263,21 +301,19 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
             }
           }
 
-          // 改进的 VAD 检测：需要连续多帧超过阈值才认为是语音
           const isSpeechDetected = maxAmplitude > SPEECH_THRESHOLD;
 
           if (isSpeechDetected) {
             speechFrames++;
             silenceFrames = 0;
 
-            // 需要连续多帧超过阈值才触发语音开始
             if (!isSpeaking && speechFrames >= SPEECH_FRAMES_THRESHOLD) {
               console.log('[AI Video Call] 🎤 检测到语音开始 (振幅:', maxAmplitude.toFixed(3), ')');
               qwenRealtimeService.sendMessage({ type: 'speech_start' });
               isSpeaking = true;
             }
           } else {
-            speechFrames = 0; // 重置语音帧计数
+            speechFrames = 0;
 
             if (isSpeaking) {
               silenceFrames++;
@@ -291,7 +327,6 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
             }
           }
 
-          // 跳过静音包（前几个包可能全是静音）
           if (!hasAudio) {
             if (packetCount < 3) {
               console.log(`[AI Video Call] 跳过静音包 #${packetCount + 1}`);
@@ -300,30 +335,12 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
             return;
           }
 
-          // 只在前 3 个包打印详细日志
-          if (packetCount < 3) {
-            console.log(`[AI Video Call] 原始音频数据 #${packetCount + 1}:`, {
-              hasAudio,
-              maxAmplitude: maxAmplitude.toFixed(6),
-              length: inputData.length,
-              first10: Array.from(inputData.slice(0, 10)),
-              // 找到第一个非零值的位置
-              firstNonZeroIndex: Array.from(inputData).findIndex(v => Math.abs(v) > 0.001),
-              // 显示最大振幅附近的值
-              maxIndex: Array.from(inputData).findIndex(v => Math.abs(v) === maxAmplitude)
-            });
-          }
-
-          // 转换为 Int16Array (PCM16)
           const pcm16 = new Int16Array(inputData.length);
           for (let i = 0; i < inputData.length; i++) {
-            // 限制在 [-1, 1] 范围内
             const s = Math.max(-1, Math.min(1, inputData[i]));
-            // 转换为 16-bit 整数
             pcm16[i] = s < 0 ? Math.floor(s * 0x8000) : Math.floor(s * 0x7FFF);
           }
 
-          // 检查前面的字节是否全是 0（阿里云可能不接受前面全是 0 的包）
           const firstBytes = new Uint8Array(pcm16.buffer.slice(0, 20));
           const hasDataAtStart = Array.from(firstBytes).some(b => b !== 0);
 
@@ -335,40 +352,20 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
             return;
           }
 
-          // 只在前 3 个包打印日志
           if (packetCount < 3) {
-            // 找到最大振幅的位置
-            const maxIndex = Array.from(inputData).findIndex(v => Math.abs(v) === maxAmplitude);
-
-            console.log(`[AI Video Call] 转换后的 PCM16 数据 #${packetCount + 1}:`, {
-              samples: pcm16.length,
-              bytes: pcm16.buffer.byteLength,
-              first10: Array.from(pcm16.slice(0, 10)),
-              // 显示最大振幅附近的转换结果
-              aroundMaxIndex: maxIndex >= 0 ? {
-                index: maxIndex,
-                originalValue: inputData[maxIndex],
-                convertedValue: pcm16[maxIndex],
-                nearby: Array.from(pcm16.slice(Math.max(0, maxIndex - 5), maxIndex + 5))
-              } : null,
-              bufferFirst20Bytes: Array.from(new Uint8Array(pcm16.buffer.slice(0, 20))),
-              // 显示最大振幅位置的字节
-              bufferAroundMax: maxIndex >= 0 ? Array.from(new Uint8Array(pcm16.buffer.slice(maxIndex * 2, maxIndex * 2 + 10))) : null
-            });
             packetCount++;
           }
 
-          // 发送到服务器
           qwenRealtimeService.sendAudio(pcm16.buffer);
         }
       };
 
-      // 重要：必须连接到 destination，否则不会触发 onaudioprocess
       source.connect(processor);
       processor.connect(audioContextRef.current.destination);
 
     } catch (error) {
       console.error('[AI Video Call] 音频采集失败:', error);
+      throw error;
     }
   };
 
@@ -585,6 +582,15 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
     setIsMuted(prev => {
       const newMuted = !prev;
       isMutedRef.current = newMuted; // 同步更新 ref
+      
+      // 通知 AudioWorklet 节点
+      if (audioWorkletNodeRef.current) {
+        audioWorkletNodeRef.current.port.postMessage({
+          type: 'setMuted',
+          value: newMuted
+        });
+      }
+      
       console.log('[AI Video Call] 麦克风状态切换:', prev ? '静音' : '开启', '->', newMuted ? '静音' : '开启');
       return newMuted;
     });
