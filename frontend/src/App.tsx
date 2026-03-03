@@ -2367,18 +2367,18 @@ const PageAIChat = ({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="absolute bottom-20 left-0 right-0 px-4 flex justify-center space-x-2 pointer-events-none">
-        <div className="pointer-events-auto flex space-x-2 overflow-x-auto no-scrollbar py-2">
+      <div className="absolute bottom-20 left-0 right-0 px-4 flex justify-center pointer-events-none">
+        <div className="pointer-events-auto flex space-x-2 py-2 max-w-full">
           <button
             onClick={() => handleSend("根据孩子最近的情况，推荐一个适合今天的地板游戏")}
-            className="bg-gradient-to-r from-blue-50 to-purple-50 backdrop-blur shadow-md px-4 py-2 rounded-full text-xs font-bold text-secondary border-2 border-blue-200 flex items-center hover:from-blue-100 hover:to-purple-100 hover:shadow-lg hover:scale-105 transition-all active:scale-95 whitespace-nowrap"
+            className="bg-gradient-to-r from-blue-50 to-purple-50 backdrop-blur shadow-md px-4 py-2 rounded-full text-xs font-bold text-secondary border-2 border-blue-200 flex items-center hover:from-blue-100 hover:to-purple-100 hover:shadow-lg hover:scale-105 transition-all active:scale-95 whitespace-nowrap flex-shrink-0"
           >
             <Sparkles className="w-3 h-3 mr-1.5" />
             推荐今日互动
           </button>
           <button
             onClick={() => handleSend("请根据孩子最近的情况，生成一份综合评估报告")}
-            className="bg-gradient-to-r from-green-50 to-teal-50 backdrop-blur shadow-md px-4 py-2 rounded-full text-xs font-bold text-primary border-2 border-green-200 flex items-center hover:from-green-100 hover:to-teal-100 hover:shadow-lg hover:scale-105 transition-all active:scale-95 whitespace-nowrap"
+            className="bg-gradient-to-r from-green-50 to-teal-50 backdrop-blur shadow-md px-4 py-2 rounded-full text-xs font-bold text-primary border-2 border-green-200 flex items-center hover:from-green-100 hover:to-teal-100 hover:shadow-lg hover:scale-105 transition-all active:scale-95 whitespace-nowrap flex-shrink-0"
           >
             <Activity className="w-3 h-3 mr-1.5" />
             生成评估报告
