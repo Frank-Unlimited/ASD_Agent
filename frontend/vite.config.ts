@@ -53,7 +53,7 @@ export default defineConfig(({ mode }) => {
           configureServer(server) {
             server.middlewares.use((_req, res, next) => {
               if (!_req.url?.startsWith('/image-proxy/')) return next();
-              const encodedUrl = req.url.slice('/image-proxy/'.length);
+              const encodedUrl = _req.url.slice('/image-proxy/'.length);
               const targetUrl = decodeURIComponent(encodedUrl);
               https.get(targetUrl, (imgRes) => {
                 // 只保留安全的响应头
