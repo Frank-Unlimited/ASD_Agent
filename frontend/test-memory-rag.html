@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>记忆和 RAG 服务测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            font-size: 14px;
+            color: #1565c0;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .section:last-child {
+            border-bottom: none;
+        }
+        
+        h2 {
+            color: #555;
+            margin-bottom: 20px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        button {
+            padding: 12px 24px;
+            margin-right: 10px;
+            margin-top: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .btn-primary {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .result.success {
+            background: #e8f5e9;
+            border: 1px solid #4CAF50;
+            color: #2e7d32;
+        }
+        
+        .result.error {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            color: #c62828;
+        }
+        
+        .result.info {
+            background: #e3f2fd;
+            border: 1px solid #2196F3;
+            color: #1565c0;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #2196F3;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .fact-item {
+            background: #f9f9f9;
+            padding: 10px;
+            margin: 8px 0;
+            border-left: 3px solid #2196F3;
+            border-radius: 3px;
+        }
+        
+        .fact-meta {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 5px;
+        }
+        
+        .rag-item {
+            background: #fff9e6;
+            padding: 10px;
+            margin: 8px 0;
+            border-left: 3px solid #FF9800;
+            border-radius: 3px;
+        }
+        
+        .rag-score {
+            display: inline-block;
+            background: #FF9800;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 记忆和 RAG 服务测试</h1>
+        <div class="info">
+            <strong>说明：</strong>此页面用于测试记忆服务和 RAG 知识库服务的读写功能。<br>
+            请确保后端服务（端口 8000 和 8001）正常运行，并且 Vite 开发服务器已启动。
+        </div>
+
+        <!-- 记忆写入 -->
+        <div class="section">
+            <h2>📝 记忆写入测试</h2>
+            <div class="input-group">
+                <label>用户 ID (group_id)</label>
+                <input type="text" id="writeGroupId" value="test_user" placeholder="输入用户 ID">
+            </div>
+            <div class="input-group">
+                <label>记忆内容</label>
+                <textarea id="writeContent" placeholder="输入要记录的内容，例如：辰辰今天对红色玩具车表现出强烈兴趣"></textarea>
+            </div>
+            <button class="btn-primary" onclick="testMemoryWrite()">写入记忆</button>
+            <div id="writeResult"></div>
+        </div>
+
+        <!-- 记忆搜索 -->
+        <div class="section">
+            <h2>🔍 记忆搜索测试</h2>
+            <div class="input-group">
+                <label>用户 ID (group_id)</label>
+                <input type="text" id="searchGroupId" value="test_user" placeholder="输入用户 ID">
+            </div>
+            <div class="input-group">
+                <label>搜索关键词</label>
+                <input type="text" id="searchQuery" placeholder="输入搜索关键词，例如：玩具车">
+            </div>
+            <div class="input-group">
+                <label>返回结果数量</label>
+                <input type="number" id="searchNumResults" value="10" min="1" max="50">
+            </div>
+            <button class="btn-success" onclick="testMemorySearch()">搜索记忆</button>
+            <div id="searchResult"></div>
+        </div>
+
+        <!-- RAG 搜索 -->
+        <div class="section">
+            <h2>📚 RAG 知识库搜索测试</h2>
+            <div class="input-group">
+                <label>搜索问题</label>
+                <input type="text" id="ragQuery" placeholder="输入问题，例如：如何提升孩子的社交能力">
+            </div>
+            <div class="input-group">
+                <label>返回结果数量</label>
+                <input type="number" id="ragTopK" value="5" min="1" max="20">
+            </div>
+            <button class="btn-warning" onclick="testRAGSearch()">搜索知识库</button>
+            <div id="ragResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // 显示结果
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.innerHTML = message;
+        }
+
+        // 显示加载中
+        function showLoading(elementId) {
+            const element = document.getElementById(elementId);
+            element.className = 'result info';
+            element.innerHTML = '正在处理...<span class="loading"></span>';
+        }
+
+        // 测试记忆写入
+        async function testMemoryWrite() {
+            const groupId = document.getElementById('writeGroupId').value.trim();
+            const content = document.getElementById('writeContent').value.trim();
+
+            if (!groupId || !content) {
+                showResult('writeResult', '❌ 请填写所有字段', 'error');
+                return;
+            }
+
+            showLoading('writeResult');
+
+            try {
+                const url = '/api/memory/write';
+                console.log('[测试] 记忆写入 URL:', url);
+                console.log('[测试] 请求数据:', { groupId, content });
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        group_id: groupId,
+                        content: content,
+                        reference_time: new Date().toISOString()
+                    })
+                });
+
+                console.log('[测试] 响应状态:', response.status);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('[测试] 响应数据:', data);
+                    showResult('writeResult', 
+                        `✅ 记忆写入成功！\n\n状态码: ${response.status}\n响应: ${JSON.stringify(data, null, 2)}`, 
+                        'success'
+                    );
+                } else {
+                    const errorText = await response.text();
+                    console.error('[测试] 错误响应:', errorText);
+                    showResult('writeResult', 
+                        `❌ 写入失败\n\n状态码: ${response.status}\n错误: ${errorText}`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                console.error('[测试] 请求失败:', error);
+                showResult('writeResult', 
+                    `❌ 请求失败\n\n错误: ${error.message}\n\n请检查：\n1. 后端服务是否运行（端口 8000）\n2. Vite 代理配置是否正确\n3. 网络连接是否正常`, 
+                    'error'
+                );
+            }
+        }
+
+        // 测试记忆搜索
+        async function testMemorySearch() {
+            const groupId = document.getElementById('searchGroupId').value.trim();
+            const query = document.getElementById('searchQuery').value.trim();
+            const numResults = parseInt(document.getElementById('searchNumResults').value);
+
+            if (!groupId || !query) {
+                showResult('searchResult', '❌ 请填写所有字段', 'error');
+                return;
+            }
+
+            showLoading('searchResult');
+
+            try {
+                const url = '/api/memory/search';
+                console.log('[测试] 记忆搜索 URL:', url);
+                console.log('[测试] 请求数据:', { groupId, query, numResults });
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        group_id: groupId,
+                        query: query,
+                        num_results: numResults
+                    })
+                });
+
+                console.log('[测试] 响应状态:', response.status);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('[测试] 响应数据:', data);
+                    
+                    if (data.facts && data.facts.length > 0) {
+                        let html = `✅ 找到 ${data.facts.length} 条记忆：\n\n`;
+                        data.facts.forEach((fact, index) => {
+                            const status = fact.pending ? '待处理' : '已处理';
+                            const validAt = fact.valid_at ? new Date(fact.valid_at).toLocaleString('zh-CN') : '未知';
+                            html += `<div class="fact-item">`;
+                            html += `<div class="fact-meta">#${index + 1} | ${status} | ${validAt}</div>`;
+                            html += `<div>${fact.text}</div>`;
+                            html += `</div>`;
+                        });
+                        showResult('searchResult', html, 'success');
+                    } else {
+                        showResult('searchResult', 
+                            `ℹ️ 未找到相关记忆\n\n可能原因：\n1. 该用户还没有记录\n2. 搜索关键词不匹配\n3. 记忆还在处理队列中`, 
+                            'info'
+                        );
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error('[测试] 错误响应:', errorText);
+                    showResult('searchResult', 
+                        `❌ 搜索失败\n\n状态码: ${response.status}\n错误: ${errorText}`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                console.error('[测试] 请求失败:', error);
+                showResult('searchResult', 
+                    `❌ 请求失败\n\n错误: ${error.message}\n\n请检查：\n1. 后端服务是否运行（端口 8000）\n2. Vite 代理配置是否正确\n3. 网络连接是否正常\n4. 请求是否超时（手机网络可能较慢）`, 
+                    'error'
+                );
+            }
+        }
+
+        // 测试 RAG 搜索
+        async function testRAGSearch() {
+            const query = document.getElementById('ragQuery').value.trim();
+            const topK = parseInt(document.getElementById('ragTopK').value);
+
+            if (!query) {
+                showResult('ragResult', '❌ 请输入搜索问题', 'error');
+                return;
+            }
+
+            showLoading('ragResult');
+
+            try {
+                const url = '/api/rag/search';
+                console.log('[测试] RAG 搜索 URL:', url);
+                console.log('[测试] 请求数据:', { query, topK });
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        top_k: topK,
+                        enable_reranking: true,
+                        rerank_min_score: 0.20
+                    })
+                });
+
+                console.log('[测试] 响应状态:', response.status);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('[测试] 响应数据:', data);
+                    
+                    if (data.success && data.nodes && data.nodes.length > 0) {
+                        let html = `✅ 找到 ${data.nodes.length} 条知识：\n\n`;
+                        data.nodes.forEach((node, index) => {
+                            const score = ((node.score || 0) * 100).toFixed(1);
+                            const docName = node.metadata?.doc_name || node.metadata?.title || '未知文档';
+                            html += `<div class="rag-item">`;
+                            html += `<div><span class="rag-score">${score}%</span><strong>${docName}</strong></div>`;
+                            html += `<div style="margin-top: 8px;">${node.text}</div>`;
+                            html += `</div>`;
+                        });
+                        showResult('ragResult', html, 'success');
+                    } else {
+                        showResult('ragResult', 
+                            `ℹ️ 未找到相关知识\n\n响应: ${JSON.stringify(data, null, 2)}`, 
+                            'info'
+                        );
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error('[测试] 错误响应:', errorText);
+                    showResult('ragResult', 
+                        `❌ 搜索失败\n\n状态码: ${response.status}\n错误: ${errorText}`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                console.error('[测试] 请求失败:', error);
+                showResult('ragResult', 
+                    `❌ 请求失败\n\n错误: ${error.message}\n\n请检查：\n1. 后端服务是否运行（端口 8001）\n2. Vite 代理配置是否正确\n3. 网络连接是否正常`, 
+                    'error'
+                );
+            }
+        }
+
+        // 页面加载时显示当前环境信息
+        window.addEventListener('load', () => {
+            console.log('=== 测试页面已加载 ===');
+            console.log('当前 URL:', window.location.href);
+            console.log('User Agent:', navigator.userAgent);
+            console.log('设备类型:', /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) ? '移动设备' : '桌面设备');
+        });
+    </script>
+</body>
+</html>

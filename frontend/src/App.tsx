@@ -107,11 +107,13 @@ import defaultAvatar from './img/cute_dog.jpg';
 // Graphiti 记忆层辅助函数
 // ---------------------------------------------------------------------------
 
-const MEMORY_SERVICE_URL = 'http://localhost:8000';
+const MEMORY_SERVICE_URL = import.meta.env.VITE_MEMORY_SERVICE_URL || '/api/memory';
 
 /** 向 graphiti 写入记忆 (fire-and-forget，静默忽略失败) */
 function writeMemory(content: string, referenceTime: string): void {
-  fetch(`${MEMORY_SERVICE_URL}/api/memory/write`, {
+  const url = `${MEMORY_SERVICE_URL}/write`;
+  
+  fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -1122,23 +1124,8 @@ const PageAIChat = ({
                             if (idx === prev.length - 1) {
                               let updatedMsg = { ...msg };
                               
-                              // 如果有记忆结果，添加记忆结果列表
-                              if (event.memoryResults && event.memoryResults.length > 0) {
-                                updatedMsg.memoryResults = event.memoryResults;
-                              } else {
-                                // 如果没有记忆结果，显示文本结果
-                                const raw = event.result.replace(/（暂无.*?）/, '').trim();
-                                let resultText = '';
-                                
-                                if (raw) {
-                                  const preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
-                                  resultText = preview.split('\n').map((l: string) => `> ${l}`).join('\n');
-                                } else {
-                                  resultText = '> （暂无相关记录）';
-                                }
-                                
-                                updatedMsg.text = resultText;
-                              }
+                              // 始终设置 memoryResults，即使为空数组
+                              updatedMsg.memoryResults = event.memoryResults || [];
                               
                               return updatedMsg;
                             }
@@ -1305,37 +1292,12 @@ const PageAIChat = ({
                             if (idx === prev.length - 1) {
                               let updatedMsg = { ...msg };
                               
-                              // 如果有搜索结果（fetchKnowledge），添加搜索结果列表
-                              if (event.searchResults && event.searchResults.length > 0) {
-                                updatedMsg.searchResults = event.searchResults;
-                              }
-                              
-                              // 如果有RAG结果（fetchKnowledge），添加RAG结果列表
-                              if (event.ragResults && event.ragResults.length > 0) {
-                                updatedMsg.ragResults = event.ragResults;
-                              }
-                              
-                              // 如果有记忆结果（fetchMemory），添加记忆结果列表
-                              if (event.memoryResults && event.memoryResults.length > 0) {
-                                updatedMsg.memoryResults = event.memoryResults;
-                              }
-                              
-                              // 如果既没有搜索结果也没有记忆结果也没有RAG结果，显示文本结果
-                              if ((!event.searchResults || event.searchResults.length === 0) && 
-                                  (!event.memoryResults || event.memoryResults.length === 0) &&
-                                  (!event.ragResults || event.ragResults.length === 0)) {
-                                const raw = event.result.replace(/（暂无.*?）/, '').trim();
-                                let resultText = '';
-                                
-                                if (raw) {
-                                  // 限制280字
-                                  const preview = raw.length > 280 ? raw.substring(0, 280) + '…' : raw;
-                                  resultText = preview.split('\n').map((l: string) => `> ${l}`).join('\n');
-                                } else {
-                                  resultText = '> （暂无相关记录）';
-                                }
-                                
-                                updatedMsg.text = resultText;
+                              // 始终设置结果数组，即使为空
+                              if (event.toolName === 'fetchKnowledge') {
+                                updatedMsg.searchResults = event.searchResults || [];
+                                updatedMsg.ragResults = event.ragResults || [];
+                              } else if (event.toolName === 'fetchMemory') {
+                                updatedMsg.memoryResults = event.memoryResults || [];
                               }
                               
                               return updatedMsg;
@@ -2054,9 +2016,9 @@ const PageAIChat = ({
               )}
               
               {/* 记忆搜索结果展示 */}
-              {msg.memoryResults && msg.memoryResults.length > 0 && (
+              {msg.memoryResults !== undefined && msg.searchQuery && (
                 <div className={`${hasContent || (msg.searchResults && msg.searchResults.length > 0) || (msg.ragResults && msg.ragResults.length > 0) ? 'mt-2' : ''} max-w-[88%] w-full`}>
-                  <MemoryResults results={msg.memoryResults} query={msg.searchQuery} />
+                  <MemoryResults results={msg.memoryResults || []} query={msg.searchQuery} />
                 </div>
               )}
               

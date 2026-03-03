@@ -7,7 +7,7 @@
  *   pending=true   FIFO 队列中尚未写入 graphiti 的原始观察文本（full episode content）
  */
 
-const MEMORY_SERVICE_URL = 'http://localhost:8000';
+const MEMORY_SERVICE_URL = import.meta.env.VITE_MEMORY_SERVICE_URL || '/api/memory';
 
 export interface MemoryFact {
   text: string;
@@ -27,16 +27,32 @@ export async function fetchMemoryFacts(
   numResults = 10
 ): Promise<MemoryFact[]> {
   try {
-    const res = await fetch(`${MEMORY_SERVICE_URL}/api/memory/search`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ group_id: groupId, query, num_results: numResults }),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data.facts ?? []) as MemoryFact[];
-  } catch {
+    const url = `${MEMORY_SERVICE_URL}/search`;
+    
+    // 使用 AbortController 实现超时（兼容旧版浏览器）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: groupId, query, num_results: numResults }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!res.ok) return [];
+      
+      const data = await res.json();
+      return (data.facts ?? []) as MemoryFact[];
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error('[fetchMemoryFacts] 请求失败:', error);
     return [];
   }
 }
