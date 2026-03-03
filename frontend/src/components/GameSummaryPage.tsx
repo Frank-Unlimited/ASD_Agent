@@ -182,7 +182,7 @@ const GameSummaryPage: React.FC<GameSummaryPageProps> = ({
             background: 'radial-gradient(circle at top right, rgba(16, 185, 129, 0.08), transparent 40%), radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.08), transparent 40%), #F9FAFB'
         }}>
             <motion.div
-                className="p-6 pb-24 max-w-2xl mx-auto"
+                className="p-6 pb-44 max-w-2xl mx-auto"
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
