@@ -63,6 +63,48 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
+        // WebSocket 错误处理插件：防止 HMR WebSocket 错误导致进程崩溃
+        {
+          name: 'websocket-error-handler',
+          configureServer(server) {
+            // 在服务器启动后添加 WebSocket 错误处理
+            server.httpServer?.on('upgrade', (req, socket) => {
+              // 捕获 socket 错误，防止进程崩溃
+              socket.on('error', (err: any) => {
+                // 忽略 WebSocket 状态码 1006 错误（cpolar 代理导致的已知问题）
+                if (err.code === 'WS_ERR_INVALID_CLOSE_CODE' || 
+                    (err.message && err.message.includes('invalid status code 1006'))) {
+                  console.warn('[vite] WebSocket error (ignored):', err.message);
+                  return;
+                }
+                // 其他错误正常记录
+                console.error('[vite] WebSocket error:', err);
+              });
+            });
+
+            // 捕获 WebSocket 服务器的错误
+            if (server.ws) {
+              const originalOn = server.ws.on?.bind(server.ws);
+              if (originalOn) {
+                server.ws.on = function(event: string, handler: any) {
+                  if (event === 'error') {
+                    // 包装错误处理器
+                    const wrappedHandler = (err: any) => {
+                      if (err.code === 'WS_ERR_INVALID_CLOSE_CODE' || 
+                          (err.message && err.message.includes('invalid status code 1006'))) {
+                        console.warn('[vite] HMR WebSocket error (ignored):', err.message);
+                        return;
+                      }
+                      handler(err);
+                    };
+                    return originalOn(event, wrappedHandler);
+                  }
+                  return originalOn(event, handler);
+                };
+              }
+            }
+          },
+        },
       ],
       define: {
         // Qwen service uses import.meta.env, no need to define process.env
@@ -73,4 +115,26 @@ export default defineConfig(({ mode }) => {
         }
       }
     };
+});
+
+// 全局捕获未处理的错误，防止进程崩溃
+process.on('uncaughtException', (err: any) => {
+  if (err.code === 'WS_ERR_INVALID_CLOSE_CODE' || 
+      (err.message && err.message.includes('invalid status code 1006'))) {
+    console.warn('[vite] Uncaught WebSocket error (ignored):', err.message);
+    return;
+  }
+  // 其他未捕获的错误正常处理
+  console.error('[vite] Uncaught exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: any) => {
+  if (reason?.code === 'WS_ERR_INVALID_CLOSE_CODE' || 
+      (reason?.message && reason.message.includes('invalid status code 1006'))) {
+    console.warn('[vite] Unhandled WebSocket rejection (ignored):', reason.message);
+    return;
+  }
+  // 其他未处理的 Promise 拒绝正常处理
+  console.error('[vite] Unhandled rejection:', reason);
 });
