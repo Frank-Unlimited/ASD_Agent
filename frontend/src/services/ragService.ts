@@ -23,7 +23,7 @@ export interface RAGSearchResponse {
 }
 
 class AlibabaRAGService {
-  private baseUrl = import.meta.env.VITE_RAG_SERVICE_URL || 'http://localhost:8001';
+  private baseUrl = '/api/rag'; // 使用相对路径，通过 Vite 代理转发
 
   /**
    * 检查服务是否可用

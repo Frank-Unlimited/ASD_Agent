@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
     // 从当前目录（frontend/）加载 .env 文件
-    const env = loadEnv(mode, '.', '');
+    loadEnv(mode, '.', '');
     return {
       server: {
         port: 3000,
@@ -35,7 +35,13 @@ export default defineConfig(({ mode }) => {
           '/api/rag': {
             target: 'http://localhost:8001',
             changeOrigin: true,
-            // 不重写路径，保持 /api/rag 前缀
+            rewrite: (path) => path.replace(/^\/api\/rag/, ''),
+          },
+          // 代理 Qwen Realtime WebSocket 服务（端口 8766）
+          '/ws/qwen': {
+            target: 'ws://localhost:8766',
+            ws: true,
+            changeOrigin: true,
           },
         },
       },
@@ -45,8 +51,8 @@ export default defineConfig(({ mode }) => {
         {
           name: 'image-proxy',
           configureServer(server) {
-            server.middlewares.use((req, res, next) => {
-              if (!req.url?.startsWith('/image-proxy/')) return next();
+            server.middlewares.use((_req, res, next) => {
+              if (!_req.url?.startsWith('/image-proxy/')) return next();
               const encodedUrl = req.url.slice('/image-proxy/'.length);
               const targetUrl = decodeURIComponent(encodedUrl);
               https.get(targetUrl, (imgRes) => {

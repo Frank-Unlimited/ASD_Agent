@@ -131,7 +131,7 @@ async def healthcheck():
     }
 
 
-@app.post('/api/rag/search', response_model=RAGSearchResponse)
+@app.post('/search', response_model=RAGSearchResponse)
 async def search_rag(request: RAGSearchRequest):
     """
     检索阿里云百炼知识库
@@ -229,7 +229,7 @@ async def search_rag(request: RAGSearchRequest):
         )
 
 
-@app.get('/api/rag/info')
+@app.get('/info')
 async def rag_info():
     """获取 RAG 服务配置信息（调试用）"""
     return {

@@ -74,8 +74,11 @@ class QwenRealtimeService {
   private currentAssistantTranscript: string = ''; // 跟踪当前 AI 回复的完整文本
   
   constructor() {
-    // 连接到 Python WebSocket 服务器
-    this.serverUrl = 'ws://localhost:8766';
+    // 使用相对路径，通过 Vite 代理转发（支持 HTTPS）
+    // 浏览器会自动根据当前协议选择 ws:// 或 wss://
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    this.serverUrl = `${protocol}//${host}/ws/qwen`;
   }
   
   /**
