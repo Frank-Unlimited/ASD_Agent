@@ -102,6 +102,7 @@ import GameSummaryPage from './components/GameSummaryPage';
 import { WebSearchResults } from './components/WebSearchResults';
 import { MemoryResults } from './components/MemoryResults';
 import { RAGResults } from './components/RAGResults';
+import { ImageOnboardingTour } from './components/ImageOnboardingTour';
 import defaultAvatar from './img/cute_dog.jpg';
 
 // ---------------------------------------------------------------------------
@@ -1960,9 +1961,27 @@ const PageAIChat = ({
         </div>
       )}
 
-      {/* 清空历史按钮 */}
-      {messages.length > 1 && (
-        <div className="absolute top-2 right-2 z-10">
+      {/* 右上角按钮组 */}
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
+        {/* 帮助按钮 */}
+        <button
+          onClick={() => {
+            const event = new CustomEvent('show-onboarding');
+            window.dispatchEvent(event);
+          }}
+          className="bg-white/90 backdrop-blur-sm text-indigo-600 hover:text-indigo-700 px-2.5 py-1.5 rounded-full text-xs font-medium shadow-sm border border-indigo-200 hover:border-indigo-300 transition flex items-center justify-center"
+          title="查看功能引导"
+        >
+          <div className="relative w-5 h-5 flex items-center justify-center">
+            <svg className="absolute w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 2 L22 12 L12 22 L2 12 Z" fill="none" />
+            </svg>
+            <span className="relative text-xs font-bold" style={{ fontSize: '10px' }}>?</span>
+          </div>
+        </button>
+
+        {/* 清空历史按钮 */}
+        {messages.length > 1 && (
           <button
             onClick={() => {
               if (confirm('确定要清空所有聊天记录吗？')) {
@@ -1983,8 +2002,8 @@ const PageAIChat = ({
             <RefreshCw className="w-3 h-3 mr-1" />
             清空
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-5 pb-32">
         {messages.map((msg) => {
@@ -3881,6 +3900,26 @@ export default function App() {
     return INITIAL_ABILITY_SCORES;
   });
 
+  // 图片引导状态
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    const completed = localStorage.getItem('onboarding_completed');
+    const hasProfile = localStorage.getItem('asd_floortime_child_profile');
+    // 有档案但未完成引导时显示
+    return hasProfile && !completed;
+  });
+
+  // 监听引导事件
+  useEffect(() => {
+    const handleShowOnboarding = () => {
+      setShowOnboarding(true);
+    };
+
+    window.addEventListener('show-onboarding', handleShowOnboarding);
+    return () => {
+      window.removeEventListener('show-onboarding', handleShowOnboarding);
+    };
+  }, []);
+
   // *** Serialize Profile Context for Agents ***
   const profileContextString = `
   [当前兴趣画像]
@@ -4259,6 +4298,19 @@ export default function App() {
         {currentPage === Page.RADAR && <PageRadar />}
         {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => { if (gameMode === GameState.LIST) { setCurrentPage(Page.CHAT); } else { setCurrentPage(gameReturnPage); setGameMode(GameState.LIST); } }} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} onGameStart={setActiveGameId} onAbort={() => setShowExitConfirm(true)} gameReturnPage={gameReturnPage} />)}
       </main>
+
+      {/* 图片引导 */}
+      <ImageOnboardingTour
+        isOpen={showOnboarding}
+        onComplete={() => {
+          localStorage.setItem('onboarding_completed', 'true');
+          setShowOnboarding(false);
+        }}
+        onSkip={() => {
+          localStorage.setItem('onboarding_completed', 'true');
+          setShowOnboarding(false);
+        }}
+      />
     </div>
   );
 }
