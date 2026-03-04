@@ -296,7 +296,7 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
       let speechFrames = 0;
       const SPEECH_THRESHOLD = 0.05;  // 语音检测阈值
       const SPEECH_FRAMES_THRESHOLD = 3;  // 3帧确认开始说话
-      const SILENCE_FRAMES_THRESHOLD = 12;  // 12帧（约1.5秒）确认说话结束，避免误判
+      const SILENCE_FRAMES_THRESHOLD = 16;  // 16帧（约2秒）确认说话结束，避免采话不全
 
       processor.onaudioprocess = (e) => {
         if (!isMutedRef.current && qwenRealtimeService.isConnectionActive()) {

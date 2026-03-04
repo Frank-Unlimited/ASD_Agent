@@ -14,7 +14,7 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
     // VAD 参数
     this.SPEECH_THRESHOLD = 0.05;  // 语音检测阈值
     this.SPEECH_FRAMES_THRESHOLD = 3;  // 3帧确认开始说话
-    this.SILENCE_FRAMES_THRESHOLD = 12;  // 12帧（约1.5秒）确认说话结束，避免误判
+    this.SILENCE_FRAMES_THRESHOLD = 16;  // 16帧（约2秒）确认说话结束，避免采话不全
     
     // 监听主线程消息
     this.port.onmessage = (e) => {
