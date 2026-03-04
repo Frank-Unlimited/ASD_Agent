@@ -586,3 +586,44 @@ export const sendQwenMessageSync = async (
     throw error;
   }
 };
+
+/**
+ * 游戏助手对话（流式输出，简短回复，无工具调用）
+ * 用于游戏实施界面的即时建议
+ */
+export const sendGameAssistantMessage = async (
+  currentMessage: string,
+  history: ChatMessage[],
+  gameContext: string,
+  systemPrompt: string,
+  callbacks: StreamCallbacks
+): Promise<void> => {
+  try {
+    const messages = [
+      {
+        role: 'system' as const,
+        content: `${systemPrompt}\n\n[当前游戏上下文]\n${gameContext}`
+      },
+      ...history.map((msg) => ({
+        role: msg.role === 'user' ? ('user' as const) : ('assistant' as const),
+        content: msg.text
+      })).filter(m => m.content.length > 0),
+      {
+        role: 'user' as const,
+        content: currentMessage
+      }
+    ];
+
+    await qwenStreamClient.streamChat(
+      {
+        messages,
+        temperature: 0.7,
+        max_tokens: 200  // 限制回复长度，保持简短
+      },
+      callbacks
+    );
+  } catch (error) {
+    console.error('Game Assistant Error:', error);
+    throw error;
+  }
+};

@@ -3,8 +3,9 @@ import { Camera, MessageSquare, Send, Bot, User, Sparkles, Mic, Video, ChevronUp
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { ChildProfile, ChatMessage, FloorGame } from '../types';
 import AIVideoCall from './AIVideoCall';
-import { sendQwenMessage } from '../services/qwenService';
+import { sendGameAssistantMessage } from '../services/qwenService';
 import { chatStorageService } from '../services/chatStorage';
+import { GAME_ASSISTANT_PROMPT } from '../prompts/gameAssistantPrompt';
 
 interface AIAssistantPanelProps {
     childProfile: ChildProfile | null;
@@ -69,7 +70,9 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
 
         try {
             let fullResponse = '';
-            await sendQwenMessage(input, messages, `当前游戏上下文：\n${gameContext}\n孩子档案：${JSON.stringify(childProfile)}`, {
+            const contextInfo = `${gameContext}\n孩子：${childProfile?.name || '未知'}`;
+            
+            await sendGameAssistantMessage(input, messages, contextInfo, GAME_ASSISTANT_PROMPT, {
                 onContent: (chunk) => {
                     fullResponse += chunk;
                     setMessages(prev =>
