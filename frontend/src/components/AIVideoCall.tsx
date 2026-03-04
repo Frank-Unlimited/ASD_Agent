@@ -247,7 +247,18 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
 
           workletNode.port.onmessage = (e) => {
             if (e.data.type === 'speech_start') {
-              console.log('[AI Video Call] 🎤 检测到语音开始 (振幅:', e.data.amplitude?.toFixed(3), ')');
+              console.log('[AI Video Call] �️ 检测到语音开始 (振幅:', e.data.amplitude?.toFixed(3), ')');
+              
+              // 打断机制：用户开始说话时，立即停止 AI 音频播放
+              if (currentAudioSourceRef.current) {
+                console.log('[AI Video Call] ⚡ 用户打断，停止 AI 音频播放');
+                currentAudioSourceRef.current.stop();
+                currentAudioSourceRef.current = null;
+              }
+              // 清空音频队列
+              audioQueueRef.current = [];
+              isPlayingRef.current = false;
+              
               qwenRealtimeService.sendMessage({ type: 'speech_start' });
             } else if (e.data.type === 'speech_end') {
               console.log('[AI Video Call] 🔇 检测到语音结束，自动提交');
@@ -283,9 +294,9 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
       let isSpeaking = false;
       let silenceFrames = 0;
       let speechFrames = 0;
-      const SPEECH_THRESHOLD = 0.05;
-      const SPEECH_FRAMES_THRESHOLD = 3;
-      const SILENCE_FRAMES_THRESHOLD = 4;
+      const SPEECH_THRESHOLD = 0.05;  // 语音检测阈值
+      const SPEECH_FRAMES_THRESHOLD = 3;  // 3帧确认开始说话
+      const SILENCE_FRAMES_THRESHOLD = 12;  // 12帧（约1.5秒）确认说话结束，避免误判
 
       processor.onaudioprocess = (e) => {
         if (!isMutedRef.current && qwenRealtimeService.isConnectionActive()) {
@@ -308,7 +319,18 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
             silenceFrames = 0;
 
             if (!isSpeaking && speechFrames >= SPEECH_FRAMES_THRESHOLD) {
-              console.log('[AI Video Call] 🎤 检测到语音开始 (振幅:', maxAmplitude.toFixed(3), ')');
+              console.log('[AI Video Call] �️ 检测到语音开始 (振幅:', maxAmplitude.toFixed(3), ')');
+              
+              // 打断机制：用户开始说话时，立即停止 AI 音频播放
+              if (currentAudioSourceRef.current) {
+                console.log('[AI Video Call] ⚡ 用户打断，停止 AI 音频播放');
+                currentAudioSourceRef.current.stop();
+                currentAudioSourceRef.current = null;
+              }
+              // 清空音频队列
+              audioQueueRef.current = [];
+              isPlayingRef.current = false;
+              
               qwenRealtimeService.sendMessage({ type: 'speech_start' });
               isSpeaking = true;
             }
