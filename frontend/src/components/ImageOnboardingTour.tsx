@@ -1,6 +1,6 @@
 /**
  * 图片引导组件
- * 使用4张图片展示引导流程
+ * 使用7张图片展示引导流程
  */
 
 import React, { useState, useEffect } from 'react';
@@ -10,6 +10,9 @@ import image1 from '../img/1.jpg';
 import image2 from '../img/2.jpg';
 import image3 from '../img/3.jpg';
 import image4 from '../img/4.jpg';
+import image5 from '../img/5.jpg';
+import image6 from '../img/6.jpg';
+import image7 from '../img/7.jpg';
 
 interface ImageOnboardingTourProps {
   isOpen: boolean;
@@ -17,7 +20,7 @@ interface ImageOnboardingTourProps {
   onSkip: () => void;
 }
 
-const images = [image1, image2, image3, image4];
+const images = [image1, image2, image3, image4, image5, image6, image7];
 
 export const ImageOnboardingTour: React.FC<ImageOnboardingTourProps> = ({
   isOpen,
@@ -119,7 +122,7 @@ export const ImageOnboardingTour: React.FC<ImageOnboardingTourProps> = ({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 onClick={handlePrev}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 backdrop-blur-md hover:bg-black/70 text-white p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-95 border-2 border-white/30"
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-95 border-2 border-white/80"
                 title="上一步 (←)"
               >
                 <ChevronLeft className="w-8 h-8" />
@@ -131,7 +134,7 @@ export const ImageOnboardingTour: React.FC<ImageOnboardingTourProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               onClick={handleNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 backdrop-blur-md hover:bg-black/70 text-white p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-95 border-2 border-white/30"
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-95 border-2 border-white/80"
               title={isLastStep ? '完成引导 (→)' : '下一步 (→)'}
             >
               {isLastStep ? (
