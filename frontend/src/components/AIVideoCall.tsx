@@ -294,9 +294,18 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
       let isSpeaking = false;
       let silenceFrames = 0;
       let speechFrames = 0;
-      const SPEECH_THRESHOLD = 0.05;  // 语音检测阈值
-      const SPEECH_FRAMES_THRESHOLD = 3;  // 3帧确认开始说话
-      const SILENCE_FRAMES_THRESHOLD = 16;  // 16帧（约2秒）确认说话结束，避免采话不全
+      
+      // 智能 VAD 参数
+      const SPEECH_THRESHOLD = 0.05;
+      const SPEECH_FRAMES_THRESHOLD = 3;
+      const SHORT_SILENCE_THRESHOLD = 12;  // 短停顿：1.5秒
+      const LONG_SILENCE_THRESHOLD = 24;   // 长停顿：3秒
+      
+      // 音量趋势分析
+      let recentAmplitudes: number[] = [];
+      const AMPLITUDE_HISTORY_SIZE = 10;
+      let lastSpeechAmplitude = 0;
+      let energyDecayDetected = false;
 
       processor.onaudioprocess = (e) => {
         if (!isMutedRef.current && qwenRealtimeService.isConnectionActive()) {
@@ -317,9 +326,17 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
           if (isSpeechDetected) {
             speechFrames++;
             silenceFrames = 0;
+            energyDecayDetected = false;
+            
+            // 记录音量历史
+            recentAmplitudes.push(maxAmplitude);
+            if (recentAmplitudes.length > AMPLITUDE_HISTORY_SIZE) {
+              recentAmplitudes.shift();
+            }
+            lastSpeechAmplitude = maxAmplitude;
 
             if (!isSpeaking && speechFrames >= SPEECH_FRAMES_THRESHOLD) {
-              console.log('[AI Video Call] �️ 检测到语音开始 (振幅:', maxAmplitude.toFixed(3), ')');
+              console.log('[AI Video Call] 🎙️ 检测到语音开始 (振幅:', maxAmplitude.toFixed(3), ')');
               
               // 打断机制：用户开始说话时，立即停止 AI 音频播放
               if (currentAudioSourceRef.current) {
@@ -339,12 +356,43 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
 
             if (isSpeaking) {
               silenceFrames++;
-              if (silenceFrames >= SILENCE_FRAMES_THRESHOLD) {
-                console.log('[AI Video Call] 🔇 检测到语音结束，自动提交');
+              
+              // 智能判断：区分停顿和结束
+              let shouldEnd = false;
+              
+              // 1. 短停顿（1.5秒内）：检测能量衰减
+              if (silenceFrames >= SHORT_SILENCE_THRESHOLD && silenceFrames < LONG_SILENCE_THRESHOLD) {
+                if (recentAmplitudes.length >= 5) {
+                  const recent5 = recentAmplitudes.slice(-5);
+                  const avgRecent = recent5.reduce((a, b) => a + b, 0) / recent5.length;
+                  
+                  // 如果最后的音量明显低于平均值（能量衰减），可能是结束
+                  if (lastSpeechAmplitude < avgRecent * 0.6) {
+                    energyDecayDetected = true;
+                  }
+                }
+                
+                // 如果检测到能量衰减，提前结束
+                if (energyDecayDetected) {
+                  shouldEnd = true;
+                  console.log('[AI Video Call] 💡 检测到能量衰减，判定为说话结束');
+                }
+              }
+              
+              // 2. 长停顿（3秒）：直接结束
+              if (silenceFrames >= LONG_SILENCE_THRESHOLD) {
+                shouldEnd = true;
+                console.log('[AI Video Call] ⏱️ 长时间静音，确认说话结束');
+              }
+              
+              if (shouldEnd) {
+                console.log('[AI Video Call] 🔇 语音结束，自动提交');
                 qwenRealtimeService.sendMessage({ type: 'speech_end' });
                 qwenRealtimeService.sendMessage({ type: 'commit' });
                 isSpeaking = false;
                 silenceFrames = 0;
+                recentAmplitudes = [];
+                energyDecayDetected = false;
               }
             }
           }

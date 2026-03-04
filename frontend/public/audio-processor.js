@@ -11,10 +11,17 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
     this.speechFrames = 0;
     this.packetCount = 0;
     
-    // VAD 参数
+    // 智能 VAD 参数
     this.SPEECH_THRESHOLD = 0.05;  // 语音检测阈值
     this.SPEECH_FRAMES_THRESHOLD = 3;  // 3帧确认开始说话
-    this.SILENCE_FRAMES_THRESHOLD = 16;  // 16帧（约2秒）确认说话结束，避免采话不全
+    this.SHORT_SILENCE_THRESHOLD = 12;  // 短停顿：12帧（1.5秒）- 可能是思考
+    this.LONG_SILENCE_THRESHOLD = 24;   // 长停顿：24帧（3秒）- 确认结束
+    
+    // 音量趋势分析
+    this.recentAmplitudes = [];  // 记录最近的音量
+    this.AMPLITUDE_HISTORY_SIZE = 10;  // 保留最近10帧的音量
+    this.lastSpeechAmplitude = 0;  // 最后一次说话的音量
+    this.energyDecayDetected = false;  // 是否检测到能量衰减
     
     // 监听主线程消息
     this.port.onmessage = (e) => {
@@ -43,12 +50,20 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
       if (abs > 0.001) hasAudio = true;
     }
     
-    // VAD 检测
+    // 智能 VAD 检测
     const isSpeechDetected = maxAmplitude > this.SPEECH_THRESHOLD;
     
     if (isSpeechDetected) {
       this.speechFrames++;
       this.silenceFrames = 0;
+      this.energyDecayDetected = false;
+      
+      // 记录音量历史
+      this.recentAmplitudes.push(maxAmplitude);
+      if (this.recentAmplitudes.length > this.AMPLITUDE_HISTORY_SIZE) {
+        this.recentAmplitudes.shift();
+      }
+      this.lastSpeechAmplitude = maxAmplitude;
       
       if (!this.isSpeaking && this.speechFrames >= this.SPEECH_FRAMES_THRESHOLD) {
         this.port.postMessage({ type: 'speech_start', amplitude: maxAmplitude });
@@ -59,10 +74,40 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
       
       if (this.isSpeaking) {
         this.silenceFrames++;
-        if (this.silenceFrames >= this.SILENCE_FRAMES_THRESHOLD) {
+        
+        // 智能判断：区分停顿和结束
+        let shouldEnd = false;
+        
+        // 1. 短停顿（1.5秒内）：检测能量衰减
+        if (this.silenceFrames >= this.SHORT_SILENCE_THRESHOLD && this.silenceFrames < this.LONG_SILENCE_THRESHOLD) {
+          // 计算最近音量的平均值和趋势
+          if (this.recentAmplitudes.length >= 5) {
+            const recent5 = this.recentAmplitudes.slice(-5);
+            const avgRecent = recent5.reduce((a, b) => a + b, 0) / recent5.length;
+            
+            // 如果最后的音量明显低于平均值（能量衰减），可能是结束
+            if (this.lastSpeechAmplitude < avgRecent * 0.6) {
+              this.energyDecayDetected = true;
+            }
+          }
+          
+          // 如果检测到能量衰减，提前结束
+          if (this.energyDecayDetected) {
+            shouldEnd = true;
+          }
+        }
+        
+        // 2. 长停顿（3秒）：直接结束
+        if (this.silenceFrames >= this.LONG_SILENCE_THRESHOLD) {
+          shouldEnd = true;
+        }
+        
+        if (shouldEnd) {
           this.port.postMessage({ type: 'speech_end' });
           this.isSpeaking = false;
           this.silenceFrames = 0;
+          this.recentAmplitudes = [];
+          this.energyDecayDetected = false;
         }
       }
     }
