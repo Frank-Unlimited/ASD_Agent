@@ -69,6 +69,8 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
   const isPlayingRef = useRef(false);
   const isMutedRef = useRef(false); // 使用 ref 避免闭包问题
   const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null); // 当前播放的音频源
+  const isUserSpeakingRef = useRef(false); // 家长是否正在说话
+  const pendingAudioQueueRef = useRef<ArrayBuffer[]>([]); // 家长说话时暂存的AI音频
 
   /**
    * 启动视频通话
@@ -156,11 +158,17 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
           }
         },
         onAssistantAudio: (audioData) => {
-          // 播放音频
-          playAudio(audioData);
+          // 如果家长正在说话，暂存音频；否则立即播放
+          if (isUserSpeakingRef.current) {
+            console.log('[AI Video Call] 家长正在说话，暂存 AI 音频');
+            pendingAudioQueueRef.current.push(audioData);
+          } else {
+            playAudio(audioData);
+          }
         },
         onSpeechStarted: () => {
           setIsSpeaking(true);
+          isUserSpeakingRef.current = true;
 
           // 用户开始说话，清空当前显示的用户文本（准备显示新的）
           setUserTranscript('');
@@ -182,6 +190,19 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
         },
         onSpeechStopped: () => {
           setIsSpeaking(false);
+          isUserSpeakingRef.current = false;
+
+          // 家长说完后，播放暂存的 AI 音频
+          if (pendingAudioQueueRef.current.length > 0) {
+            console.log('[AI Video Call] 家长说完，播放暂存的 AI 音频，共', pendingAudioQueueRef.current.length, '段');
+            const pendingAudios = [...pendingAudioQueueRef.current];
+            pendingAudioQueueRef.current = [];
+            
+            // 依次播放所有暂存的音频
+            for (const audioData of pendingAudios) {
+              playAudio(audioData);
+            }
+          }
         },
         onResponseStarted: () => {
           // AI 开始新的回复，清空上一轮的文本和音频
