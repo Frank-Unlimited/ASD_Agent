@@ -90,8 +90,8 @@ export const BehaviorAnalysisSchema = {
             },
             weight: {
               type: 'number',
-              description: '关联度 (0.1-1.0)。表示该行为与该兴趣维度的关联程度（只能是正值）：1.0=强关联（行为直接体现该维度，如"玩积木"与Construction），0.7=中等关联（行为部分体现该维度，如"玩积木"与Visual），0.4=弱关联（行为间接涉及该维度）。请根据行为的实际特征区分主次',
-              minimum: 0.1,
+              description: '关联度 (0.4-1.0)。表示该行为与该兴趣维度的关联程度（只能是正值）：1.0=强关联（行为直接体现该维度，如"玩积木"与Construction），0.7=中等关联（行为部分体现该维度，如"玩积木"与Visual），0.4=弱关联（行为间接涉及该维度）。请根据行为的实际特征区分主次',
+              minimum: 0.4,
               maximum: 1.0
             },
             intensity: {
@@ -208,8 +208,8 @@ export const ProfileUpdateSchema = {
                   },
                   weight: {
                     type: 'number',
-                    description: '关联度 (0.1-1.0)：1.0=强关联，0.7=中等关联，0.4=弱关联。根据行为实际特征区分主次',
-                    minimum: 0.1,
+                    description: '关联度 (0.4-1.0)：1.0=强关联，0.7=中等关联，0.4=弱关联。根据行为实际特征区分主次',
+                    minimum: 0.4,
                     maximum: 1.0
                   },
                   intensity: {
@@ -807,9 +807,13 @@ export const GameImplementationPlanSchema = {
             instruction: {
               type: 'string',
               description: '详细指令，家长应该如何跟随孩子、如何回应孩子的行为，50-100字。强调跟随而非引导'
+            },
+            guidance: {
+              type: 'string',
+              description: '互动要点和注意事项，20-50字，帮助家长把握时机和细节'
             }
           },
-          required: ['stepTitle', 'instruction'],
+          required: ['stepTitle', 'instruction', 'guidance'],
           additionalProperties: false
         },
         minItems: 3,
@@ -828,6 +832,68 @@ export const GameImplementationPlanSchema = {
       }
     },
     required: ['gameId', 'gameTitle', 'summary', 'goal', 'steps'],
+    additionalProperties: false
+  }
+};
+
+// --- Game Selection Schema (recommendGame) ---
+
+export const GameSelectionSchema = {
+  name: 'game_selection',
+  description: '从候选列表中选择最适合的游戏序号',
+  schema: {
+    type: 'object',
+    properties: {
+      id: {
+        type: 'string',
+        description: '选中游戏的序号，如 "1"、"2"、"3"'
+      }
+    },
+    required: ['id'],
+    additionalProperties: false
+  }
+};
+
+// --- Online Search Game List Schema ---
+
+export const OnlineSearchGameListSchema = {
+  name: 'online_search_game_list',
+  description: '从搜索结果中提取的地板游戏列表',
+  schema: {
+    type: 'object',
+    properties: {
+      games: {
+        type: 'array',
+        description: '提取到的地板游戏列表，3-5个',
+        items: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: '游戏名称' },
+            target: { type: 'string', description: '训练目标' },
+            duration: { type: 'string', description: '游戏时长' },
+            reason: { type: 'string', description: '适合自闭症儿童的理由' },
+            summary: { type: 'string', description: '游戏玩法概要，2-3句话' },
+            materials: {
+              type: 'array',
+              description: '所需材料',
+              items: { type: 'string' }
+            },
+            keyPoints: {
+              type: 'array',
+              description: '3-5个关键要点',
+              items: { type: 'string' },
+              minItems: 3,
+              maxItems: 5
+            }
+          },
+          required: ['title', 'target', 'duration', 'summary', 'materials', 'keyPoints'],
+          additionalProperties: false
+        },
+        minItems: 1,
+        maxItems: 5
+      }
+    },
+    required: ['games'],
     additionalProperties: false
   }
 };

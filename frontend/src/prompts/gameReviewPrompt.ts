@@ -60,7 +60,7 @@ export function buildGameReviewPrompt(params: {
 
   if (memorySection) {
     prompt += `
-【历史互动记忆（graphiti 提取，含历次游戏参与规律与有效互动策略）】
+【历史互动记忆】
 ${memorySection}
 `;
   }
@@ -115,10 +115,7 @@ ${parentFeedback || '家长未提供额外反馈'}
    - 如果是 adjust，具体说明需要在哪些方面做出改进
    - 给出未来干预的方向和可尝试的游戏类型
 
-重要提示：
-- 请直接返回包含实际数据的 JSON 对象
-- 不要返回 Schema 定义本身
-- 如果互动记录信息有限，请基于游戏设计和可获得的信息进行合理推断
+如果互动记录信息有限，请基于游戏设计和可获得的信息进行合理推断。
 `;
 
   return prompt;

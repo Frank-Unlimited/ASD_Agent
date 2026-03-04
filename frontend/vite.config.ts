@@ -11,13 +11,14 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
         allowedHosts: [
-          '7869c576.r33.cpolar.top',
+          '27a27d35.r33.cpolar.top',
           '.cpolar.top', // 允许所有 cpolar.top 子域名
         ],
         hmr: {
           protocol: 'wss', // 使用安全的 WebSocket 协议（HTTPS 页面必须用 wss）
-          host: '7869c576.r33.cpolar.top',
+          host: '27a27d35.r33.cpolar.top',
           clientPort: 443, // cpolar 使用 HTTPS，所以 WebSocket 也走 443 端口
+          timeout: 30000, // 增加超时时间
         },
         proxy: {
           '/dashscope-api': {

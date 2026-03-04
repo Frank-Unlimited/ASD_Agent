@@ -74,40 +74,34 @@ export function buildFloorGamePlanPrompt(params: FloorGamePlanPromptParams): str
   };
 
   const conversationContext = conversationHistory
-    ? `\n【对话历史】\n${conversationHistory}\n请结合对话中家长的需求和反馈来设计游戏。\n`
+    ? `【对话历史】\n${conversationHistory}\n请结合对话中家长的需求和反馈来设计游戏。\n\n`
     : '';
 
   const searchContext = searchResults
-    ? `\n【参考游戏资料】（来自联网搜索和游戏库）\n${searchResults}\n请参考以上资料，但必须为${childProfile.name}量身定制。\n`
+    ? `【参考游戏资料】（来自联网搜索和游戏库）\n${searchResults}\n请参考以上资料，但必须为${childProfile.name}量身定制。\n\n`
     : '';
 
   return `
-${conversationContext}
-${searchContext}
-
-你是一位经验丰富的 DIR/Floortime 游戏设计师。请为以下儿童设计一套完整的地板游戏实施方案。
+${conversationContext}${searchContext}请为以下儿童设计一套完整的地板游戏实施方案。
 
 【儿童信息】
 姓名：${childProfile.name}
 性别：${childProfile.gender}
 年龄：${childAge}
-${memorySection ? `【历史游戏记忆（graphiti 提取，含已尝试游戏效果与互动规律）】\n${memorySection}\n` : ''}
-${prefsText}
-${specificObjectsText}
+${memorySection ? `\n【历史游戏记忆】\n${memorySection}\n` : ''}${prefsText}${specificObjectsText}
 【干预目标】
 目标维度：${targetDimensions.join('、')}
 策略：${strategyMap[strategy]}
 
 【设计要求】
-1. 游戏必须基于 DIR/Floortime 理念（跟随儿童兴趣，促进双向互动）
-2. 设计5-8个循序渐进的步骤（从准备到结束）
-3. 每个步骤要具体到家长可以直接执行（包含动作、语言、时机）
-4. 结合${childProfile.name}的具体情况进行个性化调整
-5. 材料要易获取，适合家庭环境
-6. 游戏要有趣、互动性强，避免机械训练
-7. 请输出 "materials" 字段，列出游戏需要准备的材料清单（尽量利用孩子已感兴趣的对象）
+1. 基于 DIR/Floortime 理念（跟随儿童兴趣，促进双向互动）
+2. 设计4-6个循序渐进的步骤，从准备到结束完整覆盖
+3. 每个步骤包含：家长具体操作指引（instruction）和互动要点/注意事项（guidance）
+4. 针对${childProfile.name}的具体情况个性化调整
+5. 材料易获取，适合家庭环境，优先使用孩子已感兴趣的对象
+6. 游戏有趣、互动性强，避免机械训练
 
-请严格按照以下 JSON 格式输出（这是示例，请根据实际情况填写）：
+按以下 JSON 格式输出（示例，请填入实际数据）：
 
 \`\`\`json
 {
@@ -119,16 +113,16 @@ ${specificObjectsText}
   "steps": [
     {
       "stepTitle": "准备材料和环境",
-      "instruction": "准备彩色泡泡液和泡泡棒，选择光线充足的室内空间。坐在孩子对面，保持轻松愉快的氛围。"
+      "instruction": "准备彩色泡泡液和泡泡棒，选择光线充足的室内空间，坐在孩子对面，保持轻松愉快的氛围。",
+      "guidance": "环境不要过于嘈杂，提前移开容易分散注意力的玩具。"
     },
     {
       "stepTitle": "吹出第一串泡泡",
-      "instruction": "慢慢吹出几个大泡泡，用夸张的语气说'哇，看！泡泡来啦！'观察孩子的视觉追踪反应，跟随孩子的兴趣点。"
+      "instruction": "慢慢吹出几个大泡泡，用夸张的语气说"哇，看！泡泡来啦！"观察孩子的视觉追踪反应。",
+      "guidance": "先观察孩子的反应，不要急于引导，跟随孩子目光的方向移动泡泡。"
     }
   ]
 }
 \`\`\`
-
-注意：steps 数组应包含5-8个步骤，从准备到结束完整覆盖。
 `;
 }

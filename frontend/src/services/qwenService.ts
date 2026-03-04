@@ -6,6 +6,7 @@
 import { qwenStreamClient, StreamCallbacks } from './qwenStreamClient';
 import {
   GameRecommendationSchema,
+  GameSelectionSchema,
   SessionEvaluationSchema,
   BehaviorAnalysisListSchema,
   BehaviorExtractionSchema,
@@ -14,7 +15,7 @@ import {
 } from './qwenSchemas';
 import { ChatMessage, LogEntry, BehaviorAnalysis, ProfileUpdate, Game, EvidenceSnippet } from '../types';
 import { floorGameStorageService } from './floorGameStorage';
-import { CHAT_SYSTEM_PROMPT } from '../prompts';
+import { CHAT_SYSTEM_PROMPT, BEHAVIOR_EXTRACTOR_SYSTEM_PROMPT } from '../prompts';
 
 // 动态生成游戏库描述（从 floorGameStorage 读取）
 const getGamesLibraryDescription = () => {
@@ -94,9 +95,7 @@ ${profileContext}
 决策逻辑：
 1. 优先选择能利用孩子"高兴趣维度"的游戏（作为切入点）。
 2. 针对孩子"低分能力维度"进行训练（作为目标）。
-3. 必须从候选游戏中选择一个，返回其 ID（如 "1", "2", "3" 等）。
-
-请只返回选中游戏的序号（1-${candidateGames.length}），例如：{"id": "2"}
+3. 必须从候选游戏中选择一个，返回其序号（1-${candidateGames.length}）。
 `;
 
     // 打印完整的 prompt
@@ -117,7 +116,11 @@ ${profileContext}
       ],
       {
         temperature: 0.7,
-        max_tokens: 500
+        max_tokens: 500,
+        response_format: {
+          type: 'json_schema',
+          json_schema: GameSelectionSchema
+        }
       }
     );
 
@@ -412,7 +415,7 @@ ${parentFeedback || "无家长反馈"}
 
     const response = await qwenStreamClient.chat(
       [
-        { role: 'system', content: '你是一个专业的行为分析提取器，擅长从复杂的互动记录中提炼出纯净的、无主观评价的核心行为事实（Evidence），就像医疗化验单一样精准。请必须使用 JSON 格式返回。' },
+        { role: 'system', content: BEHAVIOR_EXTRACTOR_SYSTEM_PROMPT },
         { role: 'user', content: prompt }
       ],
       {

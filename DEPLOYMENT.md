@@ -78,19 +78,16 @@ cpolar http 3000
 
 ### 5. 更新 Vite 配置中的域名
 
-修改 `vite.config.ts` 中的 `allowedHosts` 和 `hmr.host`：
+修改 `vite.config.ts` 中的 `allowedHosts`：
 
 ```typescript
 allowedHosts: [
   '7869c576.r33.cpolar.top',  // 你的实际域名
   '.cpolar.top',
 ],
-hmr: {
-  protocol: 'wss',
-  host: '7869c576.r33.cpolar.top',  // 你的实际域名
-  clientPort: 443,
-},
 ```
+
+注意：通过 cpolar 访问时，Vite 的热更新（HMR）功能不可用，修改代码后需要手动刷新页面。本地开发时（localhost:3000）HMR 正常工作。
 
 ### 6. 重启前端服务
 
@@ -140,11 +137,12 @@ Qwen 实时通话服务
 
 ## 注意事项
 
-1. **域名变化**：cpolar 免费版域名会定期变化，需要更新 `vite.config.ts` 中的域名配置
+1. **域名变化**：cpolar 免费版域名会定期变化，需要更新 `vite.config.ts` 中的 `allowedHosts` 配置
 2. **后端必须运行**：确保所有后端服务（8000、8001、8766）在本地正常运行
 3. **代理路径**：前端代码中使用相对路径（`/api/memory`、`/api/rag`、`/ws/qwen`）
-4. **WebSocket**：HMR 和 Qwen 实时通话都使用 WSS 协议，确保配置正确
+4. **WebSocket**：Qwen 实时通话使用 WSS 协议，确保服务正常运行
 5. **手机权限**：手机访问摄像头/麦克风需要 HTTPS，cpolar 提供的域名已支持
+6. **HMR 限制**：通过 cpolar 访问时，Vite 热更新（HMR）不可用，需要手动刷新页面。本地开发（localhost:3000）时 HMR 正常工作
 
 ## 故障排查
 

@@ -32,7 +32,7 @@ export function buildInterestAnalysisPrompt(params: InterestAnalysisPromptParams
     : '未知';
 
   return `
-你是一位专业的 DIR/Floortime 儿童发展分析师。请基于以下数据，对孩子的8个兴趣维度进行深度分析。
+请基于以下数据，对${childProfile.name}的8个兴趣维度进行深度分析。
 
 【儿童信息】
 姓名：${childProfile.name}
@@ -40,27 +40,26 @@ export function buildInterestAnalysisPrompt(params: InterestAnalysisPromptParams
 年龄：${childAge}
 
 ${parentContext ? `【家长补充信息】\n${parentContext}\n` : ''}
-${memorySection ? `【历史干预记忆（graphiti 提取，含历史行为偏好与维度变化）】\n${memorySection}\n` : ''}
-【维度量化数据】（强度=孩子对该维度的喜好程度0-100, 探索度=该维度被探索的深度和广度0-100）
+${memorySection ? `【历史干预记忆】\n${memorySection}\n` : ''}
+【维度量化数据】
+强度（0-100）= 孩子对该维度的喜好程度；探索度（0-100）= 该维度被探索的深度和广度
 ${metricsTable}
 
-【分析规则】
-请对每个维度进行分类：
-1. **leverage（可利用）**：强度 ≥ 60 —— 孩子已有明显兴趣，可以作为游戏切入点
-2. **explore（可探索）**：强度 40-59 且 探索度 < 50 —— 尚未充分探索，有潜力可以发展
-3. **avoid（应避免）**：强度 < 40 或 (探索度 ≥ 50 且 强度 < 50) —— 孩子表现出抗拒或已探索但无兴趣
-4. **neutral（中性）**：其他情况 —— 暂无明显倾向
+【分类规则】
+1. **leverage（可利用）**：强度 ≥ 60 —— 孩子已有明显兴趣，作为游戏切入点
+2. **explore（可探索）**：强度 40-59 且 探索度 < 50 —— 有潜力但尚未充分探索
+3. **neutral（中性）**：强度 40-59 且 探索度 ≥ 50 —— 有一定兴趣且已探索，暂无明显倾向
+4. **avoid（应避免）**：强度 < 40 —— 孩子表现出低兴趣或抗拒
 
-【重要要求】
-1. 从行为记录中提取具体对象（如"视觉维度喜欢画册"→ specificObjects=['画册']）
-2. 干预建议要结合 leverage 和 explore 维度，给出3-5条具体可操作的建议
-3. 每条建议包含：目标维度、策略类型、具体建议、原理说明、活动举例
-4. summary 要总结孩子的整体兴趣特点（100-150字）
-5. 如果所有维度强度都是50分（初始数据），说明数据不足，建议先记录更多行为
-6. dimensions 数组必须包含全部8个维度的分析
-7. leverageDimensions/exploreDimensions/avoidDimensions 必须包含对应分类的维度名称
+【输出要求】
+1. 从行为记录中提取各维度的具体兴趣对象（如 specificObjects: ['画册', '彩色积木']）
+2. summary 总结孩子整体兴趣特点（100-150字），引用具体数据，语气温暖鼓励
+3. 若所有维度强度均为50分（初始默认值），说明数据不足，在 summary 中提示建议先记录更多行为
+4. dimensions 数组必须包含全部8个维度：Visual, Auditory, Tactile, Motor, Construction, Order, Cognitive, Social
+5. leverageDimensions / exploreDimensions / avoidDimensions 填入对应分类的维度名称
+6. 干预建议3-5条，结合 leverage 和 explore 维度，每条包含目标维度、策略类型、具体建议、原理说明、活动举例
 
-请严格按照以下 JSON 格式输出（这是示例，请根据实际数据填写）：
+按以下 JSON 格式输出（示例，请填入实际数据）：
 
 \`\`\`json
 {
@@ -97,7 +96,5 @@ ${metricsTable}
   ]
 }
 \`\`\`
-
-注意：dimensions 数组必须包含全部8个维度（Visual, Auditory, Tactile, Motor, Construction, Order, Cognitive, Social），不能遗漏。
 `;
 }

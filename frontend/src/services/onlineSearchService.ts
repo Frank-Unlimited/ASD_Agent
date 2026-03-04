@@ -7,6 +7,8 @@
 import { Game } from '../types';
 import { bochaSearchService } from './bochaSearchService';
 import { qwenStreamClient } from './qwenStreamClient';
+import { ONLINE_SEARCH_PARSER_SYSTEM_PROMPT } from '../prompts';
+import { OnlineSearchGameListSchema } from './qwenSchemas';
 
 function buildSearchQuery(query: string): string {
   return `${query} 自闭症儿童 DIR Floortime 地板游戏 感统游戏`.trim();
@@ -26,21 +28,9 @@ ${childContext ? `【儿童情况】\n${childContext}\n` : ''}
 
 【要求】
 1. 从搜索结果中提取适合自闭症儿童的地板游戏、感统游戏、互动游戏
-2. 游戏应该基于 DIR/Floortime 理念
-3. 游戏应该有明确的训练目标
-4. 只需要提供游戏的大致玩法概要，不需要详细步骤
-
-【返回格式】
-请以 JSON 数组格式返回，每个游戏包含：
-- title: 游戏名称
-- target: 训练目标
-- duration: 游戏时长
-- reason: 适合理由
-- summary: 游戏玩法概要（2-3句话）
-- materials: 所需材料列表
-- keyPoints: 3-5个关键要点
-
-请返回 3-5 个游戏。
+2. 游戏应该基于 DIR/Floortime 理念，有明确的训练目标
+3. 只需要提供游戏的大致玩法概要，不需要详细步骤
+4. 返回 3-5 个游戏
 `;
 }
 
@@ -97,7 +87,7 @@ export const searchGamesOnline = async (
     console.log('[Online Search Parser] 完整 Prompt:');
     console.log('='.repeat(80));
     console.log('System Prompt:');
-    console.log('你是一位专业的 DIR/Floortime 游戏设计师。请根据搜索结果推荐适合自闭症儿童的地板游戏，并按照指定的 JSON 格式返回。');
+    console.log(ONLINE_SEARCH_PARSER_SYSTEM_PROMPT);
     console.log('-'.repeat(80));
     console.log('User Prompt:');
     console.log(parsePrompt);
@@ -107,7 +97,7 @@ export const searchGamesOnline = async (
       [
         {
           role: 'system',
-          content: `你是一位专业的 DIR/Floortime 游戏设计师。请根据搜索结果推荐适合自闭症儿童的地板游戏，并按照指定的 JSON 格式返回。`
+          content: ONLINE_SEARCH_PARSER_SYSTEM_PROMPT
         },
         {
           role: 'user',
@@ -116,7 +106,11 @@ export const searchGamesOnline = async (
       ],
       {
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 2000,
+        response_format: {
+          type: 'json_schema',
+          json_schema: OnlineSearchGameListSchema
+        }
       }
     );
 
@@ -144,62 +138,18 @@ export const searchGamesOnline = async (
 };
 
 /**
- * 解析搜索结果中的游戏信息
+ * 解析搜索结果中的游戏信息（json_schema 强制输出，直接解析）
  */
 function parseGamesFromSearchResult(content: string): Game[] {
   try {
-    console.log('🔍 开始解析游戏信息...');
-
-    let jsonStr = '';
-
-    const codeBlockMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-    if (codeBlockMatch) {
-      jsonStr = codeBlockMatch[1];
-      console.log('✓ 从代码块中提取 JSON');
-    } else {
-      const arrayMatch = content.match(/\[[\s\S]*\]/);
-      if (arrayMatch) {
-        jsonStr = arrayMatch[0];
-        console.log('✓ 从内容中提取 JSON 数组');
-      } else {
-        console.warn('⚠️  未找到 JSON 格式内容');
-        return [];
-      }
-    }
-
-    // 清理 JSON 字符串
-    jsonStr = jsonStr.replace(/\/\/.*$/gm, '');
-    jsonStr = jsonStr.replace(/\/\*[\s\S]*?\*\//g, '');
-    jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
-
-    let gamesData: any[];
-    try {
-      gamesData = JSON.parse(jsonStr);
-    } catch (parseError) {
-      console.error('❌ JSON 解析失败，尝试修复...');
-      
-      let fixedJson = jsonStr.replace(/'/g, '"');
-      fixedJson = fixedJson.replace(/\n/g, '\\n');
-
-      try {
-        gamesData = JSON.parse(fixedJson);
-        console.log('✓ JSON 修复成功');
-      } catch (secondError) {
-        console.error('❌ JSON 修复失败');
-        return [];
-      }
-    }
-
-    if (!Array.isArray(gamesData)) {
-      console.warn('⚠️  解析的数据不是数组');
-      return [];
-    }
+    const data = JSON.parse(content);
+    const gamesData: any[] = data.games || [];
 
     console.log(`✅ 成功解析 ${gamesData.length} 个游戏`);
 
     const games = gamesData.map((game, index) => {
-      const keyPoints = game.keyPoints || [];
-      const steps = keyPoints.map((point: string, i: number) => ({
+      const keyPoints: string[] = game.keyPoints || [];
+      const steps = keyPoints.map((point, i) => ({
         stepTitle: `第${i + 1}步`,
         instruction: point,
         guidance: ''
@@ -211,8 +161,8 @@ function parseGamesFromSearchResult(content: string): Game[] {
         target: game.target || '综合训练',
         duration: game.duration || '15-20分钟',
         reason: game.reason || '',
-        isVR: game.isVR || false,
-        steps: steps,
+        isVR: false,
+        steps,
         summary: game.summary || '',
         materials: game.materials || []
       };
