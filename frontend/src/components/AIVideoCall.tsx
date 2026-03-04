@@ -69,6 +69,8 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
   const isPlayingRef = useRef(false);
   const isMutedRef = useRef(false); // 使用 ref 避免闭包问题
   const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null); // 当前播放的音频源
+  const isUserSpeakingRef = useRef(false); // 家长是否正在说话
+  const pendingAudioQueueRef = useRef<ArrayBuffer[]>([]); // 家长说话时暂存的AI音频
 
   /**
    * 启动视频通话
@@ -156,11 +158,17 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
           }
         },
         onAssistantAudio: (audioData) => {
-          // 播放音频
-          playAudio(audioData);
+          // 如果家长正在说话，暂存音频；否则立即播放
+          if (isUserSpeakingRef.current) {
+            console.log('[AI Video Call] 家长正在说话，暂存 AI 音频');
+            pendingAudioQueueRef.current.push(audioData);
+          } else {
+            playAudio(audioData);
+          }
         },
         onSpeechStarted: () => {
           setIsSpeaking(true);
+          isUserSpeakingRef.current = true;
 
           // 用户开始说话，清空当前显示的用户文本（准备显示新的）
           setUserTranscript('');
@@ -182,6 +190,19 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
         },
         onSpeechStopped: () => {
           setIsSpeaking(false);
+          isUserSpeakingRef.current = false;
+
+          // 家长说完后，播放暂存的 AI 音频
+          if (pendingAudioQueueRef.current.length > 0) {
+            console.log('[AI Video Call] 家长说完，播放暂存的 AI 音频，共', pendingAudioQueueRef.current.length, '段');
+            const pendingAudios = [...pendingAudioQueueRef.current];
+            pendingAudioQueueRef.current = [];
+            
+            // 依次播放所有暂存的音频
+            for (const audioData of pendingAudios) {
+              playAudio(audioData);
+            }
+          }
         },
         onResponseStarted: () => {
           // AI 开始新的回复，清空上一轮的文本和音频
@@ -247,7 +268,18 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
 
           workletNode.port.onmessage = (e) => {
             if (e.data.type === 'speech_start') {
-              console.log('[AI Video Call] 🎤 检测到语音开始 (振幅:', e.data.amplitude?.toFixed(3), ')');
+              console.log('[AI Video Call] �️ 检测到语音开始 (振幅:', e.data.amplitude?.toFixed(3), ')');
+              
+              // 打断机制：用户开始说话时，立即停止 AI 音频播放
+              if (currentAudioSourceRef.current) {
+                console.log('[AI Video Call] ⚡ 用户打断，停止 AI 音频播放');
+                currentAudioSourceRef.current.stop();
+                currentAudioSourceRef.current = null;
+              }
+              // 清空音频队列
+              audioQueueRef.current = [];
+              isPlayingRef.current = false;
+              
               qwenRealtimeService.sendMessage({ type: 'speech_start' });
             } else if (e.data.type === 'speech_end') {
               console.log('[AI Video Call] 🔇 检测到语音结束，自动提交');
@@ -283,9 +315,18 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
       let isSpeaking = false;
       let silenceFrames = 0;
       let speechFrames = 0;
+      
+      // 智能 VAD 参数
       const SPEECH_THRESHOLD = 0.05;
       const SPEECH_FRAMES_THRESHOLD = 3;
-      const SILENCE_FRAMES_THRESHOLD = 4;
+      const SHORT_SILENCE_THRESHOLD = 12;  // 短停顿：1.5秒
+      const LONG_SILENCE_THRESHOLD = 24;   // 长停顿：3秒
+      
+      // 音量趋势分析
+      let recentAmplitudes: number[] = [];
+      const AMPLITUDE_HISTORY_SIZE = 10;
+      let lastSpeechAmplitude = 0;
+      let energyDecayDetected = false;
 
       processor.onaudioprocess = (e) => {
         if (!isMutedRef.current && qwenRealtimeService.isConnectionActive()) {
@@ -306,9 +347,28 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
           if (isSpeechDetected) {
             speechFrames++;
             silenceFrames = 0;
+            energyDecayDetected = false;
+            
+            // 记录音量历史
+            recentAmplitudes.push(maxAmplitude);
+            if (recentAmplitudes.length > AMPLITUDE_HISTORY_SIZE) {
+              recentAmplitudes.shift();
+            }
+            lastSpeechAmplitude = maxAmplitude;
 
             if (!isSpeaking && speechFrames >= SPEECH_FRAMES_THRESHOLD) {
-              console.log('[AI Video Call] 🎤 检测到语音开始 (振幅:', maxAmplitude.toFixed(3), ')');
+              console.log('[AI Video Call] 🎙️ 检测到语音开始 (振幅:', maxAmplitude.toFixed(3), ')');
+              
+              // 打断机制：用户开始说话时，立即停止 AI 音频播放
+              if (currentAudioSourceRef.current) {
+                console.log('[AI Video Call] ⚡ 用户打断，停止 AI 音频播放');
+                currentAudioSourceRef.current.stop();
+                currentAudioSourceRef.current = null;
+              }
+              // 清空音频队列
+              audioQueueRef.current = [];
+              isPlayingRef.current = false;
+              
               qwenRealtimeService.sendMessage({ type: 'speech_start' });
               isSpeaking = true;
             }
@@ -317,12 +377,24 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
 
             if (isSpeaking) {
               silenceFrames++;
-              if (silenceFrames >= SILENCE_FRAMES_THRESHOLD) {
-                console.log('[AI Video Call] 🔇 检测到语音结束，自动提交');
+              
+              // 简单判断：只使用长停顿（3秒）
+              let shouldEnd = false;
+              
+              // 只在长时间静音（3秒）后才结束，避免误判
+              if (silenceFrames >= LONG_SILENCE_THRESHOLD) {
+                shouldEnd = true;
+                console.log('[AI Video Call] ⏱️ 长时间静音（3秒），确认说话结束');
+              }
+              
+              if (shouldEnd) {
+                console.log('[AI Video Call] 🔇 语音结束，自动提交');
                 qwenRealtimeService.sendMessage({ type: 'speech_end' });
                 qwenRealtimeService.sendMessage({ type: 'commit' });
                 isSpeaking = false;
                 silenceFrames = 0;
+                recentAmplitudes = [];
+                energyDecayDetected = false;
               }
             }
           }

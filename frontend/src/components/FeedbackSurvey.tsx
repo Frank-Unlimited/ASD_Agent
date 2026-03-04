@@ -63,7 +63,7 @@ const FeedbackSurvey: React.FC<FeedbackSurveyProps> = ({
                         className="space-y-6"
                     >
                         <div className="text-center">
-                            <span className="text-primary text-xs font-bold uppercase tracking-widest">维度 1：共同注意</span>
+                            <span className="text-primary text-sm font-bold uppercase tracking-widest">维度 1：共同注意</span>
                             <h3 className="text-xl font-bold text-gray-800 mt-2">互动中，孩子的参与状态是？</h3>
                         </div>
                         <div className="grid gap-3">
@@ -99,7 +99,7 @@ const FeedbackSurvey: React.FC<FeedbackSurveyProps> = ({
                         className="space-y-6"
                     >
                         <div className="text-center">
-                            <span className="text-primary text-xs font-bold uppercase tracking-widest">维度 2：沟通循环</span>
+                            <span className="text-primary text-sm font-bold uppercase tracking-widest">维度 2：沟通循环</span>
                             <h3 className="text-xl font-bold text-gray-800 mt-2">孩子今天发起了多少次主动沟通？</h3>
                             <p className="text-xs text-gray-400 mt-1">包括眼神、表情、动作或发声的往返</p>
                         </div>
@@ -135,7 +135,7 @@ const FeedbackSurvey: React.FC<FeedbackSurveyProps> = ({
                         className="space-y-6"
                     >
                         <div className="text-center">
-                            <span className="text-primary text-xs font-bold uppercase tracking-widest">维度 3：情绪调节</span>
+                            <span className="text-primary text-sm font-bold uppercase tracking-widest">维度 3：情绪调节</span>
                             <h3 className="text-xl font-bold text-gray-800 mt-2">孩子在互动中的情绪状态是？</h3>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -165,32 +165,32 @@ const FeedbackSurvey: React.FC<FeedbackSurveyProps> = ({
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
-                        className="space-y-6"
+                        className="space-y-3"
                     >
                         <div className="text-center">
-                            <span className="text-primary text-xs font-bold uppercase tracking-widest">维度 4：互动随手记</span>
-                            <h3 className="text-xl font-bold text-gray-800 mt-2">互动中有哪些“闪光点”或挑战？</h3>
+                            <span className="text-primary text-sm font-bold uppercase tracking-widest">维度 4：互动随手记</span>
+                            <h3 className="text-lg font-bold text-gray-800 mt-1">互动中有哪些"闪光点"或挑战？</h3>
                         </div>
                         <textarea
                             value={data.q4}
                             onChange={(e) => updateData('q4', e.target.value)}
-                            className="w-full bg-gray-50 rounded-2xl p-5 text-sm min-h-[160px] focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none transition border border-gray-100"
+                            className="w-full bg-gray-50 rounded-2xl p-4 text-sm min-h-[120px] focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none transition border border-gray-100"
                             placeholder="例如：孩子主动递给我玩具；我们通过玩车建立了良好的循环..."
                         />
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                             {['眼神对视', '模仿动作', '主动发起', '共享快乐', '处理挑战'].map(tag => (
                                 <button
                                     key={tag}
                                     onClick={() => updateData('q4', data.q4 ? `${data.q4} #${tag}` : `#${tag}`)}
-                                    className="px-3 py-1.5 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500 hover:bg-primary hover:text-white transition-colors"
+                                    className="px-2.5 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500 hover:bg-primary hover:text-white transition-colors"
                                 >
                                     #{tag}
                                 </button>
                             ))}
                         </div>
 
-                        <div className="mt-4 pt-4 border-t border-gray-100">
-                            <h4 className="text-xs font-bold text-gray-500 mb-3 flex items-center">
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                            <h4 className="text-xs font-bold text-gray-500 mb-2 flex items-center">
                                 <Camera className="w-3 h-3 mr-1" /> 上传互动视频 (可选)
                             </h4>
                             <input
@@ -201,7 +201,7 @@ const FeedbackSurvey: React.FC<FeedbackSurveyProps> = ({
                                 onChange={(e) => onVideoChange?.(e.target.files?.[0] || null)}
                             />
                             {videoFile ? (
-                                <div className="flex items-center justify-between bg-blue-50 p-3 rounded-xl">
+                                <div className="flex items-center justify-between bg-blue-50 p-2.5 rounded-xl">
                                     <div className="flex items-center">
                                         <Video className="w-4 h-4 text-primary mr-2" />
                                         <div className="max-w-[120px]">
@@ -213,7 +213,7 @@ const FeedbackSurvey: React.FC<FeedbackSurveyProps> = ({
                             ) : (
                                 <button
                                     onClick={() => videoInputRef.current?.click()}
-                                    className="w-full border-2 border-dashed border-gray-100 rounded-xl py-4 flex items-center justify-center space-x-2 hover:bg-gray-50 transition group"
+                                    className="w-full border-2 border-dashed border-gray-100 rounded-xl py-3 flex items-center justify-center space-x-2 hover:bg-gray-50 transition group"
                                 >
                                     <Upload className="w-4 h-4 text-gray-300 group-hover:text-primary transition" />
                                     <span className="text-[10px] font-bold text-gray-400 group-hover:text-gray-600">选择视频文件</span>
@@ -232,7 +232,7 @@ const FeedbackSurvey: React.FC<FeedbackSurveyProps> = ({
                         className="space-y-6"
                     >
                         <div className="text-center">
-                            <span className="text-primary text-xs font-bold uppercase tracking-widest">维度 5：助手反馈</span>
+                            <span className="text-primary text-sm font-bold uppercase tracking-widest">维度 5：助手反馈</span>
                             <h3 className="text-xl font-bold text-gray-800 mt-2">AI 助手的建议对您是否有帮助？</h3>
                         </div>
                         <div className="flex justify-center space-x-6">

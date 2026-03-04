@@ -11,10 +11,17 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
     this.speechFrames = 0;
     this.packetCount = 0;
     
-    // VAD 参数
-    this.SPEECH_THRESHOLD = 0.05;
-    this.SPEECH_FRAMES_THRESHOLD = 3;
-    this.SILENCE_FRAMES_THRESHOLD = 4;
+    // 智能 VAD 参数
+    this.SPEECH_THRESHOLD = 0.05;  // 语音检测阈值
+    this.SPEECH_FRAMES_THRESHOLD = 3;  // 3帧确认开始说话
+    this.SHORT_SILENCE_THRESHOLD = 12;  // 短停顿：12帧（1.5秒）- 可能是思考
+    this.LONG_SILENCE_THRESHOLD = 24;   // 长停顿：24帧（3秒）- 确认结束
+    
+    // 音量趋势分析
+    this.recentAmplitudes = [];  // 记录最近的音量
+    this.AMPLITUDE_HISTORY_SIZE = 10;  // 保留最近10帧的音量
+    this.lastSpeechAmplitude = 0;  // 最后一次说话的音量
+    this.energyDecayDetected = false;  // 是否检测到能量衰减
     
     // 监听主线程消息
     this.port.onmessage = (e) => {
@@ -43,12 +50,20 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
       if (abs > 0.001) hasAudio = true;
     }
     
-    // VAD 检测
+    // 智能 VAD 检测
     const isSpeechDetected = maxAmplitude > this.SPEECH_THRESHOLD;
     
     if (isSpeechDetected) {
       this.speechFrames++;
       this.silenceFrames = 0;
+      this.energyDecayDetected = false;
+      
+      // 记录音量历史
+      this.recentAmplitudes.push(maxAmplitude);
+      if (this.recentAmplitudes.length > this.AMPLITUDE_HISTORY_SIZE) {
+        this.recentAmplitudes.shift();
+      }
+      this.lastSpeechAmplitude = maxAmplitude;
       
       if (!this.isSpeaking && this.speechFrames >= this.SPEECH_FRAMES_THRESHOLD) {
         this.port.postMessage({ type: 'speech_start', amplitude: maxAmplitude });
@@ -59,10 +74,21 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
       
       if (this.isSpeaking) {
         this.silenceFrames++;
-        if (this.silenceFrames >= this.SILENCE_FRAMES_THRESHOLD) {
+        
+        // 简单判断：只使用长停顿（3秒）
+        let shouldEnd = false;
+        
+        // 只在长时间静音（3秒）后才结束，避免误判
+        if (this.silenceFrames >= this.LONG_SILENCE_THRESHOLD) {
+          shouldEnd = true;
+        }
+        
+        if (shouldEnd) {
           this.port.postMessage({ type: 'speech_end' });
           this.isSpeaking = false;
           this.silenceFrames = 0;
+          this.recentAmplitudes = [];
+          this.energyDecayDetected = false;
         }
       }
     }
