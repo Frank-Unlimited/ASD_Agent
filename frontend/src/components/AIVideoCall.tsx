@@ -362,12 +362,12 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
               
               // 1. 短停顿（1.5秒内）：检测能量衰减
               if (silenceFrames >= SHORT_SILENCE_THRESHOLD && silenceFrames < LONG_SILENCE_THRESHOLD) {
-                if (recentAmplitudes.length >= 5) {
-                  const recent5 = recentAmplitudes.slice(-5);
-                  const avgRecent = recent5.reduce((a, b) => a + b, 0) / recent5.length;
+                if (recentAmplitudes.length >= 8) {  // 增加到8帧，更稳定
+                  const recent8 = recentAmplitudes.slice(-8);
+                  const avgRecent = recent8.reduce((a, b) => a + b, 0) / recent8.length;
                   
-                  // 如果最后的音量明显低于平均值（能量衰减），可能是结束
-                  if (lastSpeechAmplitude < avgRecent * 0.6) {
+                  // 降低敏感度：从 0.6 改为 0.4，只有音量下降很多才判定为结束
+                  if (lastSpeechAmplitude < avgRecent * 0.4) {
                     energyDecayDetected = true;
                   }
                 }
