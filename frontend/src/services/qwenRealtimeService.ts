@@ -72,6 +72,7 @@ class QwenRealtimeService {
   private isConnected: boolean = false;
   private serverUrl: string;
   private currentAssistantTranscript: string = ''; // 跟踪当前 AI 回复的完整文本
+  private currentUserTranscript: string = ''; // 累积用户转录文字
   
   constructor() {
     // 使用相对路径，通过 Vite 代理转发（支持 HTTPS）
@@ -184,6 +185,7 @@ class QwenRealtimeService {
           
         case 'input_audio_buffer.speech_started':
           console.log('[Qwen Realtime] 检测到语音开始');
+          this.currentUserTranscript = ''; // 重置用户转录
           if (this.callbacks.onSpeechStarted) {
             this.callbacks.onSpeechStarted();
           }
@@ -196,11 +198,25 @@ class QwenRealtimeService {
           }
           break;
           
+        case 'conversation.item.input_audio_transcription.delta':
+          // 用户转录增量更新
+          const userDelta = message.delta;
+          if (userDelta) {
+            this.currentUserTranscript += userDelta;
+            console.log('[Qwen Realtime] 用户转录增量:', userDelta, '当前总计:', this.currentUserTranscript);
+            if (this.callbacks.onUserTranscript) {
+              this.callbacks.onUserTranscript(this.currentUserTranscript);
+            }
+          }
+          break;
+          
         case 'conversation.item.input_audio_transcription.completed':
           const userTranscript = message.transcript;
-          console.log('[Qwen Realtime] 用户:', userTranscript);
+          console.log('[Qwen Realtime] 用户转录完成:', userTranscript);
+          // 使用完成后的完整文本
+          this.currentUserTranscript = userTranscript || this.currentUserTranscript;
           if (this.callbacks.onUserTranscript) {
-            this.callbacks.onUserTranscript(userTranscript);
+            this.callbacks.onUserTranscript(this.currentUserTranscript);
           }
           break;
         

@@ -378,32 +378,13 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
             if (isSpeaking) {
               silenceFrames++;
               
-              // 智能判断：区分停顿和结束
+              // 简单判断：只使用长停顿（3秒）
               let shouldEnd = false;
               
-              // 1. 短停顿（1.5秒内）：检测能量衰减
-              if (silenceFrames >= SHORT_SILENCE_THRESHOLD && silenceFrames < LONG_SILENCE_THRESHOLD) {
-                if (recentAmplitudes.length >= 8) {  // 增加到8帧，更稳定
-                  const recent8 = recentAmplitudes.slice(-8);
-                  const avgRecent = recent8.reduce((a, b) => a + b, 0) / recent8.length;
-                  
-                  // 降低敏感度：从 0.6 改为 0.4，只有音量下降很多才判定为结束
-                  if (lastSpeechAmplitude < avgRecent * 0.4) {
-                    energyDecayDetected = true;
-                  }
-                }
-                
-                // 如果检测到能量衰减，提前结束
-                if (energyDecayDetected) {
-                  shouldEnd = true;
-                  console.log('[AI Video Call] 💡 检测到能量衰减，判定为说话结束');
-                }
-              }
-              
-              // 2. 长停顿（3秒）：直接结束
+              // 只在长时间静音（3秒）后才结束，避免误判
               if (silenceFrames >= LONG_SILENCE_THRESHOLD) {
                 shouldEnd = true;
-                console.log('[AI Video Call] ⏱️ 长时间静音，确认说话结束');
+                console.log('[AI Video Call] ⏱️ 长时间静音（3秒），确认说话结束');
               }
               
               if (shouldEnd) {
