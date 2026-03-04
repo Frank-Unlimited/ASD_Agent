@@ -16,9 +16,12 @@ interface ASRResult {
 
 class SpeechService {
   private config: SpeechConfig;
-  private mediaRecorder: MediaRecorder | null = null;
-  private audioChunks: Blob[] = [];
   private audioContext: AudioContext | null = null;
+  private audioWorkletNode: AudioWorkletNode | null = null;
+  private mediaStream: MediaStream | null = null;
+  private audioChunks: Int16Array[] = [];
+  private isRecording: boolean = false;
+  private currentAmplitude: number = 0;
 
   constructor() {
     this.config = {
@@ -33,37 +36,92 @@ class SpeechService {
   }
 
   /**
-   * 开始录音
+   * 开始录音（使用 AudioWorklet）
    */
   async startRecording(): Promise<void> {
     try {
       // 请求麦克风权限
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          channelCount: 1, // 单声道
-          sampleRate: 16000, // 16kHz
-          echoCancellation: true, // 回声消除
-          noiseSuppression: true, // 噪音抑制
+          channelCount: 1,
+          sampleRate: 16000,
+          echoCancellation: true,
+          noiseSuppression: true,
         } 
       });
 
-      // 创建 MediaRecorder
-      this.mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // 创建 AudioContext
+      this.audioContext = new AudioContext({ sampleRate: 16000 });
+      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
 
       this.audioChunks = [];
+      this.isRecording = true;
 
-      // 收集音频数据
-      this.mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          this.audioChunks.push(event.data);
+      // 尝试使用 AudioWorklet
+      const supportsAudioWorklet = 'audioWorklet' in this.audioContext;
+
+      if (supportsAudioWorklet) {
+        try {
+          console.log('[Speech] 使用 AudioWorklet 进行音频采集');
+          
+          await this.audioContext.audioWorklet.addModule('/audio-processor.js');
+          
+          this.audioWorkletNode = new AudioWorkletNode(
+            this.audioContext,
+            'audio-capture-processor'
+          );
+
+          this.audioWorkletNode.port.onmessage = (e) => {
+            if (e.data.type === 'audio_data' && this.isRecording) {
+              const pcm16 = new Int16Array(e.data.data);
+              this.audioChunks.push(pcm16);
+              this.currentAmplitude = e.data.maxAmplitude || 0;
+            }
+          };
+
+          source.connect(this.audioWorkletNode);
+          this.audioWorkletNode.connect(this.audioContext.destination);
+
+          console.log('[Speech] AudioWorklet 录音已启动');
+          return;
+
+        } catch (workletError) {
+          console.warn('[Speech] AudioWorklet 初始化失败，降级到 ScriptProcessor:', workletError);
         }
+      } else {
+        console.warn('[Speech] 浏览器不支持 AudioWorklet，使用 ScriptProcessor');
+      }
+
+      // 降级方案：ScriptProcessor
+      const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+
+      processor.onaudioprocess = (e) => {
+        if (!this.isRecording) return;
+
+        const inputData = e.inputBuffer.getChannelData(0);
+        
+        // 计算音量
+        let maxAmplitude = 0;
+        for (let i = 0; i < inputData.length; i++) {
+          const abs = Math.abs(inputData[i]);
+          if (abs > maxAmplitude) maxAmplitude = abs;
+        }
+        this.currentAmplitude = maxAmplitude;
+
+        // 转换为 PCM16
+        const pcm16 = new Int16Array(inputData.length);
+        for (let i = 0; i < inputData.length; i++) {
+          const s = Math.max(-1, Math.min(1, inputData[i]));
+          pcm16[i] = s < 0 ? Math.floor(s * 0x8000) : Math.floor(s * 0x7FFF);
+        }
+
+        this.audioChunks.push(pcm16);
       };
 
-      // 开始录音
-      this.mediaRecorder.start();
-      console.log('[Speech] 开始录音');
+      source.connect(processor);
+      processor.connect(this.audioContext.destination);
+
+      console.log('[Speech] ScriptProcessor 录音已启动');
     } catch (error) {
       console.error('[Speech] 录音失败:', error);
       throw new Error('无法访问麦克风，请检查权限设置');
@@ -71,65 +129,45 @@ class SpeechService {
   }
 
   /**
-   * 停止录音并返回音频 Blob
+   * 停止录音并返回 PCM 数据
    */
-  async stopRecording(): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-      if (!this.mediaRecorder) {
-        reject(new Error('录音器未初始化'));
-        return;
-      }
+  async stopRecording(): Promise<ArrayBuffer> {
+    this.isRecording = false;
 
-      this.mediaRecorder.onstop = () => {
-        // 合并音频片段
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-        
-        // 停止所有音轨
-        if (this.mediaRecorder?.stream) {
-          this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
-        }
+    // 停止所有音轨
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(track => track.stop());
+    }
 
-        console.log('[Speech] 录音完成，大小:', audioBlob.size, 'bytes');
-        resolve(audioBlob);
-      };
+    // 关闭 AudioContext
+    if (this.audioWorkletNode) {
+      this.audioWorkletNode.disconnect();
+      this.audioWorkletNode = null;
+    }
 
-      this.mediaRecorder.stop();
-    });
+    if (this.audioContext) {
+      await this.audioContext.close();
+      this.audioContext = null;
+    }
+
+    // 合并所有 PCM 数据
+    const totalLength = this.audioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const mergedPCM = new Int16Array(totalLength);
+    let offset = 0;
+    for (const chunk of this.audioChunks) {
+      mergedPCM.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    console.log('[Speech] 录音完成，PCM 长度:', mergedPCM.length);
+    return mergedPCM.buffer;
   }
 
   /**
-   * 将音频 Blob 转换为 PCM 格式
+   * 获取当前音量（用于实时显示）
    */
-  async convertToPCM(audioBlob: Blob): Promise<ArrayBuffer> {
-    try {
-      // 创建 AudioContext
-      if (!this.audioContext) {
-        this.audioContext = new AudioContext({ sampleRate: 16000 });
-      }
-
-      // 读取音频数据
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      
-      // 解码音频
-      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-
-      // 获取单声道数据
-      const channelData = audioBuffer.getChannelData(0);
-
-      // 转换为 16 位 PCM
-      const pcmData = new Int16Array(channelData.length);
-      for (let i = 0; i < channelData.length; i++) {
-        // 将 [-1, 1] 范围转换为 [-32768, 32767]
-        const s = Math.max(-1, Math.min(1, channelData[i]));
-        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-      }
-
-      console.log('[Speech] PCM 转换完成，长度:', pcmData.length);
-      return pcmData.buffer;
-    } catch (error) {
-      console.error('[Speech] PCM 转换失败:', error);
-      throw new Error('音频格式转换失败');
-    }
+  getCurrentAmplitude(): number {
+    return this.currentAmplitude;
   }
 
   /**
@@ -304,15 +342,12 @@ class SpeechService {
   }
 
   /**
-   * 完整流程：录音 → 转换 → 识别
+   * 完整流程：录音 → 识别
    */
   async recordAndRecognize(): Promise<ASRResult> {
     try {
-      // 停止录音
-      const audioBlob = await this.stopRecording();
-
-      // 转换为 PCM
-      const pcmData = await this.convertToPCM(audioBlob);
+      // 停止录音，直接获取 PCM 数据
+      const pcmData = await this.stopRecording();
 
       // 调用 ASR
       const result = await this.speechToText(pcmData);
