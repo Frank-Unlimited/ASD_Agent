@@ -328,6 +328,9 @@ export interface FloorGame {
   evaluation?: EvaluationResult; // 游戏结束后的评估结果
   chat_history_in_game?: string; // AI 视频通话的聊天记录（JSON 字符串）
   review?: GameReviewResult;     // 游戏复盘结果
+
+  // 新增：游戏过程中的快捷按钮记录
+  record_during_game?: QuickRecord[];
 }
 
 export interface FeedbackData {
@@ -399,5 +402,23 @@ export interface FeedbackData {
   q3: string; // 情绪调节
   q4: string; // 互动随手记
   q5: string; // 助手反馈
+}
+
+// 快捷记录接口
+export interface QuickRecord {
+  id: string;                    // 唯一标识
+  timestamp: string;             // ISO 8601时间戳
+  behaviorType: BehaviorType;    // 行为类型
+  stepIndex: number;             // 当前步骤索引
+}
+
+// 行为类型枚举
+export enum BehaviorType {
+  EYE_CONTACT = 'eye_contact',           // 眼神接触 👁️
+  ACTIVE_RESPONSE = 'active_response',   // 主动回应 🗣️
+  SMILE_HAPPY = 'smile_happy',           // 微笑开心 😄
+  REFUSE_RESISTANT = 'refuse_resistant', // 拒绝抗拒 🚫
+  DISTRACTED = 'distracted',             // 分心走神 📱
+  FOCUSED_ENGAGED = 'focused_engaged'    // 专注投入 🎯
 }
 
