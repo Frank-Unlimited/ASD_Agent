@@ -3546,7 +3546,8 @@ const PageGames = ({
       return;
     }
 
-    const floorGame = internalActiveGame as FloorGame;
+    // TypeScript 要求先转换为 unknown 再转换为目标类型
+    const floorGame = internalActiveGame as unknown as FloorGame;
 
     const record: QuickRecord = {
       id: `record-${Date.now()}-${Math.random()}`,
