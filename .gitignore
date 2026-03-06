@@ -41,3 +41,6 @@ backend/external/graphiti/
 data/
 uploads/
 .venv/
+
+# Git worktrees
+.worktrees/
