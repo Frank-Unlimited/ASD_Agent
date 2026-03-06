@@ -3541,11 +3541,12 @@ const PageGames = ({
     if (!internalActiveGame) return;
 
     // 检查是否是 FloorGame 类型（通过检查特有的字段）
-    const floorGame = internalActiveGame as FloorGame;
-    if (!floorGame.gameTitle) {
+    if (!('gameTitle' in internalActiveGame)) {
       console.warn('快捷记录功能仅支持 FloorGame 类型');
       return;
     }
+
+    const floorGame = internalActiveGame as FloorGame;
 
     const record: QuickRecord = {
       id: `record-${Date.now()}-${Math.random()}`,
@@ -3561,7 +3562,7 @@ const PageGames = ({
     floorGame.record_during_game.push(record);
 
     // 持久化到localStorage
-    floorGameStorageService.updateGame(floorGame);
+    floorGameStorageService.updateGame(floorGame.id, { record_during_game: floorGame.record_during_game });
 
     console.log('✓ 已记录行为:', behaviorType, 'at step', currentStepIndex);
   };
