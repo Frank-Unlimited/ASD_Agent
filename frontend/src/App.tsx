@@ -3540,6 +3540,13 @@ const PageGames = ({
   const handleQuickRecord = (behaviorType: BehaviorType) => {
     if (!internalActiveGame) return;
 
+    // 检查是否是 FloorGame 类型（通过检查特有的字段）
+    const floorGame = internalActiveGame as FloorGame;
+    if (!floorGame.gameTitle) {
+      console.warn('快捷记录功能仅支持 FloorGame 类型');
+      return;
+    }
+
     const record: QuickRecord = {
       id: `record-${Date.now()}-${Math.random()}`,
       timestamp: new Date().toISOString(),
@@ -3548,13 +3555,13 @@ const PageGames = ({
     };
 
     // 保存到当前游戏对象
-    if (!internalActiveGame.record_during_game) {
-      internalActiveGame.record_during_game = [];
+    if (!floorGame.record_during_game) {
+      floorGame.record_during_game = [];
     }
-    internalActiveGame.record_during_game.push(record);
+    floorGame.record_during_game.push(record);
 
     // 持久化到localStorage
-    floorGameStorageService.updateGame(internalActiveGame);
+    floorGameStorageService.updateGame(floorGame);
 
     console.log('✓ 已记录行为:', behaviorType, 'at step', currentStepIndex);
   };
