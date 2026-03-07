@@ -44,3 +44,6 @@ uploads/
 
 # Git worktrees
 .worktrees/
+
+# Documentation plans (not to be pushed)
+docs/plans/
