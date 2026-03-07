@@ -3520,8 +3520,10 @@ const PageGames = ({
   };
 
   const handleStartGame = (game: Game) => {
+    // 清空上一次游戏的快捷记录，开始新的游戏
     floorGameStorageService.updateGame(game.id, {
-      dtstart: new Date().toISOString()
+      dtstart: new Date().toISOString(),
+      record_during_game: []
     });
     setInternalActiveGame(game);
     setGameState(GameState.PLAYING);
@@ -3540,14 +3542,15 @@ const PageGames = ({
   const handleQuickRecord = (behaviorType: BehaviorType) => {
     if (!internalActiveGame) return;
 
-    // 检查是否是 FloorGame 类型（通过检查特有的字段）
-    if (!('gameTitle' in internalActiveGame)) {
-      console.warn('快捷记录功能仅支持 FloorGame 类型');
+    // 获取游戏 ID
+    const gameId = internalActiveGame.id;
+
+    // 从 localStorage 获取最新的 FloorGame 数据
+    const floorGame = floorGameStorageService.getGameById(gameId);
+    if (!floorGame) {
+      console.warn('未找到游戏数据');
       return;
     }
-
-    // TypeScript 要求先转换为 unknown 再转换为目标类型
-    const floorGame = internalActiveGame as unknown as FloorGame;
 
     const record: QuickRecord = {
       id: `record-${Date.now()}-${Math.random()}`,
@@ -3556,16 +3559,19 @@ const PageGames = ({
       stepIndex: currentStepIndex
     };
 
-    // 保存到当前游戏对象
+    // 保存到游戏对象
     if (!floorGame.record_during_game) {
       floorGame.record_during_game = [];
     }
     floorGame.record_during_game.push(record);
 
     // 持久化到localStorage
-    floorGameStorageService.updateGame(floorGame.id, { record_during_game: floorGame.record_during_game });
-
-    console.log('✓ 已记录行为:', behaviorType, 'at step', currentStepIndex);
+    try {
+      floorGameStorageService.updateGame(floorGame.id, { record_during_game: floorGame.record_during_game });
+      console.log('✓ 记录已保存');
+    } catch (error) {
+      console.error('✗ 保存失败:', error);
+    }
   };
 
   if (gameState === GameState.LIST) {
@@ -4002,9 +4008,10 @@ export default function App() {
     setGameReturnPage(sourcePage);
 
     if (directPlay) {
-      // 如果是直接开始（如从聊天卡片），需要在这里更新开始时间
+      // 如果是直接开始（如从聊天卡片），需要在这里更新开始时间并清空快捷记录
       floorGameStorageService.updateGame(gameId, {
-        dtstart: new Date().toISOString()
+        dtstart: new Date().toISOString(),
+        record_during_game: []
       });
     }
 
