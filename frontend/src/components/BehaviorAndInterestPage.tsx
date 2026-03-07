@@ -395,7 +395,7 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
                 onChange={handleSliderChange}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                 style={{
-                  background: `linear-gradient(to right, #10b981 0%, #10b981 ${(currentIndex / (timelineData.length - 1)) * 100}%, #e5e7eb ${(currentIndex / (timelineData.length - 1)) * 100}%, #e5e7eb 100%)`
+                  background: `linear-gradient(to right, #10b981 0%, #10b981 ${(currentIndex / (timelineData.length - 1)) * 100}%, #d1d5db ${(currentIndex / (timelineData.length - 1)) * 100}%, #d1d5db 100%)`
                 }}
               />
 
@@ -419,7 +419,7 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
               <button
                 onClick={togglePlay}
                 disabled={timelineData.length <= 1}
-                className="flex-1 flex items-center justify-center px-4 py-2.5 bg-gradient-to-r from-primary to-green-600 text-white rounded-lg font-bold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg font-bold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isPlaying ? (
                   <>
