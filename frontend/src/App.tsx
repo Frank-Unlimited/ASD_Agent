@@ -3827,7 +3827,7 @@ const PageGames = ({
     const currentStep = internalActiveGame.steps[currentStepIndex];
 
     return (
-      <div className="h-full flex flex-col bg-gray-50 overflow-hidden relative">
+      <div className="h-full flex flex-col bg-gradient-to-br from-blue-50/50 via-white to-green-50/30 overflow-hidden relative">
         {/* Main Content (Full Height) */}
         <div className="flex-1 min-h-0 p-3 pb-24">
           <GameStepCard
