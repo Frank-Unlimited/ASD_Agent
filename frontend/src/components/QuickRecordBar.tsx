@@ -26,11 +26,13 @@ export const QuickRecordBar: React.FC<QuickRecordBarProps> = ({ onRecord }) => {
   };
 
   return (
-    <div className="flex flex-col items-center bg-white rounded-t-3xl shadow-md border-b border-gray-100 py-3 px-2">
+    <div className="flex flex-col items-center bg-white/60 backdrop-blur-sm rounded-t-3xl shadow-sm border-b border-blue-100/50 py-3 px-2">
       {/* 反馈提示 */}
       {feedback && (
-        <div className="text-xs font-bold text-green-600 mb-2 animate-pulse">
-          {feedback}
+        <div className="mb-2">
+          <span className="text-xs font-semibold text-gray-700">
+            {feedback}
+          </span>
         </div>
       )}
 

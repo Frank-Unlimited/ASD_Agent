@@ -92,7 +92,7 @@ import { chatStorageService } from './services/chatStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { WEEK_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
-import { PageRadar } from './components/RadarChartPage';
+import { BehaviorAndInterestPage } from './components/BehaviorAndInterestPage';
 import { PageCalendar } from './components/CalendarPage';
 import { GameStepCard } from './components/GameStepCard';
 import AIVideoCall from './components/AIVideoCall';
@@ -191,8 +191,7 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen:
           <button onClick={() => { setPage(Page.CALENDAR); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><CalendarIcon className="w-5 h-5 text-primary" /><span>成长日历</span></button>
           <button onClick={() => { setPage(Page.PROFILE); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><User className="w-5 h-5 text-primary" /><span>孩子档案</span></button>
           <button onClick={() => { setPage(Page.GAMES); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Gamepad2 className="w-5 h-5 text-primary" /><span>地板游戏库</span></button>
-          <button onClick={() => { setPage(Page.BEHAVIORS); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Activity className="w-5 h-5 text-primary" /><span>行为数据</span></button>
-          <button onClick={() => { setPage(Page.RADAR); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><TrendingUp className="w-5 h-5 text-primary" /><span>兴趣雷达图</span></button>
+          <button onClick={() => { setPage(Page.BEHAVIORS); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><TrendingUp className="w-5 h-5 text-primary" /><span>行为与兴趣</span></button>
         </nav>
         <div className="mt-auto pt-6 border-t border-gray-100 relative">
           <div
@@ -3522,8 +3521,10 @@ const PageGames = ({
   };
 
   const handleStartGame = (game: Game) => {
+    // 清空上一次游戏的快捷记录，开始新的游戏
     floorGameStorageService.updateGame(game.id, {
-      dtstart: new Date().toISOString()
+      dtstart: new Date().toISOString(),
+      record_during_game: []
     });
     setInternalActiveGame(game);
     setGameState(GameState.PLAYING);
@@ -3542,14 +3543,15 @@ const PageGames = ({
   const handleQuickRecord = (behaviorType: BehaviorType) => {
     if (!internalActiveGame) return;
 
-    // 检查是否是 FloorGame 类型（通过检查特有的字段）
-    if (!('gameTitle' in internalActiveGame)) {
-      console.warn('快捷记录功能仅支持 FloorGame 类型');
+    // 获取游戏 ID
+    const gameId = internalActiveGame.id;
+
+    // 从 localStorage 获取最新的 FloorGame 数据
+    const floorGame = floorGameStorageService.getGameById(gameId);
+    if (!floorGame) {
+      console.warn('未找到游戏数据');
       return;
     }
-
-    // TypeScript 要求先转换为 unknown 再转换为目标类型
-    const floorGame = internalActiveGame as unknown as FloorGame;
 
     const record: QuickRecord = {
       id: `record-${Date.now()}-${Math.random()}`,
@@ -3558,16 +3560,45 @@ const PageGames = ({
       stepIndex: currentStepIndex
     };
 
-    // 保存到当前游戏对象
+    // 保存到游戏对象
     if (!floorGame.record_during_game) {
       floorGame.record_during_game = [];
     }
     floorGame.record_during_game.push(record);
 
-    // 持久化到localStorage
-    floorGameStorageService.updateGame(floorGame.id, { record_during_game: floorGame.record_during_game });
+    // 获取行为类型的中文名称
+    const behaviorLabels = {
+      [BehaviorType.EYE_CONTACT]: '眼神接触 👁️',
+      [BehaviorType.ACTIVE_RESPONSE]: '主动回应 🗣️',
+      [BehaviorType.SMILE_HAPPY]: '微笑开心 😄',
+      [BehaviorType.REFUSE_RESISTANT]: '拒绝抗拒 🚫',
+      [BehaviorType.DISTRACTED]: '分心走神 📱',
+      [BehaviorType.FOCUSED_ENGAGED]: '专注投入 🎯'
+    };
 
-    console.log('✓ 已记录行为:', behaviorType, 'at step', currentStepIndex);
+    const behaviorLabel = behaviorLabels[behaviorType] || behaviorType;
+    const stepInfo = floorGame.steps[record.stepIndex];
+    const stepLabel = stepInfo?.stepTitle || `步骤 ${record.stepIndex + 1}`;
+    const timeStr = new Date(record.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    console.log('='.repeat(60));
+    console.log('📝 快捷按钮记录');
+    console.log('  行为类型:', behaviorLabel);
+    console.log('  游戏名称:', floorGame.gameTitle);
+    console.log('  当前步骤:', stepLabel);
+    console.log('  步骤索引:', record.stepIndex + 1, '/', floorGame.steps.length);
+    console.log('  记录时间:', timeStr);
+    console.log('  记录 ID:', record.id);
+    console.log('  本次游戏总记录数:', floorGame.record_during_game.length);
+    console.log('='.repeat(60));
+
+    // 持久化到localStorage
+    try {
+      floorGameStorageService.updateGame(floorGame.id, { record_during_game: floorGame.record_during_game });
+      console.log('✓ 记录已保存到 localStorage');
+    } catch (error) {
+      console.error('✗ 保存失败:', error);
+    }
   };
 
   if (gameState === GameState.LIST) {
@@ -3797,7 +3828,7 @@ const PageGames = ({
     const currentStep = internalActiveGame.steps[currentStepIndex];
 
     return (
-      <div className="h-full flex flex-col bg-gray-50 overflow-hidden relative">
+      <div className="h-full flex flex-col bg-gradient-to-br from-blue-50/50 via-white to-green-50/30 overflow-hidden relative">
         {/* Main Content (Full Height) */}
         <div className="flex-1 min-h-0 p-3 pb-24">
           <GameStepCard
@@ -4004,9 +4035,10 @@ export default function App() {
     setGameReturnPage(sourcePage);
 
     if (directPlay) {
-      // 如果是直接开始（如从聊天卡片），需要在这里更新开始时间
+      // 如果是直接开始（如从聊天卡片），需要在这里更新开始时间并清空快捷记录
       floorGameStorageService.updateGame(gameId, {
-        dtstart: new Date().toISOString()
+        dtstart: new Date().toISOString(),
+        record_during_game: []
       });
     }
 
@@ -4155,8 +4187,8 @@ export default function App() {
       case Page.CALENDAR: return "游戏计划";
       case Page.PROFILE: return `${childProfile?.name || '孩子'}的档案`;
       case Page.GAMES: return "游戏库";
-      case Page.BEHAVIORS: return "行为数据";
-      case Page.RADAR: return "兴趣雷达图";
+      case Page.BEHAVIORS: return "行为与兴趣";
+      case Page.RADAR: return "行为与兴趣";
       default: return "App";
     }
   };
@@ -4329,8 +4361,8 @@ export default function App() {
         {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} childProfile={childProfile} />}
         {currentPage === Page.CALENDAR && <PageCalendar navigateTo={handleNavigate} onStartGame={handleStartGame} />}
         {currentPage === Page.PROFILE && <PageProfile interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} onUpdateAvatar={handleUpdateAvatar} accountId={accountId} onUpdateAccountId={handleUpdateAccountId} />}
-        {currentPage === Page.BEHAVIORS && <PageBehaviors childProfile={childProfile} />}
-        {currentPage === Page.RADAR && <PageRadar />}
+        {currentPage === Page.BEHAVIORS && <BehaviorAndInterestPage childProfile={childProfile} />}
+        {currentPage === Page.RADAR && <BehaviorAndInterestPage childProfile={childProfile} />}
         {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => { if (gameMode === GameState.LIST) { setCurrentPage(Page.CHAT); } else { setCurrentPage(gameReturnPage); setGameMode(GameState.LIST); } }} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} onGameStart={setActiveGameId} onAbort={() => setShowExitConfirm(true)} gameReturnPage={gameReturnPage} />)}
       </main>
 
