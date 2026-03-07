@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Activity, TrendingUp, X, Play, Pause, RotateCcw, Info, ChevronRight, Smile, Frown, Dna } from 'lucide-react';
+import { Activity, TrendingUp, X, Play, Pause, RotateCcw, Info, ChevronRight, Smile, Frown, Dna, Sprout, HelpCircle, Gamepad2, FileText } from 'lucide-react';
 import { BehaviorAnalysis, ChildProfile, InterestDimensionType } from '../types';
 import { behaviorStorageService } from '../services/behaviorStorage';
 import { getTimelineData, getDimensionLabel } from '../services/radarChartService';
