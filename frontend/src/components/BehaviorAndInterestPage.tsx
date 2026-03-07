@@ -341,7 +341,7 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
   );
 
   return (
-    <div className="h-full overflow-y-auto bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 pb-20">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 pb-20">
       {/* 主标题卡片 */}
       <div className="mb-4 bg-white rounded-xl p-5 shadow-sm border-l-4 border-emerald-500">
         <h2 className="text-xl font-bold text-gray-800 flex items-center">
