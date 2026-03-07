@@ -612,7 +612,7 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
                 onClick={() => setFilterSource(source)}
                 className={`text-xs px-3 py-2 rounded-full font-bold transition-all transform hover:scale-105 ${
                   filterSource === source
-                    ? 'bg-gradient-to-r from-secondary to-blue-600 text-white shadow-lg'
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg'
                     : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 border-2 border-gray-200'
                 }`}
               >
