@@ -79,7 +79,7 @@ import {
   CartesianGrid,
   Tooltip
 } from 'recharts';
-import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult, FeedbackData, ComprehensiveAssessment } from './types';
+import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult, FeedbackData, ComprehensiveAssessment, BehaviorType, QuickRecord } from './types';
 import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
@@ -3538,6 +3538,38 @@ const PageGames = ({
   const handleLog = (type: 'emoji' | 'voice', content: string) => { setLogs(prev => [...prev, { type, content, timestamp: new Date() }]); setClickedLog(content); setTimeout(() => setClickedLog(null), 300); };
   const formatTime = (seconds: number) => { const m = Math.floor(seconds / 60); const s = seconds % 60; return `${m}:${s < 10 ? '0' : ''}${s}`; };
 
+  // 快捷按钮记录处理函数
+  const handleQuickRecord = (behaviorType: BehaviorType) => {
+    if (!internalActiveGame) return;
+
+    // 检查是否是 FloorGame 类型（通过检查特有的字段）
+    if (!('gameTitle' in internalActiveGame)) {
+      console.warn('快捷记录功能仅支持 FloorGame 类型');
+      return;
+    }
+
+    // TypeScript 要求先转换为 unknown 再转换为目标类型
+    const floorGame = internalActiveGame as unknown as FloorGame;
+
+    const record: QuickRecord = {
+      id: `record-${Date.now()}-${Math.random()}`,
+      timestamp: new Date().toISOString(),
+      behaviorType: behaviorType,
+      stepIndex: currentStepIndex
+    };
+
+    // 保存到当前游戏对象
+    if (!floorGame.record_during_game) {
+      floorGame.record_during_game = [];
+    }
+    floorGame.record_during_game.push(record);
+
+    // 持久化到localStorage
+    floorGameStorageService.updateGame(floorGame.id, { record_during_game: floorGame.record_during_game });
+
+    console.log('✓ 已记录行为:', behaviorType, 'at step', currentStepIndex);
+  };
+
   if (gameState === GameState.LIST) {
     const filteredGames = GAMES_FROM_STORAGE.filter(game => {
       const matchesSearch = game.title.toLowerCase().includes(searchText.toLowerCase()) || game.reason.toLowerCase().includes(searchText.toLowerCase()) || game.target.toLowerCase().includes(searchText.toLowerCase());
@@ -3777,6 +3809,7 @@ const PageGames = ({
             onComplete={() => setGameState(GameState.FEEDBACK)}
             onAbort={() => onAbort && onAbort()}
             formatTime={formatTime}
+            onRecord={handleQuickRecord}
           />
         </div>
 

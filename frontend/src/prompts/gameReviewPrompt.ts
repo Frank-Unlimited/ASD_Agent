@@ -3,7 +3,7 @@
  * 用于游戏结束后的 AI 专业复盘分析
  */
 
-import { ChildProfile, FloorGame, EvidenceSnippet } from '../types';
+import { ChildProfile, FloorGame, EvidenceSnippet, BehaviorType, QuickRecord } from '../types';
 
 export const GAME_REVIEW_SYSTEM_PROMPT = `
 你是一位资深的 DIR/Floortime（地板时光）疗法专家和儿童发展评估师，专注于自闭症谱系障碍（ASD）儿童的干预和评估。
@@ -79,6 +79,20 @@ ${stepsText}
     prompt += `所需材料：${game.materials.join('、')}\n`;
   }
 
+  // 添加游戏过程中的行为记录
+  if (game.record_during_game && game.record_during_game.length > 0) {
+    prompt += `
+【游戏过程中的行为记录】
+`;
+    game.record_during_game.forEach((record, idx) => {
+      const behaviorLabel = getBehaviorLabel(record.behaviorType);
+      const stepLabel = game.steps[record.stepIndex]?.stepTitle || '未知步骤';
+      const time = new Date(record.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      prompt += `${idx + 1}. [${time}] ${behaviorLabel}（步骤：${stepLabel}）\n`;
+    });
+    prompt += '\n';
+  }
+
   prompt += `
 【本次游戏的结构化行为证据（Evidences）】
 ${evidences.length > 0
@@ -144,5 +158,18 @@ function calculateDuration(dtstart: string, dtend: string): string {
   const minutes = Math.floor(diffMs / 60000);
   if (minutes < 1) return '不到1分钟';
   return `${minutes}分钟`;
+}
+
+// 辅助函数：获取行为标签
+function getBehaviorLabel(behaviorType: BehaviorType): string {
+  const labels = {
+    [BehaviorType.EYE_CONTACT]: '眼神接触 👁️',
+    [BehaviorType.ACTIVE_RESPONSE]: '主动回应 🗣️',
+    [BehaviorType.SMILE_HAPPY]: '微笑开心 😄',
+    [BehaviorType.REFUSE_RESISTANT]: '拒绝抗拒 🚫',
+    [BehaviorType.DISTRACTED]: '分心走神 📱',
+    [BehaviorType.FOCUSED_ENGAGED]: '专注投入 🎯'
+  };
+  return labels[behaviorType] || behaviorType;
 }
 

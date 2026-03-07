@@ -41,3 +41,9 @@ backend/external/graphiti/
 data/
 uploads/
 .venv/
+
+# Git worktrees
+.worktrees/
+
+# Documentation plans (not to be pushed)
+docs/plans/
