@@ -3565,10 +3565,36 @@ const PageGames = ({
     }
     floorGame.record_during_game.push(record);
 
+    // 获取行为类型的中文名称
+    const behaviorLabels = {
+      [BehaviorType.EYE_CONTACT]: '眼神接触 👁️',
+      [BehaviorType.ACTIVE_RESPONSE]: '主动回应 🗣️',
+      [BehaviorType.SMILE_HAPPY]: '微笑开心 😄',
+      [BehaviorType.REFUSE_RESISTANT]: '拒绝抗拒 🚫',
+      [BehaviorType.DISTRACTED]: '分心走神 📱',
+      [BehaviorType.FOCUSED_ENGAGED]: '专注投入 🎯'
+    };
+
+    const behaviorLabel = behaviorLabels[behaviorType] || behaviorType;
+    const stepInfo = floorGame.steps[record.stepIndex];
+    const stepLabel = stepInfo?.stepTitle || `步骤 ${record.stepIndex + 1}`;
+    const timeStr = new Date(record.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    console.log('='.repeat(60));
+    console.log('📝 快捷按钮记录');
+    console.log('  行为类型:', behaviorLabel);
+    console.log('  游戏名称:', floorGame.gameTitle);
+    console.log('  当前步骤:', stepLabel);
+    console.log('  步骤索引:', record.stepIndex + 1, '/', floorGame.steps.length);
+    console.log('  记录时间:', timeStr);
+    console.log('  记录 ID:', record.id);
+    console.log('  本次游戏总记录数:', floorGame.record_during_game.length);
+    console.log('='.repeat(60));
+
     // 持久化到localStorage
     try {
       floorGameStorageService.updateGame(floorGame.id, { record_during_game: floorGame.record_during_game });
-      console.log('✓ 记录已保存');
+      console.log('✓ 记录已保存到 localStorage');
     } catch (error) {
       console.error('✗ 保存失败:', error);
     }
