@@ -304,14 +304,14 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
 
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 pb-20">
-      {/* 统一标题 */}
-      <div className="mb-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
-        <h2 className="text-xl font-bold flex items-center">
-          <TrendingUp className="w-6 h-6 mr-2" />
-          行为与兴趣分析
+      {/* 主标题卡片 */}
+      <div className="mb-4 bg-white rounded-xl p-5 shadow-sm border-l-4 border-emerald-500">
+        <h2 className="text-xl font-bold text-gray-800 flex items-center">
+          <Sprout className="w-6 h-6 mr-2 text-emerald-500" />
+          成长足迹
         </h2>
-        <p className="text-sm text-indigo-100 mt-1">
-          查看兴趣维度演变和行为记录数据
+        <p className="text-sm text-gray-500 mt-1">
+          记录孩子的兴趣发现和成长点滴
         </p>
       </div>
 
