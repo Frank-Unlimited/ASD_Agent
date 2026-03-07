@@ -39,6 +39,7 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
   const [filterSource, setFilterSource] = useState<string>('全部');
   const [stats, setStats] = useState<any>(null);
   const [selectedBehavior, setSelectedBehavior] = useState<BehaviorAnalysis | null>(null);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // ===== 数据获取 =====
   const timelineData = useMemo(() => getTimelineData(), []);
@@ -302,6 +303,43 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
     </div>
   );
 
+  // 使用说明弹窗
+  const HelpModal = () => (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowHelpModal(false)}>
+      <div className="bg-white rounded-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-bold text-gray-800 mb-4">雷达图使用说明</h3>
+        <ul className="space-y-3 text-sm text-gray-600">
+          <li className="flex items-start">
+            <span className="text-emerald-500 mr-2">•</span>
+            <span>拖动时间轴滑块查看不同时间点的数据</span>
+          </li>
+          <li className="flex items-start">
+            <span className="text-emerald-500 mr-2">•</span>
+            <span>点击"播放"按钮自动演示数据变化过程</span>
+          </li>
+          <li className="flex items-start">
+            <span className="text-blue-500 mr-2">•</span>
+            <span><strong>关联度</strong>：行为与该兴趣维度的关联程度累计值</span>
+          </li>
+          <li className="flex items-start">
+            <span className="text-green-500 mr-2">•</span>
+            <span><strong>强度</strong>：孩子对该维度的喜好程度累计值（正值=喜欢，负值=讨厌）</span>
+          </li>
+          <li className="flex items-start">
+            <span className="text-gray-400 mr-2">•</span>
+            <span className="text-gray-500">数值为从开始到当前时间点的所有行为记录累计</span>
+          </li>
+        </ul>
+        <button
+          onClick={() => setShowHelpModal(false)}
+          className="w-full mt-6 py-2.5 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition"
+        >
+          知道了
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 pb-20">
       {/* 主标题卡片 */}
@@ -492,16 +530,13 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
             </div>
           )}
 
-          {/* 使用说明 */}
-          <div className="mb-4 bg-gray-50 rounded-xl p-4 border border-gray-200">
-            <h4 className="text-sm font-bold text-gray-700 mb-2">使用说明</h4>
-            <ul className="text-xs text-gray-600 space-y-1">
-              <li>• 拖动时间轴滑块查看不同时间点的数据</li>
-              <li>• 点击"播放"按钮自动演示数据变化过程</li>
-              <li>• <span className="font-medium text-blue-600">关联度</span>：行为与该兴趣维度的关联程度累计值</li>
-              <li>• <span className="font-medium text-green-600">强度</span>：孩子对该维度的喜好程度累计值（正值=喜欢，负值=讨厌）</li>
-              <li>• 数值为从开始到当前时间点的所有行为记录累计</li>
-            </ul>
+          {/* 使用说明提示条 */}
+          <div
+            onClick={() => setShowHelpModal(true)}
+            className="flex items-center justify-center p-3 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition mb-4"
+          >
+            <HelpCircle className="w-4 h-4 text-blue-600 mr-2" />
+            <span className="text-sm text-blue-700 font-medium">如何查看使用说明</span>
           </div>
         </>
       ) : (
@@ -667,6 +702,9 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
           onClose={() => setSelectedBehavior(null)}
         />
       )}
+
+      {/* 使用说明弹窗 */}
+      {showHelpModal && <HelpModal />}
     </div>
   );
 };
