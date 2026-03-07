@@ -551,24 +551,29 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
       <div className="border-t border-gray-200 my-4" />
 
       {/* 行为数据部分 */}
-      {/* 统计卡片 */}
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-lg">行为数据统计</h3>
-          <Activity className="w-6 h-6" />
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
-            <p className="text-xs text-purple-100 mb-1">总记录数</p>
-            <p className="text-2xl font-bold">{stats?.total || 0}</p>
+      {/* 统计数据条 */}
+      <div className="bg-emerald-50 rounded-xl p-4 mb-4">
+        <div className="flex items-center justify-around">
+          <div className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-emerald-600" />
+            <div>
+              <p className="text-xs text-gray-500">总记录</p>
+              <p className="text-lg font-bold text-emerald-700">{stats?.total || 0}</p>
+            </div>
           </div>
-          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
-            <p className="text-xs text-purple-100 mb-1">游戏记录</p>
-            <p className="text-2xl font-bold">{stats?.sourceCounts?.GAME || 0}</p>
+          <div className="flex items-center gap-2">
+            <Gamepad2 className="w-5 h-5 text-blue-600" />
+            <div>
+              <p className="text-xs text-gray-500">游戏</p>
+              <p className="text-lg font-bold text-blue-700">{stats?.sourceCounts?.GAME || 0}</p>
+            </div>
           </div>
-          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
-            <p className="text-xs text-purple-100 mb-1">报告记录</p>
-            <p className="text-2xl font-bold">{stats?.sourceCounts?.REPORT || 0}</p>
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-purple-600" />
+            <div>
+              <p className="text-xs text-gray-500">报告</p>
+              <p className="text-lg font-bold text-purple-700">{stats?.sourceCounts?.REPORT || 0}</p>
+            </div>
           </div>
         </div>
       </div>
