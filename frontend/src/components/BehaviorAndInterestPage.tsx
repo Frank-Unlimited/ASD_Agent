@@ -159,6 +159,149 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
   const sources = ['全部', 'GAME', 'REPORT', 'CHAT'];
   const dimensionFilters = ['全部', ...dimensions];
 
+  // 行为详情弹窗
+  const BehaviorDetailModal = ({ behavior, onClose }: { behavior: BehaviorAnalysis, onClose: () => void }) => (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between rounded-t-2xl">
+          <h3 className="font-bold text-gray-800">行为详情</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* 行为描述 */}
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <h5 className="text-sm font-bold text-blue-700 mb-2 flex items-center">
+              <Activity className="w-4 h-4 mr-2" />
+              行为描述
+            </h5>
+            <p className="text-sm text-gray-800 leading-relaxed">{behavior.behavior}</p>
+          </div>
+
+          {/* 兴趣关联 */}
+          <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+            <h5 className="text-sm font-bold text-green-700 mb-3 flex items-center">
+              <Dna className="w-4 h-4 mr-2" />
+              兴趣维度分析
+            </h5>
+            <div className="space-y-3">
+              {behavior.matches.map((match, idx) => {
+                const config = getDimensionConfig(match.dimension);
+                const weightPercentage = (match.weight * 100).toFixed(0);
+                const intensity = match.intensity !== undefined ? match.intensity : 0;
+                const intensityPercentage = Math.abs(intensity * 100);
+                const isPositive = intensity >= 0;
+
+                return (
+                  <div key={idx} className="bg-white rounded-lg p-3 border border-gray-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={`flex items-center px-2 py-1 rounded-md text-xs font-bold ${config.color}`}>
+                        <config.icon className="w-3 h-3 mr-1" />
+                        {config.label}
+                      </div>
+                    </div>
+
+                    {/* 关联度 */}
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-600 font-medium">关联度</span>
+                        <span className="text-sm font-bold text-gray-800">{weightPercentage}%</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${config.color.split(' ')[0].replace('text', 'bg')} transition-all duration-500`}
+                          style={{ width: `${weightPercentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* 强度 */}
+                    <div className="mb-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-600 font-medium">喜好强度</span>
+                        <div className="flex items-center">
+                          {isPositive ? (
+                            <Smile className="w-3 h-3 text-green-600 mr-1" />
+                          ) : (
+                            <Frown className="w-3 h-3 text-red-600 mr-1" />
+                          )}
+                          <span className={`text-sm font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                            {isPositive ? '+' : ''}{(intensity * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden relative">
+                        {/* 中心线 */}
+                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-300"></div>
+                        {/* 强度条 */}
+                        {isPositive ? (
+                          <div
+                            className="h-full bg-green-500 transition-all duration-500 absolute left-1/2"
+                            style={{ width: `${intensityPercentage / 2}%` }}
+                          ></div>
+                        ) : (
+                          <div
+                            className="h-full bg-red-500 transition-all duration-500 absolute right-1/2"
+                            style={{ width: `${intensityPercentage / 2}%` }}
+                          ></div>
+                        )}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                        <span>讨厌</span>
+                        <span>中性</span>
+                        <span>喜欢</span>
+                      </div>
+                    </div>
+
+                    {match.reasoning && (
+                      <p className="text-xs text-gray-500 mt-2 italic border-t border-gray-200 pt-2">💡 {match.reasoning}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 元数据 */}
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-500">记录时间：</span>
+                <span className="font-medium text-gray-700 block mt-1">
+                  {behavior.timestamp ? new Date(behavior.timestamp).toLocaleString('zh-CN') : '未知'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">数据来源：</span>
+                <span className="font-medium text-gray-700 block mt-1">
+                  {behavior.source === 'GAME' ? '游戏互动' :
+                    behavior.source === 'REPORT' ? '报告分析' :
+                      behavior.source === 'CHAT' ? 'AI对话' : '未知'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 删除按钮 */}
+          <button
+            onClick={() => {
+              if (behavior.id) {
+                handleDeleteBehavior(behavior.id);
+                onClose();
+              }
+            }}
+            className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition flex items-center justify-center"
+          >
+            <X className="w-4 h-4 mr-2" />
+            删除此记录
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 pb-20">
       {/* 统一标题 */}
@@ -518,6 +661,14 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
           ))
         )}
       </div>
+
+      {/* 详情弹窗 */}
+      {selectedBehavior && (
+        <BehaviorDetailModal
+          behavior={selectedBehavior}
+          onClose={() => setSelectedBehavior(null)}
+        />
+      )}
     </div>
   );
 };
