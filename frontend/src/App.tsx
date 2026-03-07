@@ -1,4 +1,4 @@
-﻿﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { sendQwenMessage, extractBehaviors, inferInterests } from './services/qwenService';
@@ -2405,34 +2405,35 @@ const PageAIChat = ({
         </div>
       </div>
 
-      <div className="bg-white/80 backdrop-blur-lg p-4 border-t border-gray-200/50 shadow-lg relative">
-        {/* 文件预览区 */}
-        {previewUrl && (
-          <div className="absolute top-0 left-0 right-0 -translate-y-full px-4 py-2 bg-white/80 backdrop-blur-sm border-t border-gray-100 flex items-center animate-in slide-in-from-bottom">
-            <div className="relative group">
-              {previewUrl === 'VIDEO_ICON' ? (
-                <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center border-2 border-primary/20">
-                  <Camera className="w-8 h-8 text-primary" />
-                  <span className="absolute bottom-1 right-1 text-[8px] bg-primary text-white px-1 rounded">VIDEO</span>
-                </div>
-              ) : (
-                <img src={previewUrl} alt="Preview" className="w-16 h-16 object-cover rounded-lg border-2 border-primary/20 shadow-sm" />
-              )}
-              <button
-                onClick={clearPendingFile}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition active:scale-90"
-              >
-                <X className="w-3 h-3" />
-              </button>
+      <div className="bg-white/80 backdrop-blur-lg p-4 border-t border-gray-200/50 shadow-lg relative flex justify-center">
+        <div className="w-full max-w-lg">
+          {/* 文件预览区 */}
+          {previewUrl && (
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full px-4 py-2 bg-white/80 backdrop-blur-sm border-t border-gray-100 flex items-center animate-in slide-in-from-bottom max-w-2xl w-full">
+              <div className="relative group">
+                {previewUrl === 'VIDEO_ICON' ? (
+                  <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center border-2 border-primary/20">
+                    <Camera className="w-8 h-8 text-primary" />
+                    <span className="absolute bottom-1 right-1 text-[8px] bg-primary text-white px-1 rounded">VIDEO</span>
+                  </div>
+                ) : (
+                  <img src={previewUrl} alt="Preview" className="w-16 h-16 object-cover rounded-lg border-2 border-primary/20 shadow-sm" />
+                )}
+                <button
+                  onClick={clearPendingFile}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition active:scale-90"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="ml-4 flex-1">
+                <p className="text-xs font-bold text-gray-700">{pendingFile?.name}</p>
+                <p className="text-[10px] text-gray-500">{(pendingFile?.size! / 1024 / 1024).toFixed(2)} MB • 等待发送</p>
+              </div>
             </div>
-            <div className="ml-4 flex-1">
-              <p className="text-xs font-bold text-gray-700">{pendingFile?.name}</p>
-              <p className="text-[10px] text-gray-500">{(pendingFile?.size! / 1024 / 1024).toFixed(2)} MB • 等待发送</p>
-            </div>
-          </div>
-        )}
+          )}
 
-        <div className="flex items-center bg-gray-100 rounded-full px-2 py-2">
+          <div className="flex items-center bg-gray-100 rounded-full px-2 py-2">
           <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp,.mp4,.avi,.mov" />
 
           {!voiceMode ? (
@@ -2467,6 +2468,7 @@ const PageAIChat = ({
               </button>
             </>
           )}
+          </div>
         </div>
       </div>
     </div>
