@@ -90,10 +90,24 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
 
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 pb-20">
-      {/* TODO: 添加页面内容 */}
+      {/* 统一标题 */}
+      <div className="mb-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
+        <h2 className="text-xl font-bold flex items-center">
+          <TrendingUp className="w-6 h-6 mr-2" />
+          行为与兴趣分析
+        </h2>
+        <p className="text-sm text-indigo-100 mt-1">
+          查看兴趣维度演变和行为记录数据
+        </p>
+      </div>
+
+      {/* 浅色分隔线 */}
+      <div className="border-t border-gray-200 my-4" />
+
+      {/* TODO: 添加雷达图和行为数据部分 */}
       <div className="text-center py-20 text-gray-400">
-        <TrendingUp className="w-16 h-16 mx-auto mb-4" />
-        <p>行为与兴趣整合页面</p>
+        <Activity className="w-16 h-16 mx-auto mb-4" />
+        <p>雷达图和行为数据区域</p>
         <p className="text-xs mt-2">正在开发中...</p>
       </div>
     </div>
