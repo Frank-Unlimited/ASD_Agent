@@ -672,3 +672,5 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
     </div>
   );
 };
+
+export default BehaviorAndInterestPage;
