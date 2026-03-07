@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Activity, TrendingUp, X, Play, Pause, RotateCcw, Info } from 'lucide-react';
-import { BehaviorAnalysis, ChildProfile } from '../types';
+import { Activity, TrendingUp, X, Play, Pause, RotateCcw, Info, ChevronRight, Smile, Frown, Dna } from 'lucide-react';
+import { BehaviorAnalysis, ChildProfile, InterestDimensionType } from '../types';
 import { behaviorStorageService } from '../services/behaviorStorage';
 import { getTimelineData, getDimensionLabel } from '../services/radarChartService';
 import type { RadarChartType } from '../types';
@@ -154,6 +154,10 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
     }
     return null;
   };
+
+  const dimensions: InterestDimensionType[] = ['Visual', 'Auditory', 'Tactile', 'Motor', 'Construction', 'Order', 'Cognitive', 'Social'];
+  const sources = ['全部', 'GAME', 'REPORT', 'CHAT'];
+  const dimensionFilters = ['全部', ...dimensions];
 
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 pb-20">
@@ -366,6 +370,154 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
           <p className="text-sm text-gray-400 mt-1">开始记录行为后即可查看时间轴</p>
         </div>
       )}
+
+      {/* 浅色分隔线 */}
+      <div className="border-t border-gray-200 my-4" />
+
+      {/* 行为数据部分 */}
+      {/* 统计卡片 */}
+      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-lg">行为数据统计</h3>
+          <Activity className="w-6 h-6" />
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
+            <p className="text-xs text-purple-100 mb-1">总记录数</p>
+            <p className="text-2xl font-bold">{stats?.total || 0}</p>
+          </div>
+          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
+            <p className="text-xs text-purple-100 mb-1">游戏记录</p>
+            <p className="text-2xl font-bold">{stats?.sourceCounts?.GAME || 0}</p>
+          </div>
+          <div className="bg-white/20 rounded-lg p-3 backdrop-blur-sm">
+            <p className="text-xs text-purple-100 mb-1">报告记录</p>
+            <p className="text-2xl font-bold">{stats?.sourceCounts?.REPORT || 0}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 筛选器 */}
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
+        <h4 className="text-sm font-bold text-gray-700 mb-3">筛选条件</h4>
+
+        {/* 按兴趣维度筛选 */}
+        <div className="mb-3">
+          <p className="text-xs text-gray-500 mb-2">兴趣维度</p>
+          <div className="flex flex-wrap gap-2">
+            {dimensionFilters.map(dim => (
+              <button
+                key={dim}
+                onClick={() => setFilterDimension(dim)}
+                className={`text-xs px-3 py-2 rounded-full font-bold transition-all transform hover:scale-105 ${
+                  filterDimension === dim
+                    ? 'bg-gradient-to-r from-primary to-teal-600 text-white shadow-lg'
+                    : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 border-2 border-gray-200'
+                }`}
+              >
+                {dim === '全部' ? dim : getDimensionConfig(dim as InterestDimensionType).label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 按来源筛选 */}
+        <div>
+          <p className="text-xs text-gray-500 mb-2">数据来源</p>
+          <div className="flex gap-2">
+            {sources.map(source => (
+              <button
+                key={source}
+                onClick={() => setFilterSource(source)}
+                className={`text-xs px-3 py-2 rounded-full font-bold transition-all transform hover:scale-105 ${
+                  filterSource === source
+                    ? 'bg-gradient-to-r from-secondary to-blue-600 text-white shadow-lg'
+                    : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 border-2 border-gray-200'
+                }`}
+              >
+                {source === '全部' ? '全部' :
+                  source === 'GAME' ? '游戏' :
+                    source === 'REPORT' ? '报告' : '对话'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 行为列表 */}
+      <div className="space-y-3 pb-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-bold text-gray-700">
+            行为记录 ({behaviors.length})
+          </h4>
+          {behaviors.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm('确定要清空所有行为记录吗？此操作不可恢复！')) {
+                  behaviorStorageService.clearAllBehaviors();
+                  loadBehaviors();
+                }
+              }}
+              className="text-xs text-red-500 hover:text-red-700 font-medium"
+            >
+              清空全部
+            </button>
+          )}
+        </div>
+
+        {behaviors.length === 0 ? (
+          <div className="text-center py-20 text-gray-400">
+            <Activity className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+            <p>暂无行为记录</p>
+            <p className="text-xs mt-2">完成游戏或导入报告后会自动记录</p>
+          </div>
+        ) : (
+          behaviors.map((behavior) => (
+            <div
+              key={behavior.id}
+              onClick={() => setSelectedBehavior(behavior)}
+              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-primary/30 transition"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <p className="text-sm font-bold text-gray-800 flex-1 line-clamp-2">
+                  {behavior.behavior}
+                </p>
+                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-2" />
+              </div>
+
+              {/* 兴趣标签 */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {behavior.matches.slice(0, 3).map((match, idx) => {
+                  const config = getDimensionConfig(match.dimension);
+                  return (
+                    <div key={idx} className={`flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${config.color}`}>
+                      <config.icon className="w-3 h-3 mr-1" />
+                      {config.label} {(match.weight * 100).toFixed(0)}%
+                    </div>
+                  );
+                })}
+                {behavior.matches.length > 3 && (
+                  <span className="text-[10px] text-gray-400 px-2 py-0.5">
+                    +{behavior.matches.length - 3}
+                  </span>
+                )}
+              </div>
+
+              {/* 元信息 */}
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>
+                  {behavior.source === 'GAME' ? '🎮 游戏' :
+                    behavior.source === 'REPORT' ? '📄 报告' :
+                      behavior.source === 'CHAT' ? '💬 对话' : '❓'}
+                </span>
+                <span>
+                  {behavior.timestamp ? new Date(behavior.timestamp).toLocaleDateString('zh-CN') : ''}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 };
