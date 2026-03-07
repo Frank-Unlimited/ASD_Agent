@@ -321,38 +321,36 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
       {/* 雷达图部分 */}
       {timelineData.length > 0 ? (
         <>
-          {/* 图表类型选择 */}
-          <div className="bg-gradient-to-br from-white to-indigo-50 rounded-xl p-4 shadow-lg border-2 border-indigo-100 mb-4">
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              显示类型
-            </label>
+          {/* 雷达图标题和切换按钮 */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-700">兴趣演变趋势</h3>
             <div className="flex gap-2">
               <button
                 onClick={() => setChartType('weight')}
-                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-bold transition-all transform hover:scale-105 ${
+                className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${
                   chartType === 'weight'
-                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
-                    : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 border-2 border-gray-200'
+                    ? 'bg-emerald-500 text-white shadow-md'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                 }`}
               >
                 关联度
               </button>
               <button
                 onClick={() => setChartType('intensity')}
-                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-bold transition-all transform hover:scale-105 ${
+                className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${
                   chartType === 'intensity'
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg'
-                    : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-green-100 border-2 border-gray-200'
+                    ? 'bg-emerald-500 text-white shadow-md'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                 }`}
               >
                 强度
               </button>
               <button
                 onClick={() => setChartType('both')}
-                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-bold transition-all transform hover:scale-105 ${
+                className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${
                   chartType === 'both'
-                    ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg'
-                    : 'bg-white text-gray-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 border-2 border-gray-200'
+                    ? 'bg-emerald-500 text-white shadow-md'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                 }`}
               >
                 两者
