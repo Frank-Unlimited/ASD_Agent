@@ -92,7 +92,6 @@ import { chatStorageService } from './services/chatStorage';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { WEEK_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
-import { PageRadar } from './components/RadarChartPage';
 import { BehaviorAndInterestPage } from './components/BehaviorAndInterestPage';
 import { PageCalendar } from './components/CalendarPage';
 import { GameStepCard } from './components/GameStepCard';
