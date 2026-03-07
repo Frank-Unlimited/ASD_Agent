@@ -34,6 +34,9 @@ export const GameStepCard: React.FC<GameStepCardProps> = ({
   const instruction = currentStep && 'instruction' in currentStep ? currentStep.instruction : '';
   const guidance = currentStep && 'guidance' in currentStep ? currentStep.guidance : '';
 
+  // 获取游戏标题，处理 Game 和 FloorGame 两种类型
+  const gameTitle = 'title' in game ? game.title : game.gameTitle;
+
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-blue-50/30 via-white to-green-50/20 overflow-hidden">
       {/* 极简顶部栏 */}
@@ -47,7 +50,7 @@ export const GameStepCard: React.FC<GameStepCardProps> = ({
               className="w-5 h-5 rounded-lg object-cover"
             />
           )}
-          <span className="text-sm font-bold text-gray-800 truncate">{game.title || game.gameTitle}</span>
+          <span className="text-sm font-bold text-gray-800 truncate">{gameTitle}</span>
         </div>
 
         {/* 中间：计时器 */}
