@@ -628,8 +628,8 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
       {/* 行为列表 */}
       <div className="space-y-3 pb-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-bold text-gray-700">
-            行为记录 ({behaviors.length})
+          <h4 className="text-lg font-semibold text-gray-700">
+            观察记录 ({behaviors.length})
           </h4>
           {behaviors.length > 0 && (
             <button
