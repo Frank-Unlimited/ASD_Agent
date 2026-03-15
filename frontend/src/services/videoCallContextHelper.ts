@@ -129,11 +129,20 @@ export function identifyChallenges(games: FloorGame[]): string[] {
  * 格式化最近行为为简短描述
  */
 export function formatRecentBehaviors(behaviors: BehaviorAnalysis[]): string[] {
-  return behaviors.map(b => {
-    const topMatch = b.matches.sort((a, b) => b.weight - a.weight)[0];
-    const sentiment = topMatch.intensity > 0 ? '喜欢' : topMatch.intensity < 0 ? '不喜欢' : '中性';
-    return `${b.behavior} (${topMatch.dimension}, ${sentiment})`;
-  });
+  return behaviors
+    .filter(b => b && b.behavior) // 过滤掉无效数据
+    .map(b => {
+      if (!b.matches || b.matches.length === 0) {
+        return `${b.behavior} (无匹配维度)`;
+      }
+      const validMatches = b.matches.filter(m => m && typeof m.weight === 'number' && typeof m.intensity === 'number');
+      if (validMatches.length === 0) {
+        return `${b.behavior} (无有效匹配)`;
+      }
+      const topMatch = validMatches.sort((a, b) => b.weight - a.weight)[0];
+      const sentiment = topMatch.intensity > 0 ? '喜欢' : topMatch.intensity < 0 ? '不喜欢' : '中性';
+      return `${b.behavior} (${topMatch.dimension}, ${sentiment})`;
+    });
 }
 
 /**

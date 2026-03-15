@@ -856,7 +856,7 @@ const AIVideoCall: React.FC<AIVideoCallProps> = ({
               ) : (
                 <Camera className="w-4 h-4 mr-2" />
               )}
-              {isConnecting ? '连接中' : '开始观察'}
+              {isConnecting ? '连接中' : ''}
             </button>
           ) : (
             <button

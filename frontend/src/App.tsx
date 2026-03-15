@@ -1336,7 +1336,7 @@ const PageAIChat = ({
                       steps: plan.steps.map((step) => ({
                         stepTitle: step.stepTitle,
                         instruction: step.instruction,
-                        guidance: step.instruction
+                        guidance: step.guidance
                       })),
                       materials: plan.materials || [],
                       _analysis: plan._analysis,
@@ -1354,7 +1354,7 @@ const PageAIChat = ({
                         await generateAndSaveStepImages(floorGame.id, floorGame.gameTitle, floorGame.steps.map(s => ({
                           stepTitle: s.stepTitle,
                           instruction: s.instruction,
-                          guidance: s.guidance || s.instruction
+                          guidance: s.guidance
                         })));
                       } catch (err) {
                         console.warn('[App] Background image generation error:', err);
@@ -1372,7 +1372,7 @@ const PageAIChat = ({
                       steps: plan.steps.map(s => ({
                         stepTitle: s.stepTitle,
                         instruction: s.instruction,
-                        guidance: s.instruction  // 地板游戏中，指令本身就是指导
+                        guidance: s.guidance
                       })),
                       summary: plan.summary,
                       materials: []
@@ -3280,7 +3280,7 @@ const PageGames = ({
     steps: fg.steps.map((s, idx) => ({
       stepTitle: s.stepTitle || `步骤 ${idx + 1}`,
       instruction: s.instruction,
-      guidance: s.instruction  // 地板游戏中，指令本身就是指导
+      guidance: s.guidance
     })),
     summary: fg.summary,
     materials: [],
@@ -3365,7 +3365,7 @@ const PageGames = ({
           steps: floorGame.steps.map((s, idx) => ({
             stepTitle: s.stepTitle || `步骤 ${idx + 1}`,
             instruction: s.instruction,
-            guidance: s.instruction  // 地板游戏中，指令本身就是指导
+            guidance: s.guidance
           })),
           summary: floorGame.summary,
           materials: []
