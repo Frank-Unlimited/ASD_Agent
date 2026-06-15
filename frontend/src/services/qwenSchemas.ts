@@ -948,3 +948,29 @@ export const ReActInterestAnalysisTools: ToolDefinition[] = [ReActFetchMemoryToo
 
 // 游戏计划阶段同时使用记忆搜索和知识搜索
 export const ReActGamePlanTools: ToolDefinition[] = [ReActFetchMemoryTool, ReActFetchKnowledgeTool];
+
+
+// 综合评估报告生成工具
+export const GenerateComprehensiveAssessmentTool: ToolDefinition = {
+  type: 'function',
+  function: {
+    name: 'generate_comprehensive_assessment',
+    description: '生成专业的综合评估报告，提交给医院主治医生。这份报告将基于家庭干预记录、行为观察数据，生成符合医疗标准的评估文档',
+    parameters: {
+      type: 'object',
+      properties: {
+        reportingPeriod: {
+          type: 'string',
+          description: '报告周期，例如："最近3个月"、"2024年1月-3月"'
+        }
+      },
+      required: []
+    }
+  }
+};
+
+// 综合评估 ReAct 工具（用于 Agent 内部）
+export const ReActComprehensiveAssessmentTools: ToolDefinition[] = [
+  ReActFetchMemoryTool,
+  ReActFetchKnowledgeTool
+];

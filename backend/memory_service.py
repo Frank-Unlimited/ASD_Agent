@@ -76,6 +76,24 @@ EDGE EXTRACTION:
   neutral, mildly negative (被动/回避倾向), strongly negative (明显回避/焦虑).
 - When a fact signals a change from a prior pattern, state it explicitly
   so outdated facts can be superseded.
+
+## 游戏行为事件提取规则
+
+当输入为游戏会话期间的行为记录时，额外提取：
+- 行为事件类型（眼神接触、主动互动、情绪变化、感官反应等）
+- 行为的情感效价（正面/中性/负面）
+- 游戏阶段（探索/互动/高潮/收尾）
+- 行为频率模式（是否为新出现的行为、是否频率异常）
+- 与已知兴趣维度的关联（Visual, Auditory, Tactile, Motor, Construction, Order, Cognitive, Social）
+- 干预反应质量（主动/被动/抗拒）
+- 参与度水平变化趋势
+
+实体关系提取重点：
+- 儿童 → 表现出 → 行为类型
+- 行为 → 发生在 → 游戏阶段
+- 行为 → 关联 → 兴趣维度
+- 游戏会话 → 整体参与度 → 等级
+- 行为模式 → 变化趋势 → 方向（改善/退步/稳定）
 """
 
 # ---------------------------------------------------------------------------

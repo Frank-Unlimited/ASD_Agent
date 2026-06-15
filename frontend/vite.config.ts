@@ -5,20 +5,37 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
     // 从当前目录（frontend/）加载 .env 文件
-    loadEnv(mode, '.', '');
+    const env = loadEnv(mode, '.', '');
+    
+    // 从环境变量读取内网穿透地址，如果没有则使用默认值
+    const tunnelHost = env.VITE_TUNNEL_HOST || '';
+    
     return {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        strictPort: false, // 如果端口被占用，自动尝试下一个端口
         allowedHosts: [
-          '27a27d35.r33.cpolar.top',
           '.cpolar.top', // 允许所有 cpolar.top 子域名
+          '.ngrok.io',   // 支持 ngrok
+          '.localtunnel.me', // 支持 localtunnel
+          'localhost',
         ],
-        hmr: {
-          protocol: 'wss', // 使用安全的 WebSocket 协议（HTTPS 页面必须用 wss）
-          host: '27a27d35.r33.cpolar.top',
-          clientPort: 443, // cpolar 使用 HTTPS，所以 WebSocket 也走 443 端口
-          timeout: 30000, // 增加超时时间
+        hmr: tunnelHost ? {
+          // 如果配置了内网穿透地址，使用 WSS 协议
+          protocol: 'wss',
+          host: tunnelHost,
+          clientPort: 443,
+          timeout: 120000, // 增加到 120 秒
+          overlay: false, // 禁用错误覆盖层
+        } : {
+          // 本地开发使用默认配置
+          timeout: 120000, // 增加到 120 秒
+          overlay: false,
+        },
+        // 增加请求超时时间
+        headers: {
+          'Keep-Alive': 'timeout=120',
         },
         proxy: {
           '/dashscope-api': {
@@ -78,12 +95,24 @@ export default defineConfig(({ mode }) => {
             server.httpServer?.on('upgrade', (req, socket) => {
               // 捕获 socket 错误，防止进程崩溃
               socket.on('error', (err: any) => {
-                // 忽略 WebSocket 状态码 1006 错误（cpolar 代理导致的已知问题）
-                if (err.code === 'WS_ERR_INVALID_CLOSE_CODE' || 
-                    (err.message && err.message.includes('invalid status code 1006'))) {
-                  console.warn('[vite] WebSocket error (ignored):', err.message);
+                // 忽略常见的 WebSocket 错误
+                const ignoredErrors = [
+                  'WS_ERR_INVALID_CLOSE_CODE',
+                  'invalid status code 1006',
+                  'ECONNRESET',
+                  'EPIPE',
+                  'ETIMEDOUT',
+                ];
+                
+                const shouldIgnore = ignoredErrors.some(errType => 
+                  err.code === errType || (err.message && err.message.includes(errType))
+                );
+                
+                if (shouldIgnore) {
+                  console.warn('[vite] WebSocket error (ignored):', err.code || err.message);
                   return;
                 }
+                
                 // 其他错误正常记录
                 console.error('[vite] WebSocket error:', err);
               });
@@ -97,11 +126,23 @@ export default defineConfig(({ mode }) => {
                   if (event === 'error') {
                     // 包装错误处理器
                     const wrappedHandler = (err: any) => {
-                      if (err.code === 'WS_ERR_INVALID_CLOSE_CODE' || 
-                          (err.message && err.message.includes('invalid status code 1006'))) {
-                        console.warn('[vite] HMR WebSocket error (ignored):', err.message);
+                      const ignoredErrors = [
+                        'WS_ERR_INVALID_CLOSE_CODE',
+                        'invalid status code 1006',
+                        'ECONNRESET',
+                        'EPIPE',
+                        'ETIMEDOUT',
+                      ];
+                      
+                      const shouldIgnore = ignoredErrors.some(errType => 
+                        err.code === errType || (err.message && err.message.includes(errType))
+                      );
+                      
+                      if (shouldIgnore) {
+                        console.warn('[vite] HMR WebSocket error (ignored):', err.code || err.message);
                         return;
                       }
+                      
                       handler(err);
                     };
                     return originalOn(event, wrappedHandler);
@@ -126,22 +167,46 @@ export default defineConfig(({ mode }) => {
 
 // 全局捕获未处理的错误，防止进程崩溃
 process.on('uncaughtException', (err: any) => {
-  if (err.code === 'WS_ERR_INVALID_CLOSE_CODE' || 
-      (err.message && err.message.includes('invalid status code 1006'))) {
-    console.warn('[vite] Uncaught WebSocket error (ignored):', err.message);
+  const ignoredErrors = [
+    'WS_ERR_INVALID_CLOSE_CODE',
+    'invalid status code 1006',
+    'ECONNRESET',
+    'EPIPE',
+    'ETIMEDOUT',
+  ];
+  
+  const shouldIgnore = ignoredErrors.some(errType => 
+    err.code === errType || (err.message && err.message.includes(errType))
+  );
+  
+  if (shouldIgnore) {
+    console.warn('[vite] Uncaught error (ignored):', err.code || err.message);
     return;
   }
+  
   // 其他未捕获的错误正常处理
   console.error('[vite] Uncaught exception:', err);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason: any) => {
-  if (reason?.code === 'WS_ERR_INVALID_CLOSE_CODE' || 
-      (reason?.message && reason.message.includes('invalid status code 1006'))) {
-    console.warn('[vite] Unhandled WebSocket rejection (ignored):', reason.message);
+  const ignoredErrors = [
+    'WS_ERR_INVALID_CLOSE_CODE',
+    'invalid status code 1006',
+    'ECONNRESET',
+    'EPIPE',
+    'ETIMEDOUT',
+  ];
+  
+  const shouldIgnore = ignoredErrors.some(errType => 
+    reason?.code === errType || (reason?.message && reason.message.includes(errType))
+  );
+  
+  if (shouldIgnore) {
+    console.warn('[vite] Unhandled rejection (ignored):', reason?.code || reason?.message);
     return;
   }
+  
   // 其他未处理的 Promise 拒绝正常处理
   console.error('[vite] Unhandled rejection:', reason);
 });

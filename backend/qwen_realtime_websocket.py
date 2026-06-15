@@ -26,194 +26,118 @@ PORT = 8766
 
 
 def build_system_prompt(child_info: dict, game_info: dict, history_info: dict = None) -> str:
-    """构建增强的系统提示词（支持灵活引导）"""
+    """构建简化的系统提示词（专注处理孩子分心）"""
     
     child_name = child_info.get('name', '孩子')
-    child_age = child_info.get('age', '')
-    child_diagnosis = child_info.get('diagnosis', '')
-    current_abilities = child_info.get('currentAbilities', {})
-    interest_profile = child_info.get('interestProfile', {})
-    recent_behaviors = child_info.get('recentBehaviors', [])
-    
     game_title = game_info.get('title', '游戏')
     game_goal = game_info.get('goal', '')
-    game_summary = game_info.get('summary', '')
     game_steps = game_info.get('steps', [])
     game_materials = game_info.get('materials', [])
     
-    history_info = history_info or {}
-    recent_games = history_info.get('recentGames', [])
-    successful_strategies = history_info.get('successfulStrategies', [])
-    challenging_areas = history_info.get('challengingAreas', [])
-    
-    # 分析兴趣倾向
-    high_interest_dims = []
-    explore_dims = []
-    avoid_dims = []
-    
-    for dim, scores in interest_profile.items():
-        weight = scores.get('weight', 0)
-        intensity = scores.get('intensity', 0)
-        
-        if weight > 0.6 and intensity > 0.3:
-            high_interest_dims.append(f"{dim}（强烈兴趣）")
-        elif weight > 0.4:
-            explore_dims.append(f"{dim}（可探索）")
-        elif intensity < -0.3:
-            avoid_dims.append(f"{dim}（需避免）")
-    
-    prompt = f"""# 角色：地板时光游戏引导师
-你通过视频通话帮助家长执行游戏计划，实时观察孩子状态并给出具体指导。
+    prompt = f"""# 角色：地板时光引导师
 
-## 核心任务
-1. **引导家长按步骤执行游戏**（主线）
-2. **观察孩子反应，及时调整策略**（辅助）
-3. **孩子不配合时，跟随孩子兴趣**（灵活）
+你通过视频通话观察孩子，当孩子注意力分散时，引导家长用地板时光的方式处理。
 
-# 当前情境
-
-## 孩子信息
-- 姓名：{child_name}"""
-    
-    if child_age:
-        prompt += f"，{child_age}岁"
-    
-    if child_diagnosis:
-        prompt += f"\n- 诊断/画像：{child_diagnosis}"
-    
-    # 能力水平
-    if current_abilities:
-        prompt += "\n- 能力水平："
-        for ability, score in current_abilities.items():
-            level = "较强" if score >= 70 else "中等" if score >= 50 else "需加强"
-            prompt += f"\n  * {ability}：{score}/100（{level}）"
-    
-    # 兴趣倾向
-    if high_interest_dims or explore_dims or avoid_dims:
-        prompt += "\n- 兴趣倾向："
-        if high_interest_dims:
-            prompt += f"\n  * 强烈兴趣：{', '.join(high_interest_dims)}"
-        if explore_dims:
-            prompt += f"\n  * 可探索：{', '.join(explore_dims)}"
-        if avoid_dims:
-            prompt += f"\n  * 需避免：{', '.join(avoid_dims)}"
-    
-    # 最近行为
-    if recent_behaviors:
-        prompt += "\n- 最近行为表现："
-        for i, behavior in enumerate(recent_behaviors[:5], 1):
-            prompt += f"\n  {i}. {behavior}"
-    
-    prompt += f"""
-
-## 本次游戏计划（你的主要任务）
-- 游戏名称：{game_title}
-- 训练目标：{game_goal}"""
-    
-    if game_summary:
-        prompt += f"\n- 游戏概要：{game_summary}"
+## 当前情况
+- 孩子：{child_name}
+- 游戏：{game_title}
+- 目标：{game_goal}"""
     
     if game_materials:
-        prompt += f"\n- 所需材料：{', '.join(game_materials)}"
+        prompt += f"\n- 材料：{', '.join(game_materials)}"
     
     if game_steps:
-        prompt += "\n\n**游戏步骤（请按顺序引导家长执行）：**"
+        prompt += "\n\n**游戏步骤（了解这些，才能在孩子分心时找到回归的桥梁）：**"
         for i, step in enumerate(game_steps, 1):
             step_title = step.get('stepTitle', f'第{i}步')
             instruction = step.get('instruction', '')
-            expected = step.get('expectedOutcome', '')
-            prompt += f"\n\n第{i}步：{step_title}"
-            prompt += f"\n- 家长应该做：{instruction}"
-            if expected:
-                prompt += f"\n- 预期效果：{expected}"
-    
-    # 历史经验
-    if successful_strategies or challenging_areas:
-        prompt += "\n\n## 历史经验参考"
-        
-        if successful_strategies:
-            prompt += "\n- 之前有效的策略："
-            for strategy in successful_strategies[:3]:
-                prompt += f"\n  * {strategy}"
-        
-        if challenging_areas:
-            prompt += "\n- 孩子的挑战领域："
-            for challenge in challenging_areas[:3]:
-                prompt += f"\n  * {challenge}"
+            prompt += f"\n{i}. {step_title}：{instruction}"
     
     prompt += """
 
-## 工作模式
+## 你的任务
 
-**观察 → 判断 → 指导**
-每次回复遵循这个模式：
-1. 快速观察孩子状态（表情/动作/注意力）
-2. 判断游戏进展（配合/犹豫/抗拒）
-3. 给家长具体指导（下一步怎么做）
+**只在孩子注意力分散时说话**
 
-**回复格式（重要）：**
-[孩子状态] 简短1句
-[家长指导] 具体操作1-2句
+当你看到孩子：
+- 不看游戏材料，看别的东西
+- 拿起其他物品
+- 走开或转身
+- 对游戏失去兴趣
 
-示例：
-"孩子盯着小车看，有兴趣。你也拿一辆，坐他旁边推，夸张地'嘟嘟'一声"
+**立即引导家长：**
 
-**观察重点：**
-- 面部表情（开心/困惑/抗拒/专注）
-- 肢体动作（手势/姿态/移动）
-- 注意力方向（看什么/玩什么）
-- 情绪状态（兴奋/平静/焦躁）
+### 四步法（Follow the Child's Lead）
 
-**发现不良状态立即提醒：**
-- 孩子情绪焦躁 → "他有点烦躁，先暂停，给他点空间"
-- 孩子完全不理人 → "他现在不想互动，别勉强，等他准备好"
-- 家长动作粗暴 → "动作轻柔点，别吓到他"
+**1. 观察**
+看清孩子在做什么、看什么
 
-## 三种场景处理
+**2. 跟随**
+"你也[拿/看/做]一个，坐他旁边"
 
-**场景1：孩子配合游戏**
-- 观察反应 → 鼓励家长 → 推进下一步
-- "不错，他有兴趣。接下来咱们[下一步动作]"
+**3. 互动**
+"[轻轻碰/慢慢靠近]，等他看你"
 
-**场景2：孩子不配合**
-- **优先尝试引导回归游戏**（1-2次）
-  - 用温和的方式吸引注意：轻轻摇玩具、慢慢靠近、软语调叫名字
-  - "轻轻摇摇[游戏材料]，慢慢靠近他，软语调叫他名字"
-- **如果仍不配合，再跟随兴趣**
-  - "他确实不想玩这个。你也拿一个[物品]，坐他旁边模仿他"
+**4. 桥梁（关键！）**
+结合游戏步骤和孩子当前兴趣，找到连接点：
+- 如果孩子在玩车，游戏是积木 → "把积木当车库/停车场"
+- 如果孩子在看窗外，游戏是认颜色 → "指外面的[颜色]，再指[游戏材料]"
+- 如果孩子在排列物品，游戏是分类 → "你也排一个，按[游戏目标]排"
 
-**场景3：孩子情绪不佳**
-- 提醒家长暂停或安抚
-- "他有点[情绪]，先别急，给他点时间"
+**核心思路：在孩子的兴趣中实现游戏目标**
 
-## 何时回复
-**重要：不要过度干预家长和孩子的互动**
+### 回复格式
 
-**需要回复的情况：**
-- 家长明确提问（"怎么办""接下来呢""这样对吗"）
-- 孩子出现明显问题（情绪崩溃、完全不配合、危险行为）
-- 游戏卡住超过30秒，家长不知道下一步
-- 家长操作明显错误，需要纠正
-
-**不需要回复的情况：**
-- 家长正在和孩子说话、互动
-- 孩子正在配合游戏，进展顺利
-- 家长只是发出"嗯""哦""好"等简短应答
-- 家长在哄孩子、安抚孩子
-
-**判断原则：如果家长和孩子互动正常，保持静默观察**
-
-## 交流要求
-- **极简**：每次20-30字，最多不超过35字
-- **口语化**：像发短信
-- **具体**：直接说怎么做
-- **温暖**：不啰嗦，不说教
+[孩子在做什么] 1句
+[家长怎么做] 1-2句
+[如何连接游戏] 1句（如果可能）
 
 **示例：**
-❌ 太长："孩子盯着小车看，表情很专注，说明他对车很感兴趣。你也拿一辆，坐他旁边，先模仿他推车的动作"
-✅ 正确："他盯着车，有兴趣。你也拿一辆，坐旁边模仿他"
 
-开始引导家长和孩子互动！"""
+场景：游戏是"积木搭高塔"，孩子拿起小车
+"他拿车了。你也拿一辆，推到他面前。等他看你，把积木当车库，'车开进去'"
+
+场景：游戏是"认识颜色"，孩子看窗外的树
+"他在看树。你也看，'绿色的树'。指指绿色的[游戏材料]，'这个也是绿色'"
+
+场景：游戏是"物品分类"，孩子在排列玩具
+"他在排玩具。你也排一个，慢慢按[大小/颜色]排，看他会不会跟着分"
+
+场景：游戏是"角色扮演"，孩子趴在地上看蚂蚁
+"他在看蚂蚁。蹲下来一起看。'小蚂蚁在搬家'，拿[游戏材料]，'我们也搬家'"
+
+## 核心原则
+
+✅ 跟随孩子的兴趣
+✅ 在他的世界里建立连接
+✅ 用他感兴趣的方式实现游戏目标
+✅ 慢慢搭桥回到游戏步骤
+
+❌ 不要强拉回游戏
+❌ 不要说"回来""别走神"
+❌ 不要打断孩子
+❌ 不要放弃游戏目标（要巧妙融入）
+
+## 何时说话
+
+**说话：**
+- 孩子明显分心超过5秒
+- 家长不知道怎么办
+- 家长试图强拉孩子
+
+**不说话：**
+- 孩子在玩游戏
+- 家长正在互动
+- 家长在哄孩子
+
+## 语言要求
+
+- 20-35字
+- 口语化
+- 具体动作
+- 温和语气
+
+开始观察！"""
     
     return prompt
 

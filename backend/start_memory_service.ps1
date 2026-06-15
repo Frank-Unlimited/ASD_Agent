@@ -1,0 +1,10 @@
+$env:NEO4J_URI = "bolt://localhost:7687"
+$env:NEO4J_USER = "neo4j"
+$env:NEO4J_PASSWORD = "Han95100"
+$env:DASHSCOPE_API_KEY = "sk-5cd70747046b4cf787793bb6ee28cb44"
+$env:LLM_MODEL = "qwen-plus"
+$env:LLM_EMBEDDING_MODEL = "text-embedding-v3"
+$env:PYTHONIOENCODING = "utf-8"
+$env:PYTHONUTF8 = "1"
+Set-Location "d:\Desktop\Project\ASD_Agent\ASD_Agent\backend"
+python -m uvicorn memory_service:app --host 0.0.0.0 --port 8000

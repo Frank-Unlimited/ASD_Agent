@@ -47,3 +47,21 @@ uploads/
 
 # Documentation plans (not to be pushed)
 docs/plans/
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Large refactor archives & extracted folders (not to be tracked)
+game-session-memory-refactor.zip
+game-session-memory-refactor/
+
+# Logs
+*.log
+backend_backup/uvicorn.log

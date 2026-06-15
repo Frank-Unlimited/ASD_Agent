@@ -5,11 +5,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Activity, TrendingUp, X, Play, Pause, RotateCcw, Info, ChevronRight, Smile, Frown, Dna, Sprout, HelpCircle, Gamepad2, FileText } from 'lucide-react';
-import { BehaviorAnalysis, ChildProfile, InterestDimensionType } from '../types';
+import { BehaviorAnalysis, ChildProfile, InterestDimensionType, ComprehensiveAssessmentReport } from '../types';
 import { behaviorStorageService } from '../services/behaviorStorage';
 import { getTimelineData, getDimensionLabel } from '../services/radarChartService';
 import type { RadarChartType } from '../types';
 import { getDimensionConfig } from '../utils/helpers';
+import { ComprehensiveAssessmentReportView } from './ComprehensiveAssessmentReport';
 import {
   Radar,
   RadarChart,
@@ -23,10 +24,14 @@ import {
 
 interface BehaviorAndInterestPageProps {
   childProfile: ChildProfile | null;
+  selectedComprehensiveReport?: ComprehensiveAssessmentReport | null;
+  onCloseReport?: () => void;
 }
 
 export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = ({
-  childProfile
+  childProfile,
+  selectedComprehensiveReport,
+  onCloseReport
 }) => {
   // ===== 雷达图相关状态 =====
   const [chartType, setChartType] = useState<RadarChartType>('both');
@@ -340,18 +345,32 @@ export const BehaviorAndInterestPage: React.FC<BehaviorAndInterestPageProps> = (
     </div>
   );
 
+  // 如果有选中的综合报告，显示完整报告视图
+  if (selectedComprehensiveReport) {
+    return (
+      <div className="h-full overflow-y-auto bg-white">
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
+          <h2 className="text-xl font-bold text-gray-800">综合评估报告</h2>
+          <button
+            onClick={onCloseReport}
+            className="text-gray-400 hover:text-gray-600 transition"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="p-4">
+          <ComprehensiveAssessmentReportView
+            report={selectedComprehensiveReport}
+            onClose={onCloseReport}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 pb-20">
-      {/* 主标题卡片 */}
-      <div className="mb-4 bg-white rounded-xl p-5 shadow-sm border-l-4 border-emerald-500">
-        <h2 className="text-xl font-bold text-gray-800 flex items-center">
-          <Sprout className="w-6 h-6 mr-2 text-emerald-500" />
-          成长足迹
-        </h2>
-        <p className="text-sm text-gray-500 mt-1">
-          记录孩子的兴趣发现和成长点滴
-        </p>
-      </div>
+
 
       {/* 浅色分隔线 */}
       <div className="border-t border-gray-200 my-4" />

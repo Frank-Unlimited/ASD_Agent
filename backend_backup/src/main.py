@@ -54,6 +54,15 @@ app.add_middleware(
 from src.api.observation import router as observation_router
 app.include_router(observation_router)
 
+# 注册游戏实施阶段路由（实时记录系统）
+# 注意：必须在 game_router 之前注册，使 /api/game/session/* 的新版端点优先匹配
+from src.api.game_session import router as game_session_router
+from src.api.snapshot import router as snapshot_router
+from src.api.ai_inference import router as ai_inference_router
+app.include_router(game_session_router)
+app.include_router(snapshot_router)
+app.include_router(ai_inference_router)
+
 # 注册游戏路由
 from src.api.game import router as game_router
 app.include_router(game_router)

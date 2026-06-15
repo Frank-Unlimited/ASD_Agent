@@ -6,7 +6,8 @@ import { clearAllCache } from './utils/clearCache'; // 导入清空缓存功能
 import { generateComprehensiveAssessment } from './services/assessmentAgent';
 import { collectHistoricalData } from './services/historicalDataHelper';
 import { getAccountId, setAccountId, ACCOUNT_ID_KEY } from './services/accountService';
-import { saveAssessment, getRecentAssessments } from './services/assessmentStorage';
+import { saveAssessment, getRecentAssessments } from './services/oldAssessmentStorage';
+import { assessmentStorage as comprehensiveAssessmentStorage } from './services/assessmentStorage';
 import {
   MessageCircle,
   Calendar as CalendarIcon,
@@ -79,7 +80,7 @@ import {
   CartesianGrid,
   Tooltip
 } from 'recharts';
-import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult, FeedbackData, ComprehensiveAssessment, BehaviorType, QuickRecord } from './types';
+import { Page, GameState, ChildProfile, Game, CalendarEvent, ChatMessage, LogEntry, InterestCategory, BehaviorAnalysis, InterestDimensionType, EvaluationResult, UserInterestProfile, UserAbilityProfile, AbilityDimensionType, ProfileUpdate, Report, FloorGame, GameReviewResult, FeedbackData, ComprehensiveAssessment, BehaviorType, QuickRecord, ComprehensiveAssessmentReport } from './types';
 import { api } from './services/api';
 import { multimodalService } from './services/multimodalService';
 import { fileUploadService } from './services/fileUpload';
@@ -89,6 +90,7 @@ import { behaviorStorageService } from './services/behaviorStorage';
 import { floorGameStorageService } from './services/floorGameStorage';
 import { reviewFloorGame } from './services/gameReviewAgent';
 import { chatStorageService } from './services/chatStorage';
+import { generateComprehensiveAssessment as generateDetailedAssessment } from './services/comprehensiveAssessmentAgent';
 import { ASD_REPORT_ANALYSIS_PROMPT } from './prompts';
 import { WEEK_DATA, INITIAL_INTEREST_SCORES, INITIAL_ABILITY_SCORES } from './constants/mockData';
 import { getDimensionConfig, calculateAge, formatTime, getInterestLevel } from './utils/helpers';
@@ -103,6 +105,9 @@ import { WebSearchResults } from './components/WebSearchResults';
 import { MemoryResults } from './components/MemoryResults';
 import { RAGResults } from './components/RAGResults';
 import { ImageOnboardingTour } from './components/ImageOnboardingTour';
+import { AssessmentReportCard } from './components/AssessmentReportCard';
+import { ComprehensiveAssessmentReportView } from './components/ComprehensiveAssessmentReport';
+import { GameRecordingPage } from './components/GameRecordingPage';
 import defaultAvatar from './img/cute_dog.jpg';
 
 // ---------------------------------------------------------------------------
@@ -151,6 +156,45 @@ function buildAssessmentContent(assessment: ComprehensiveAssessment, childProfil
   return `对${name}的综合发展评估：\n当前画像：${assessment.currentProfile}\n评估摘要：${assessment.summary}\n干预建议：${assessment.nextStepSuggestion}`;
 }
 
+/** 构造综合评估报告的自然语言内容（用于写入记忆层）*/
+function buildComprehensiveReportContent(report: ComprehensiveAssessmentReport): string {
+  const sections = [
+    `【综合评估报告】${report.childName} - ${report.reportingPeriod}`,
+    ``,
+    `一、发育史摘要`,
+    `早期里程碑：${report.developmentalHistory.earlyMilestones}`,
+    `语言发展：${report.developmentalHistory.languageDevelopment}`,
+    `社交发展：${report.developmentalHistory.socialDevelopment}`,
+    `运动发展：${report.developmentalHistory.motorDevelopment}`,
+    ``,
+    `二、当前功能水平`,
+    `社交沟通（${report.currentFunctioning.socialCommunication.score}/100）：${report.currentFunctioning.socialCommunication.description}`,
+    `限制性行为（${report.currentFunctioning.restrictedBehaviors.score}/100）：${report.currentFunctioning.restrictedBehaviors.description}`,
+    `感觉处理：${report.currentFunctioning.sensoryProfile.description}`,
+    `认知能力（${report.currentFunctioning.cognitiveAbilities.score}/100）：${report.currentFunctioning.cognitiveAbilities.description}`,
+    ``,
+    `三、家庭干预记录`,
+    `总游戏次数：${report.homeInterventionSummary.totalSessions}次，总时长：${report.homeInterventionSummary.totalDuration}`,
+    `最吸引孩子的游戏：${report.homeInterventionSummary.gameActivities.mostEngaging.join('、')}`,
+    `积极变化：${report.homeInterventionSummary.behaviorObservations.positiveChanges.join('；')}`,
+    ``,
+    `四、兴趣档案`,
+    `主导兴趣：${report.interestProfile.dominantInterests.map(i => `${i.dimension}(${(i.intensity * 100).toFixed(0)}%)`).join('、')}`,
+    ``,
+    `五、能力发展轨迹`,
+    `社交参与：${report.developmentalTrajectory.socialEngagement.baseline}→${report.developmentalTrajectory.socialEngagement.current}（${report.developmentalTrajectory.socialEngagement.trend}）`,
+    `沟通能力：${report.developmentalTrajectory.communication.baseline}→${report.developmentalTrajectory.communication.current}（${report.developmentalTrajectory.communication.trend}）`,
+    ``,
+    `六、临床建议`,
+    `继续发挥的优势：${report.clinicalRecommendations.continuedStrengths.join('；')}`,
+    `重点关注领域：${report.clinicalRecommendations.targetAreas.join('；')}`,
+    `建议的干预方向：${report.clinicalRecommendations.suggestedInterventions.join('；')}`,
+    `随访计划：${report.clinicalRecommendations.followUpPlan}`
+  ];
+  
+  return sections.join('\n');
+}
+
 /** 构造医疗报告的自然语言内容 */
 function buildMedicalReportContent(report: Report, childName: string): string {
   const typeLabel = report.type === 'hospital' ? '医院报告' : report.type === 'ai_generated' ? 'AI评估报告' : '报告';
@@ -191,6 +235,7 @@ const Sidebar = ({ isOpen, onClose, setPage, onLogout, childProfile }: { isOpen:
           <button onClick={() => { setPage(Page.CALENDAR); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><CalendarIcon className="w-5 h-5 text-primary" /><span>成长日历</span></button>
           <button onClick={() => { setPage(Page.PROFILE); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><User className="w-5 h-5 text-primary" /><span>孩子档案</span></button>
           <button onClick={() => { setPage(Page.GAMES); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Gamepad2 className="w-5 h-5 text-primary" /><span>地板游戏库</span></button>
+          <button onClick={() => { setPage(Page.GAME_RECORDING); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><Activity className="w-5 h-5 text-primary" /><span>游戏实时记录</span></button>
           <button onClick={() => { setPage(Page.BEHAVIORS); onClose(); }} className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-green-50 text-gray-700 font-medium"><TrendingUp className="w-5 h-5 text-primary" /><span>行为与兴趣</span></button>
         </nav>
         <div className="mt-auto pt-6 border-t border-gray-100 relative">
@@ -485,8 +530,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                 <div>
                   <h3 className="font-bold text-gray-800 mb-2">帮助我们更好地了解{name}</h3>
                   <p className="text-sm text-gray-600 leading-relaxed">
-                    您可以选择上传医疗评估报告，或者用自己的话描述孩子的情况。这将帮助我们为{name}提供更个性化的干预建议。
-                    <span className="text-blue-600 font-medium">（此步骤可跳过，后续也可以在档案页面补充）</span>
+                    将您的医疗评估报告图片或文本告诉我，我将为{name}提供更个性化的干预建议。
                   </p>
                 </div>
               </div>
@@ -508,8 +552,8 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                   className="p-6 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition group"
                 >
                   <Keyboard className="w-12 h-12 text-gray-400 group-hover:text-primary mx-auto mb-3 transition" />
-                  <h4 className="font-bold text-gray-800 mb-1">口述情况</h4>
-                  <p className="text-xs text-gray-500">用您的话描述孩子</p>
+                  <h4 className="font-bold text-gray-800 mb-1">粘贴文本</h4>
+                  <p className="text-xs text-gray-500">直接用文本告诉我您孩子的情况</p>
                 </button>
               </div>
             )}
@@ -653,7 +697,6 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
             {inputMode === 'verbal' && (
               <div className="space-y-4 animate-in fade-in">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-gray-800">描述{name}的情况</h4>
                   <button
                     onClick={() => {
                       setInputMode('none');
@@ -664,17 +707,6 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                   >
                     <X className="w-5 h-5" />
                   </button>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-gray-700">
-                  <p className="mb-2"><span className="font-medium">您可以描述：</span></p>
-                  <ul className="space-y-1 text-xs text-gray-600 ml-4">
-                    <li>• 孩子的社交互动特点（如眼神接触、与人互动的方式）</li>
-                    <li>• 沟通表达能力（语言发展、非语言沟通）</li>
-                    <li>• 行为模式（重复行为、特殊兴趣、日常习惯）</li>
-                    <li>• 感觉处理特点（对声音、光线、触觉的反应）</li>
-                    <li>• 优势和挑战（擅长的领域、需要支持的方面）</li>
-                  </ul>
                 </div>
 
                 <textarea
@@ -727,14 +759,7 @@ const PageWelcome = ({ onComplete }: { onComplete: (childInfo: any) => void }) =
                 上一步
               </button>
 
-              {inputMode === 'none' && (
-                <button
-                  onClick={handleSubmit}
-                  className="flex-1 py-3 bg-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-300 transition"
-                >
-                  跳过此步骤
-                </button>
-              )}
+            
 
               <button
                 onClick={handleSubmit}
@@ -759,13 +784,25 @@ const PageAIChat = ({
   onStartGame,
   onProfileUpdate,
   profileContext,
-  childProfile
+  childProfile,
+  interestProfile,
+  abilityProfile,
+  selectedComprehensiveReport,
+  setSelectedComprehensiveReport,
+  comprehensiveReports,
+  setComprehensiveReports
 }: {
   navigateTo: (p: Page) => void,
   onStartGame: (id: string, directPlay?: boolean, sourcePage?: Page) => void,
   onProfileUpdate: (u: ProfileUpdate) => void,
   profileContext: string, // Passed from App parent
-  childProfile: ChildProfile | null
+  childProfile: ChildProfile | null,
+  interestProfile: UserInterestProfile,
+  abilityProfile: UserAbilityProfile,
+  selectedComprehensiveReport: ComprehensiveAssessmentReport | null,
+  setSelectedComprehensiveReport: (report: ComprehensiveAssessmentReport | null) => void,
+  comprehensiveReports: ComprehensiveAssessmentReport[],
+  setComprehensiveReports: React.Dispatch<React.SetStateAction<ComprehensiveAssessmentReport[]>>
 }) => {
   // 从 localStorage 加载聊天历史
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -780,6 +817,9 @@ const PageAIChat = ({
   const [showNoSpeechToast, setShowNoSpeechToast] = useState(false); // 显示"未识别到文字"提示
   const [pendingFile, setPendingFile] = useState<File | null>(null); // 待发送文件
   const [previewUrl, setPreviewUrl] = useState<string | null>(null); // 预览URL
+  
+  // 综合评估相关状态
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const [checkInStep, setCheckInStep] = useState(0);
   const [targetGameId, setTargetGameId] = useState<string | null>(null);
@@ -817,7 +857,15 @@ const PageAIChat = ({
     setRecognizing(true);
 
     try {
-      console.log('[Voice] 停止录音，开始识别...');
+      console.log('[Voice] 停止录音，跳过识别，直接发送固定文本');
+      
+      // 临时：跳过 ASR，直接发送固定文本
+      const fixedText = "发现桌上的陀螺，自己拨动后趴在地上观察旋转了15分钟";
+      
+      // 自动发送固定文本
+      await handleSend(fixedText);
+      
+      /* 原始 ASR 代码（已注释）
       const result = await speechService.recordAndRecognize();
 
       if (result.success && result.text) {
@@ -830,6 +878,7 @@ const PageAIChat = ({
         setShowNoSpeechToast(true);
         setTimeout(() => setShowNoSpeechToast(false), 800);
       }
+      */
     } catch (error) {
       console.error('[Voice] 处理失败:', error);
       // 显示淡淡的提示
@@ -870,21 +919,43 @@ const PageAIChat = ({
     setPreviewUrl(null);
   };
 
-  const handleSend = async (textOverride?: string) => {
+  const handleSend = async (textOverride?: string, isFromImageAnalysis: boolean = false) => {
     const textToSend = textOverride || input;
     if (!textToSend.trim() && !pendingFile) return;
 
     // 如果有待发送文件，走多模态路径
-    if (pendingFile) {
+    if (pendingFile && !isFromImageAnalysis) {
       const file = pendingFile;
-      const prompt = textToSend || "请分析这张图片/视频。";
+      
+      // 构建图片分析提示词：专注于描述孩子的行为
+      const behaviorAnalysisPrompt = textToSend || 
+        "请用一到两句话简洁描述图片中孩子的行为，包括：孩子在做什么、行为表现。";
 
-      // 显示用户发送的消息
+      // 将图片转换为 base64 用于显示
+      let imageBase64 = '';
+      try {
+        const metadata = await fileUploadService.processFile(file);
+        // 使用文件的实际 MIME 类型
+        const mimeType = file.type || 'image/jpeg';
+        imageBase64 = metadata.base64 ? `data:${mimeType};base64,${metadata.base64}` : '';
+        console.log('Image processed:', {
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          base64Length: metadata.base64?.length,
+          imageUrlLength: imageBase64.length
+        });
+      } catch (error) {
+        console.error('Failed to process image:', error);
+      }
+
+      // 显示用户上传图片的消息（使用 base64）
       const userMsg: ChatMessage = {
         id: Date.now().toString(),
         role: 'user',
-        text: textToSend ? `[文件] ${textToSend}` : "[文件]",
-        timestamp: new Date()
+        text: textToSend || '',
+        timestamp: new Date(),
+        imageUrl: imageBase64 || undefined
       };
       setMessages(prev => [...prev, userMsg]);
 
@@ -895,20 +966,25 @@ const PageAIChat = ({
       try {
         const category = fileUploadService.categorizeFile(file);
         let result;
+        
         if (category === 'image') {
-          result = await multimodalService.parseImage(file, prompt);
+          result = await multimodalService.parseImage(file, behaviorAnalysisPrompt);
         } else {
-          result = await multimodalService.parseVideo(file, prompt);
+          result = await multimodalService.parseVideo(file, behaviorAnalysisPrompt);
         }
 
         if (result.success) {
-          const replyText = `**${category === 'image' ? '📸' : '🎬'} 分析完成**\n\n${result.content}`;
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: 'model',
-            text: replyText,
-            timestamp: new Date()
-          }]);
+          // 将分析结果作为用户输入，自动发送给 Chatbot
+          const behaviorDescription = result.content;
+          
+          setLoading(false);
+          
+          // 使用 setTimeout 确保状态更新完成后再发送，并标记为来自图片分析
+          setTimeout(() => {
+            handleSend(behaviorDescription, true);
+          }, 100);
+          
+          return;
         } else {
           throw new Error(result.error);
         }
@@ -916,10 +992,9 @@ const PageAIChat = ({
         setMessages(prev => [...prev, {
           id: Date.now().toString(),
           role: 'model',
-          text: `❌ 分析失败: ${err instanceof Error ? err.message : '未知错误'}`,
+          text: `❌ 图片分析失败: ${err instanceof Error ? err.message : '未知错误'}`,
           timestamp: new Date()
         }]);
-      } finally {
         setLoading(false);
       }
       return;
@@ -1589,10 +1664,10 @@ const PageAIChat = ({
                 break;
 
               case 'generate_assessment':
-                // 调用综合评估Agent
+                // 调用新的综合评估Agent（React模式）
                 (async () => {
                   try {
-                    console.log('[综合评估] 开始生成评估报告...');
+                    console.log('[综合评估] 开始生成专业医疗报告...');
 
                     // 添加工具调用卡片标记
                     fullResponse += `\n\n:::TOOL_CALL_START:::${JSON.stringify({
@@ -1602,7 +1677,7 @@ const PageAIChat = ({
                     })}:::TOOL_CALL_END:::\n`;
 
                     // 添加加载提示
-                    fullResponse += `\n\n🔄 正在生成综合评估报告，请稍候...`;
+                    fullResponse += `\n\n🔄 正在生成综合评估报告，请稍候...\n\n这可能需要1-2分钟，AI正在：\n- 📊 分析历史行为数据\n- 🧠 检索专业知识库\n- 📝 生成医疗级报告`;
                     setMessages(prev =>
                       prev.map(msg =>
                         msg.id === tempMsgId
@@ -1611,43 +1686,47 @@ const PageAIChat = ({
                       )
                     );
 
-                    // 获取历史数据
-                    const historicalData = collectHistoricalData();
-
                     // 使用外层已捕获的 currentChildProfile
                     if (!currentChildProfile) {
                       throw new Error('未找到孩子档案，请先完成初始设置');
                     }
 
-                    // 调用综合评估Agent
-                    const assessment = await generateComprehensiveAssessment(
-                      currentChildProfile,
-                      historicalData
-                    );
+                    // 调用新的综合评估Agent（React模式）
+                    const report = await generateDetailedAssessment({
+                      childProfile: currentChildProfile,
+                      interestProfile: interestProfile,
+                      abilityProfile: abilityProfile,
+                      reportingPeriod: args.reportingPeriod || '最近3个月',
+                      onProgress: (step, message) => {
+                        console.log(`[综合评估] ${step}: ${message}`);
+                        // 可以在这里更新UI显示进度
+                        fullResponse = fullResponse.replace(
+                          /🔄 正在生成综合评估报告.*$/s,
+                          `🔄 正在生成综合评估报告...\n\n${message}`
+                        );
+                        setMessages(prev =>
+                          prev.map(msg =>
+                            msg.id === tempMsgId
+                              ? { ...msg, text: fullResponse }
+                              : msg
+                          )
+                        );
+                      },
+                      onToolCall: (toolName, toolArgs) => {
+                        console.log(`[综合评估] 工具调用: ${toolName}`, toolArgs);
+                      }
+                    });
 
-                    console.log('[综合评估] 评估完成:', assessment);
+                    console.log('[综合评估] 报告生成完成:', report);
 
-                    // 保存评估结果到 assessmentStorage
-                    saveAssessment(assessment);
+                    // 保存报告到 comprehensiveAssessmentStorage
+                    comprehensiveAssessmentStorage.save(report);
 
                     // 写入 graphiti 记忆层（fire-and-forget）
                     writeMemory(
-                      buildAssessmentContent(assessment, currentChildProfile),
-                      assessment.timestamp || new Date().toISOString()
+                      buildComprehensiveReportContent(report),
+                      report.assessmentDate
                     );
-
-                    // 同时将评估结果保存为 Report 到 reportStorage
-                    const assessmentReport: Report = {
-                      id: assessment.id,
-                      summary: assessment.summary,
-                      diagnosis: assessment.currentProfile,
-                      nextStepSuggestion: assessment.nextStepSuggestion,
-                      date: new Date().toISOString().split('T')[0],
-                      type: 'ai_generated',
-                      createdAt: assessment.timestamp
-                    };
-                    reportStorageService.saveReport(assessmentReport);
-                    console.log('[综合评估] 已保存为报告:', assessmentReport.id);
 
                     // 更新工具调用状态为成功
                     fullResponse = fullResponse.replace(
@@ -1659,9 +1738,9 @@ const PageAIChat = ({
                       }
                     );
 
-                    // 移除加载提示，添加评估结果卡片
-                    fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
-                    fullResponse += `\n\n:::ASSESSMENT_CARD:${JSON.stringify(assessment)}:::`;
+                    // 移除加载提示，添加报告卡片
+                    fullResponse = fullResponse.replace(/🔄 正在生成综合评估报告.*$/s, '');
+                    fullResponse += `\n\n✅ 综合评估报告已生成！\n\n:::COMPREHENSIVE_REPORT_CARD:${JSON.stringify(report)}:::`;
 
                     setMessages(prev =>
                       prev.map(msg =>
@@ -1670,6 +1749,9 @@ const PageAIChat = ({
                           : msg
                       )
                     );
+
+                    // 更新状态
+                    setComprehensiveReports(prev => [report, ...prev]);
 
                     // 清除 loading 状态
                     setLoading(false);
@@ -1687,7 +1769,7 @@ const PageAIChat = ({
                       }
                     );
 
-                    fullResponse = fullResponse.replace('🔄 正在生成综合评估报告，请稍候...', '');
+                    fullResponse = fullResponse.replace(/🔄 正在生成综合评估报告.*$/s, '');
                     fullResponse += `\n\n❌ 评估报告生成失败：${error instanceof Error ? error.message : '未知错误'}`;
                     setMessages(prev =>
                       prev.map(msg =>
@@ -1903,6 +1985,7 @@ const PageAIChat = ({
     const behaviorRegex = /:::BEHAVIOR_LOG_CARD:\s*([\s\S]*?)\s*:::/;
     const weeklyRegex = /:::WEEKLY_PLAN_CARD:\s*([\s\S]*?)\s*:::/;
     const assessmentRegex = /:::ASSESSMENT_CARD:\s*([\s\S]*?)\s*:::/;
+    const comprehensiveReportRegex = /:::COMPREHENSIVE_REPORT_CARD:\s*([\s\S]*?)\s*:::/;
     const interestAnalysisRegex = /:::INTEREST_ANALYSIS:\s*([\s\S]*?)\s*:::/;
     const implementationPlanRegex = /:::GAME_IMPLEMENTATION_PLAN:\s*([\s\S]*?)\s*:::/;
     const toolCallRegex = /:::TOOL_CALL_START:::([\s\S]*?):::TOOL_CALL_END:::/;
@@ -1926,6 +2009,9 @@ const PageAIChat = ({
     const assessmentMatch = text.match(assessmentRegex);
     if (assessmentMatch?.[1] && !card) { try { card = { ...JSON.parse(assessmentMatch[1]), type: 'ASSESSMENT' }; } catch (e) { } }
 
+    const comprehensiveReportMatch = text.match(comprehensiveReportRegex);
+    if (comprehensiveReportMatch?.[1] && !card) { try { card = { ...JSON.parse(comprehensiveReportMatch[1]), type: 'COMPREHENSIVE_REPORT' }; } catch (e) { } }
+
     const interestAnalysisMatch = text.match(interestAnalysisRegex);
     if (interestAnalysisMatch?.[1] && !card) { try { card = { analysis: JSON.parse(interestAnalysisMatch[1]), type: 'INTEREST_ANALYSIS' }; } catch (e) { } }
 
@@ -1941,6 +2027,7 @@ const PageAIChat = ({
       .replace(behaviorRegex, '')
       .replace(weeklyRegex, '')
       .replace(assessmentRegex, '')
+      .replace(comprehensiveReportRegex, '')
       .replace(interestAnalysisRegex, '')
       .replace(implementationPlanRegex, '')
       .replace(toolCallRegex, '')
@@ -2012,10 +2099,33 @@ const PageAIChat = ({
 
           return (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              {/* 只在有内容时显示消息气泡 */}
-              {hasContent && (
+              {/* 只在有内容或有图片时显示消息气泡 */}
+              {(hasContent || msg.imageUrl) && (
                 <div className={`max-w-[88%] p-4 rounded-2xl shadow-md leading-relaxed text-sm transition-all hover:shadow-lg ${msg.role === 'user' ? 'bg-gradient-to-r from-primary to-secondary text-white rounded-br-none' : 'bg-white/90 backdrop-blur-sm text-gray-800 rounded-bl-none border-l-4 border-gradient-to-b from-blue-500 to-purple-500'}`}>
-                  {msg.role === 'user' ? cleanText : <ReactMarkdown components={{ strong: ({ node, ...props }) => <span className="font-bold text-gray-900" {...props} /> }}>{cleanText}</ReactMarkdown>}
+                  {/* 如果有图片，先显示图片 */}
+                  {msg.imageUrl && (
+                    <div className="mb-3">
+                      <img 
+                        src={msg.imageUrl} 
+                        alt="上传的图片" 
+                        className="rounded-lg max-w-full max-h-64 object-contain cursor-pointer hover:opacity-90 transition"
+                        onClick={() => window.open(msg.imageUrl, '_blank')}
+                        onError={(e) => {
+                          console.error('Image load error:', {
+                            messageId: msg.id,
+                            imageUrlLength: msg.imageUrl?.length,
+                            imageUrlPrefix: msg.imageUrl?.substring(0, 50)
+                          });
+                          // 隐藏加载失败的图片
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                        onLoad={() => {
+                          console.log('Image loaded successfully:', msg.id);
+                        }}
+                      />
+                    </div>
+                  )}
+                  {cleanText && (msg.role === 'user' ? cleanText : <ReactMarkdown components={{ strong: ({ node, ...props }) => <span className="font-bold text-gray-900" {...props} /> }}>{cleanText}</ReactMarkdown>)}
                 </div>
               )}
 
@@ -2213,6 +2323,18 @@ const PageAIChat = ({
                     在档案页面查看完整报告
                   </button>
                 </div>
+              )}
+
+              {/* 综合评估报告卡片（新版专业医疗报告）*/}
+              {card && card.type === 'COMPREHENSIVE_REPORT' && (
+                <AssessmentReportCard
+                  report={card}
+                  onClick={() => {
+                    // 跳转到档案页面并显示完整报告
+                    setSelectedComprehensiveReport(card);
+                    navigateTo(Page.PROFILE);
+                  }}
+                />
               )}
 
               {/* 兴趣分析卡片 */}
@@ -2831,7 +2953,33 @@ const PageBehaviors = ({ childProfile }: { childProfile: ChildProfile | null }) 
   );
 };
 
-const PageProfile = ({ interestProfile, abilityProfile, onImportReport, onExportReport, childProfile, calculateAge, onUpdateAvatar, accountId, onUpdateAccountId }: { interestProfile: UserInterestProfile, abilityProfile: UserAbilityProfile, onImportReport: (file: File) => void, onExportReport: () => void, childProfile: ChildProfile | null, calculateAge: (birthDate: string) => number, onUpdateAvatar: (avatarUrl: string) => void, accountId: string, onUpdateAccountId: (id: string) => void }) => {
+const PageProfile = ({ 
+  interestProfile, 
+  abilityProfile, 
+  onImportReport, 
+  onExportReport, 
+  childProfile, 
+  calculateAge, 
+  onUpdateAvatar, 
+  accountId, 
+  onUpdateAccountId,
+  comprehensiveReports,
+  selectedComprehensiveReport,
+  onSelectComprehensiveReport
+}: { 
+  interestProfile: UserInterestProfile, 
+  abilityProfile: UserAbilityProfile, 
+  onImportReport: (file: File) => void, 
+  onExportReport: () => void, 
+  childProfile: ChildProfile | null, 
+  calculateAge: (birthDate: string) => number, 
+  onUpdateAvatar: (avatarUrl: string) => void, 
+  accountId: string, 
+  onUpdateAccountId: (id: string) => void,
+  comprehensiveReports: ComprehensiveAssessmentReport[],
+  selectedComprehensiveReport: ComprehensiveAssessmentReport | null,
+  onSelectComprehensiveReport: (report: ComprehensiveAssessmentReport | null) => void
+}) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [showReportList, setShowReportList] = useState(false);
@@ -3001,6 +3149,31 @@ const PageProfile = ({ interestProfile, abilityProfile, onImportReport, onExport
     </div>
   );
 
+  // 如果选中了综合评估报告，显示完整报告视图
+  if (selectedComprehensiveReport) {
+    return (
+      <div className="h-full overflow-y-auto bg-white">
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
+          <button
+            onClick={() => onSelectComprehensiveReport(null)}
+            className="flex items-center text-gray-600 hover:text-gray-800"
+          >
+            <ChevronLeft className="w-5 h-5 mr-1" />
+            返回列表
+          </button>
+          <h2 className="text-xl font-bold text-gray-800">综合评估报告</h2>
+          <div className="w-20"></div>
+        </div>
+        <div className="p-4">
+          <ComprehensiveAssessmentReportView
+            report={selectedComprehensiveReport}
+            onClose={() => onSelectComprehensiveReport(null)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   // 报告列表页面
   if (showReportList) {
     return (
@@ -3017,48 +3190,85 @@ const PageProfile = ({ interestProfile, abilityProfile, onImportReport, onExport
           <div className="w-20"></div>
         </div>
 
-        {reports.length === 0 ? (
+        {/* 综合评估报告部分 */}
+        {comprehensiveReports.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-600 px-2">综合评估报告</h3>
+            <div className="space-y-3">
+              {comprehensiveReports.map((report) => (
+                <div
+                  key={report.reportId}
+                  onClick={() => onSelectComprehensiveReport(report)}
+                  className="bg-gradient-to-br from-purple-50 to-blue-50 p-4 rounded-xl shadow-sm border-2 border-purple-200 cursor-pointer hover:border-purple-400 transition"
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="w-16 h-16 rounded-lg border-2 border-purple-300 flex items-center justify-center flex-shrink-0 bg-white">
+                      <Award className="w-8 h-8 text-purple-600" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-800">综合评估报告</p>
+                      <p className="text-xs text-purple-600 mt-1">
+                        {report.assessmentDate} · {report.reportingPeriod}
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {report.clinicalRecommendations.targetAreas.slice(0, 2).join('、')}
+                        {report.clinicalRecommendations.targetAreas.length > 2 && '...'}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 医院报告部分 */}
+        {reports.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-600 px-2">医院报告</h3>
+            <div className="space-y-3">
+              {reports.map((report) => (
+                <div
+                  key={report.id}
+                  onClick={() => setSelectedReport(report)}
+                  className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-primary/30 transition"
+                >
+                  <div className="flex items-start space-x-3">
+                    {/* 缩略图或默认图标 */}
+                    {report.imageUrl ? (
+                      <img
+                        src={report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`}
+                        alt="报告缩略图"
+                        className="w-16 h-16 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg border border-gray-200 flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-blue-50 to-green-50">
+                        <FileText className="w-8 h-8 text-blue-500" />
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-800 truncate">{report.summary}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {report.date} · {report.type === 'hospital' ? '医院报告' : report.type === 'ai_generated' ? 'AI评估' : report.type === 'assessment' ? '评估报告' : '其他'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1 line-clamp-2">{report.diagnosis}</p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 空状态 */}
+        {reports.length === 0 && comprehensiveReports.length === 0 && (
           <div className="text-center py-20 text-gray-400">
             <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <p>暂无报告记录</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {reports.map((report) => (
-              <div
-                key={report.id}
-                onClick={() => setSelectedReport(report)}
-                className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-primary/30 transition"
-              >
-                <div className="flex items-start space-x-3">
-                  {/* 缩略图或默认图标 */}
-                  {report.imageUrl ? (
-                    <img
-                      src={report.imageUrl.startsWith('data:') ? report.imageUrl : `data:image/jpeg;base64,${report.imageUrl}`}
-                      alt="报告缩略图"
-                      className="w-16 h-16 rounded-lg object-cover border border-gray-200 flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg border border-gray-200 flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-purple-50 to-blue-50">
-                      {report.type === 'ai_generated' || report.type === 'assessment' ? (
-                        <Award className="w-8 h-8 text-purple-500" />
-                      ) : (
-                        <FileText className="w-8 h-8 text-blue-500" />
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-gray-800 truncate">{report.summary}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {report.date} · {report.type === 'hospital' ? '医院报告' : report.type === 'ai_generated' ? 'AI评估' : report.type === 'assessment' ? '评估报告' : '其他'}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{report.diagnosis}</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                </div>
-              </div>
-            ))}
           </div>
         )}
 
@@ -3209,7 +3419,7 @@ const PageProfile = ({ interestProfile, abilityProfile, onImportReport, onExport
           className="w-full bg-white text-gray-700 py-3 rounded-xl font-bold flex items-center justify-center hover:bg-gray-50 transition shadow-sm border border-gray-200"
         >
           <FileText className="w-5 h-5 mr-2" />
-          查看报告列表 ({reports.length})
+          查看报告列表 ({reports.length + comprehensiveReports.length})
         </button>
 
         <button
@@ -3966,6 +4176,16 @@ export default function App() {
     return INITIAL_ABILITY_SCORES;
   });
 
+  // 综合评估报告状态
+  const [comprehensiveReports, setComprehensiveReports] = useState<ComprehensiveAssessmentReport[]>([]);
+  const [selectedComprehensiveReport, setSelectedComprehensiveReport] = useState<ComprehensiveAssessmentReport | null>(null);
+
+  // 加载综合评估报告
+  useEffect(() => {
+    const savedReports = comprehensiveAssessmentStorage.getAll();
+    setComprehensiveReports(savedReports);
+  }, []);
+
   // 图片引导状态
   const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
     const completed = localStorage.getItem('onboarding_completed');
@@ -4189,6 +4409,7 @@ export default function App() {
       case Page.GAMES: return "游戏库";
       case Page.BEHAVIORS: return "行为与兴趣";
       case Page.RADAR: return "行为与兴趣";
+      case Page.GAME_RECORDING: return "游戏记录";
       default: return "App";
     }
   };
@@ -4341,7 +4562,7 @@ export default function App() {
         </div>
       )}
 
-      {!(currentPage === Page.GAMES && gameMode !== GameState.LIST) && (
+      {!(currentPage === Page.GAMES && gameMode !== GameState.LIST) && currentPage !== Page.GAME_RECORDING && (
         <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 z-10 sticky top-0">
           <div className="flex items-center">
             {currentPage !== Page.WELCOME && (
@@ -4358,12 +4579,13 @@ export default function App() {
       )}
       <main className="flex-1 overflow-hidden relative">
         {currentPage === Page.WELCOME && <PageWelcome onComplete={handleWelcomeComplete} />}
-        {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} childProfile={childProfile} />}
+        {currentPage === Page.CHAT && <PageAIChat navigateTo={handleNavigate} onStartGame={handleStartGame} onProfileUpdate={handleProfileUpdate} profileContext={profileContextString} childProfile={childProfile} interestProfile={interestProfile} abilityProfile={abilityProfile} selectedComprehensiveReport={selectedComprehensiveReport} setSelectedComprehensiveReport={setSelectedComprehensiveReport} comprehensiveReports={comprehensiveReports} setComprehensiveReports={setComprehensiveReports} />}
         {currentPage === Page.CALENDAR && <PageCalendar navigateTo={handleNavigate} onStartGame={handleStartGame} />}
-        {currentPage === Page.PROFILE && <PageProfile interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} onUpdateAvatar={handleUpdateAvatar} accountId={accountId} onUpdateAccountId={handleUpdateAccountId} />}
-        {currentPage === Page.BEHAVIORS && <BehaviorAndInterestPage childProfile={childProfile} />}
-        {currentPage === Page.RADAR && <BehaviorAndInterestPage childProfile={childProfile} />}
+        {currentPage === Page.PROFILE && <PageProfile interestProfile={interestProfile} abilityProfile={abilityProfile} onImportReport={handleImportReportFromProfile} onExportReport={handleExportReport} childProfile={childProfile} calculateAge={calculateAge} onUpdateAvatar={handleUpdateAvatar} accountId={accountId} onUpdateAccountId={handleUpdateAccountId} comprehensiveReports={comprehensiveReports} selectedComprehensiveReport={selectedComprehensiveReport} onSelectComprehensiveReport={setSelectedComprehensiveReport} />}
+        {currentPage === Page.BEHAVIORS && <BehaviorAndInterestPage childProfile={childProfile} selectedComprehensiveReport={selectedComprehensiveReport} onCloseReport={() => setSelectedComprehensiveReport(null)} />}
+        {currentPage === Page.RADAR && <BehaviorAndInterestPage childProfile={childProfile} selectedComprehensiveReport={selectedComprehensiveReport} onCloseReport={() => setSelectedComprehensiveReport(null)} />}
         {currentPage === Page.GAMES && (<PageGames initialGameId={activeGameId} gameState={gameMode} setGameState={setGameMode} onBack={() => { if (gameMode === GameState.LIST) { setCurrentPage(Page.CHAT); } else { setCurrentPage(gameReturnPage); setGameMode(GameState.LIST); } }} onProfileUpdate={handleProfileUpdate} childProfile={childProfile} onGameStart={setActiveGameId} onAbort={() => setShowExitConfirm(true)} gameReturnPage={gameReturnPage} />)}
+        {currentPage === Page.GAME_RECORDING && (<GameRecordingPage gameName={activeGameId ? '地板游戏' : '自由记录'} childId={childProfile?.name || 'default'} onBack={() => setCurrentPage(Page.GAMES)} onComplete={() => { setCurrentPage(Page.GAMES); }} />)}
       </main>
 
       {/* 图片引导 */}

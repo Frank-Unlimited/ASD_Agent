@@ -1,13 +1,34 @@
 """
 行为观察 API
 """
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import uuid4
+
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field
+
 from src.container import container
+from src.models.behavior_record import (
+    BehaviorRecord,
+    EventSource,
+    GamePhase,
+)
 
 
 router = APIRouter(prefix="/api/observation", tags=["observation"])
+
+
+# ============ 游戏实施阶段：行为事件存储与去重 ============
+
+# session_id -> List[BehaviorRecord]
+BEHAVIOR_STORE: Dict[str, List[BehaviorRecord]] = {}
+
+# (session_id, event_type) -> 最近一次记录的时间戳，用于 5 秒内去重
+_LAST_EVENT_TS: Dict[Tuple[str, str], datetime] = {}
+
+# 去重窗口（秒）
+DEDUP_WINDOW_SECONDS = 5
 
 
 # ============ Memory 服务延迟初始化 ============
@@ -37,6 +58,26 @@ class QuickButtonRequest(BaseModel):
     child_id: str
     button_type: str
     context: Optional[Dict[str, Any]] = None
+
+
+class BehaviorRecordRequest(BaseModel):
+    """
+    游戏实施阶段的行为事件记录请求
+
+    用于接收家长点击按钮/AI推断/快照产生的行为事件。
+    字段与 BehaviorRecord 一致，但 id/timestamp 由服务器生成。
+    """
+    session_id: str = Field(..., description="会话ID")
+    game_type: str = Field(..., description="游戏类型")
+    event_type: str = Field(..., description="事件类型，如 eye_contact/interaction")
+    detail: Optional[str] = Field(None, description="二级细节")
+    valence: int = Field(..., ge=-1, le=1, description="+1正面/0中性/-1负面")
+    source: EventSource = Field(
+        EventSource.PARENT_CLICK, description="事件来源"
+    )
+    confidence: float = Field(1.0, ge=0.0, le=1.0, description="置信度")
+    game_phase: Optional[GamePhase] = Field(None, description="游戏阶段")
+    related_interest: Optional[str] = Field(None, description="关联兴趣点")
 
 
 # ============ API 端点 ============
@@ -283,3 +324,66 @@ async def get_observation_stats(child_id: str, days: int = 7):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ 游戏实施阶段的行为事件记录 ============
+
+@router.post("/record")
+async def record_behavior_event(request: BehaviorRecordRequest):
+    """
+    记录一条行为事件（增强版）
+
+    适用于游戏实施阶段的实时记录，支持:
+    - source: 事件来源（parent_click/timed_snapshot/ai_probe_response/ai_inferred）
+    - confidence: 置信度
+    - game_phase: 游戏阶段
+
+    去重逻辑：同一 session + 同一 event_type 在 5 秒内重复请求 返回 409。
+    """
+    now = datetime.now()
+    dedup_key = (request.session_id, request.event_type)
+    last_ts = _LAST_EVENT_TS.get(dedup_key)
+    if last_ts is not None and (now - last_ts).total_seconds() < DEDUP_WINDOW_SECONDS:
+        # 5 秒内重复请求 - 幂等冲突
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"重复请求：session={request.session_id}, "
+                f"event_type={request.event_type}, 距上次仅 "
+                f"{(now - last_ts).total_seconds():.2f}s"
+            ),
+        )
+    _LAST_EVENT_TS[dedup_key] = now
+
+    record = BehaviorRecord(
+        id=f"evt_{uuid4().hex[:12]}",
+        timestamp=now,
+        session_id=request.session_id,
+        game_type=request.game_type,
+        event_type=request.event_type,
+        detail=request.detail,
+        valence=request.valence,
+        source=request.source,
+        confidence=request.confidence,
+        game_phase=request.game_phase,
+        related_interest=request.related_interest,
+    )
+    BEHAVIOR_STORE.setdefault(request.session_id, []).append(record)
+
+    # 同步会话统计（避免循环导入，运行时导入）
+    try:
+        from src.api.game_session import SESSION_STORE
+        session = SESSION_STORE.get(request.session_id)
+        if session is not None:
+            session.total_events += 1
+            if request.source == EventSource.AI_INFERRED:
+                session.ai_inferences_count += 1
+    except Exception:
+        # 会话不存在不阻断事件记录本身
+        pass
+
+    return {
+        "success": True,
+        "data": record.model_dump(mode="json"),
+        "message": "行为事件已记录",
+    }

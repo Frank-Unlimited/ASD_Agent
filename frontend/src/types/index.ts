@@ -6,7 +6,8 @@ export enum Page {
   PROFILE = 'PROFILE',
   GAMES = 'GAMES',
   BEHAVIORS = 'BEHAVIORS',
-  RADAR = 'RADAR'
+  RADAR = 'RADAR',
+  GAME_RECORDING = 'GAME_RECORDING'
 }
 
 export enum GameState {
@@ -27,7 +28,121 @@ export interface ChildProfile {
 }
 
 // 报告类型
-export type ReportType = 'hospital' | 'ai_generated' | 'assessment' | 'other';
+export type ReportType = 'hospital' | 'ai_generated' | 'assessment' | 'comprehensive_assessment' | 'other';
+
+// 综合评估报告（专业医疗报告格式）
+export interface ComprehensiveAssessmentReport {
+  // 基本信息
+  reportId: string;
+  childName: string;
+  assessmentDate: string;
+  reportingPeriod: string;
+  
+  // 1. 发育史摘要
+  developmentalHistory: {
+    earlyMilestones: string;
+    languageDevelopment: string;
+    socialDevelopment: string;
+    motorDevelopment: string;
+  };
+  
+  // 2. 当前功能水平评估
+  currentFunctioning: {
+    socialCommunication: {
+      score: number;
+      description: string;
+      strengths: string[];
+      challenges: string[];
+    };
+    restrictedBehaviors: {
+      score: number;
+      description: string;
+      patterns: string[];
+    };
+    sensoryProfile: {
+      description: string;
+      sensitivities: string[];
+    };
+    cognitiveAbilities: {
+      score: number;
+      description: string;
+    };
+  };
+  
+  // 3. 家庭干预记录
+  homeInterventionSummary: {
+    totalSessions: number;
+    totalDuration: string;
+    interventionFrequency: string;
+    gameActivities: {
+      mostEngaging: string[];
+      leastEngaging: string[];
+      emergingSkills: string[];
+    };
+    behaviorObservations: {
+      positiveChanges: string[];
+      persistentChallenges: string[];
+      parentConcerns: string[];
+    };
+  };
+  
+  // 4. 兴趣档案分析
+  interestProfile: {
+    dominantInterests: Array<{
+      dimension: string;
+      intensity: number;
+      examples: string[];
+    }>;
+    emergingInterests: string[];
+    restrictedPatterns: string[];
+    recommendations: string[];
+  };
+  
+  // 5. 能力发展轨迹
+  developmentalTrajectory: {
+    socialEngagement: {
+      baseline: number;
+      current: number;
+      trend: 'improving' | 'stable' | 'declining';
+      notes: string;
+    };
+    communication: {
+      baseline: number;
+      current: number;
+      trend: 'improving' | 'stable' | 'declining';
+      notes: string;
+    };
+    playSkills: {
+      baseline: number;
+      current: number;
+      trend: 'improving' | 'stable' | 'declining';
+      notes: string;
+    };
+    emotionalRegulation: {
+      baseline: number;
+      current: number;
+      trend: 'improving' | 'stable' | 'declining';
+      notes: string;
+    };
+  };
+  
+  // 6. 临床建议
+  clinicalRecommendations: {
+    continuedStrengths: string[];
+    targetAreas: string[];
+    suggestedInterventions: string[];
+    parentGuidance: string[];
+    followUpPlan: string;
+  };
+  
+  // 7. 附加信息
+  additionalNotes: string;
+  
+  // 元数据
+  generatedBy: string;
+  reviewedBy?: string;
+  createdAt: string;
+}
 
 // 报告（包括医疗报告和AI生成的评估报告）
 export interface Report {
@@ -40,6 +155,7 @@ export interface Report {
   date: string; // 报告日期 YYYY-MM-DD
   type: ReportType; // 报告类型
   createdAt: string; // 导入时间
+  comprehensiveAssessment?: ComprehensiveAssessmentReport; // 综合评估详细数据
 }
 
 // 为了向后兼容，保留 MedicalReport 类型别名
@@ -108,6 +224,7 @@ export interface ChatMessage {
   memoryResults?: MemoryResult[]; // 记忆搜索结果（可选）
   ragResults?: RAGResult[]; // RAG知识库搜索结果（可选）
   searchQuery?: string; // 搜索查询关键词（可选）
+  imageUrl?: string; // 图片URL（用于显示上传的图片）
 }
 
 export interface LogEntry {

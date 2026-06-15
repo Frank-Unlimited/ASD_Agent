@@ -87,6 +87,19 @@ def init_services():
     except Exception as e:
         print(f"[Container] ⚠️ 行为观察服务注册失败: {e}")
 
+    # 游戏实时记录服务管理器（ObservationServiceManager，整合事件聚合 + 推断引擎）
+    # LLM 服务会在 ObservationServiceManager 内部自动创建（基于环境变量配置）
+    try:
+        from services.observation.service_manager import ObservationServiceManager
+
+        # 如果 LLM 服务已注册，优先使用容器中的实例；否则 manager 内部会自行创建
+        llm_for_manager = container.get('llm') if container.has('llm') else None
+        obs_manager = ObservationServiceManager(llm_service=llm_for_manager)
+        container.register('observation_manager', obs_manager)
+        print("[Container] ✅ 观察服务管理器已注册（含 AI 推断引擎）")
+    except Exception as e:
+        print(f"[Container] ⚠️ 观察服务管理器注册失败: {e}")
+
     # 业务服务：游戏推荐服务（依赖 SQLite + Memory）
     try:
         from services.game import GameRecommender

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片显示测试</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .test-section {
+      margin: 30px 0;
+      padding: 20px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+    }
+    .test-section h2 {
+      color: #666;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    input[type="file"] {
+      margin: 10px 0;
+      padding: 10px;
+      border: 2px solid #4CAF50;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .preview {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 5px;
+    }
+    .preview img {
+      max-width: 100%;
+      max-height: 400px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .info {
+      margin: 10px 0;
+      padding: 10px;
+      background: #e3f2fd;
+      border-left: 4px solid #2196F3;
+      border-radius: 3px;
+      font-size: 14px;
+    }
+    .error {
+      background: #ffebee;
+      border-left-color: #f44336;
+      color: #c62828;
+    }
+    .success {
+      background: #e8f5e9;
+      border-left-color: #4CAF50;
+      color: #2e7d32;
+    }
+    code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🖼️ 图片显示测试工具</h1>
+    <p>用于测试图片在不同环境下的显示情况（localhost vs 内网穿透）</p>
+
+    <div class="test-section">
+      <h2>1. 选择图片</h2>
+      <input type="file" id="fileInput" accept="image/*">
+      <div id="fileInfo" class="info" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>2. Blob URL 测试</h2>
+      <button onclick="testBlobUrl()">测试 Blob URL</button>
+      <div id="blobPreview" class="preview"></div>
+      <div id="blobInfo" class="info" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>3. Base64 测试</h2>
+      <button onclick="testBase64()">测试 Base64</button>
+      <div id="base64Preview" class="preview"></div>
+      <div id="base64Info" class="info" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>4. 环境信息</h2>
+      <div id="envInfo" class="info"></div>
+    </div>
+  </div>
+
+  <script>
+    let selectedFile = null;
+
+    // 显示环境信息
+    document.getElementById('envInfo').innerHTML = `
+      <strong>当前环境：</strong><br>
+      URL: <code>${window.location.href}</code><br>
+      Protocol: <code>${window.location.protocol}</code><br>
+      Host: <code>${window.location.host}</code><br>
+      User Agent: <code>${navigator.userAgent.substring(0, 80)}...</code>
+    `;
+
+    // 文件选择
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      selectedFile = e.target.files[0];
+      if (selectedFile) {
+        const info = document.getElementById('fileInfo');
+        info.style.display = 'block';
+        info.className = 'info success';
+        info.innerHTML = `
+          <strong>文件信息：</strong><br>
+          名称: <code>${selectedFile.name}</code><br>
+          类型: <code>${selectedFile.type}</code><br>
+          大小: <code>${(selectedFile.size / 1024).toFixed(2)} KB</code>
+        `;
+      }
+    });
+
+    // 测试 Blob URL
+    function testBlobUrl() {
+      if (!selectedFile) {
+        alert('请先选择图片');
+        return;
+      }
+
+      const blobUrl = URL.createObjectURL(selectedFile);
+      const preview = document.getElementById('blobPreview');
+      const info = document.getElementById('blobInfo');
+
+      preview.innerHTML = `<img src="${blobUrl}" alt="Blob URL 预览" onload="onBlobLoad()" onerror="onBlobError()">`;
+      info.style.display = 'block';
+      info.className = 'info';
+      info.innerHTML = `
+        <strong>Blob URL:</strong><br>
+        <code>${blobUrl}</code><br>
+        <em>加载中...</em>
+      `;
+
+      window.onBlobLoad = () => {
+        info.className = 'info success';
+        info.innerHTML = `
+          <strong>✅ Blob URL 加载成功</strong><br>
+          <code>${blobUrl}</code>
+        `;
+      };
+
+      window.onBlobError = () => {
+        info.className = 'info error';
+        info.innerHTML = `
+          <strong>❌ Blob URL 加载失败</strong><br>
+          <code>${blobUrl}</code><br>
+          <em>这可能是因为浏览器安全策略或内网穿透环境限制</em>
+        `;
+      };
+    }
+
+    // 测试 Base64
+    function testBase64() {
+      if (!selectedFile) {
+        alert('请先选择图片');
+        return;
+      }
+
+      const reader = new FileReader();
+      const info = document.getElementById('base64Info');
+      
+      info.style.display = 'block';
+      info.className = 'info';
+      info.innerHTML = '<em>正在转换为 Base64...</em>';
+
+      reader.onload = (e) => {
+        const base64 = e.target.result;
+        const preview = document.getElementById('base64Preview');
+        
+        preview.innerHTML = `<img src="${base64}" alt="Base64 预览" onload="onBase64Load()" onerror="onBase64Error()">`;
+        
+        info.innerHTML = `
+          <strong>Base64 数据:</strong><br>
+          长度: <code>${base64.length}</code> 字符<br>
+          前缀: <code>${base64.substring(0, 50)}...</code><br>
+          <em>加载中...</em>
+        `;
+
+        window.onBase64Load = () => {
+          info.className = 'info success';
+          info.innerHTML = `
+            <strong>✅ Base64 加载成功</strong><br>
+            长度: <code>${base64.length}</code> 字符<br>
+            前缀: <code>${base64.substring(0, 50)}...</code><br>
+            <em>Base64 格式在任何环境下都应该能正常显示</em>
+          `;
+        };
+
+        window.onBase64Error = () => {
+          info.className = 'info error';
+          info.innerHTML = `
+            <strong>❌ Base64 加载失败</strong><br>
+            长度: <code>${base64.length}</code> 字符<br>
+            <em>这不应该发生，请检查浏览器控制台</em>
+          `;
+        };
+      };
+
+      reader.onerror = () => {
+        info.className = 'info error';
+        info.innerHTML = '<strong>❌ 文件读取失败</strong>';
+      };
+
+      reader.readAsDataURL(selectedFile);
+    }
+  </script>
+</body>
+</html>
